@@ -220,22 +220,13 @@ const STYLES = `
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 
-const HANGOUT = { name: "Friday Night Out 🍕", group: "College Crew", totalMembers: 6 };
+const HANGOUT = { name: "Voting", group: "No active hangout", totalMembers: 0 };
 
 const HYPE_EMOJIS = ["⚡", "🔥", "💥", "🚀", "😤", "💯"];
 
-const INITIAL_LOCATION_OPTIONS = [
-  { id: 1, label: "Central Park Picnic", emoji: "🌳", detail: "Central Park, NY", hype: 14, myHype: 0, color: "#51cf66", voterColors: ["#ff6b6b", "#4ecdc4", "#a29bfe"] },
-  { id: 2, label: "Rooftop Bar", emoji: "🌇", detail: "Brooklyn Rooftop", hype: 9, myHype: 0, color: "#4ecdc4", voterColors: ["#ffd93d", "#51cf66"] },
-  { id: 3, label: "Bowling Alley", emoji: "🎳", detail: "Bowlmor Times Square", hype: 5, myHype: 0, color: "#a29bfe", voterColors: ["#ff6b9d"] },
-  { id: 4, label: "Pizza & Movie Night", emoji: "🍕", detail: "Someone's place", hype: 3, myHype: 0, color: "#ff9a3c", voterColors: [] },
-];
+const INITIAL_LOCATION_OPTIONS = [];
 
-const INITIAL_TIME_OPTIONS = [
-  { id: 1, label: "Friday 7:00 PM", emoji: "🌆", detail: "Jun 6 · Evening", hype: 18, myHype: 0, color: "#ff6b6b", voterColors: ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d"] },
-  { id: 2, label: "Friday 9:00 PM", emoji: "🌙", detail: "Jun 6 · Late night", hype: 8, myHype: 0, color: "#ffd93d", voterColors: ["#51cf66", "#ff6b9d"] },
-  { id: 3, label: "Saturday Noon", emoji: "☀️", detail: "Jun 7 · Afternoon", hype: 2, myHype: 0, color: "#4ecdc4", voterColors: [] },
-];
+const INITIAL_TIME_OPTIONS = [];
 
 function getHypeLabel(hype) {
   if (hype === 0) return { label: "No hype yet", color: "#ccc" };
@@ -246,6 +237,14 @@ function getHypeLabel(hype) {
 }
 
 function HypeSection({ title, emoji, options, onHype }) {
+  if (options.length === 0) {
+    return (
+      <div className="card">
+        <h2 className="bangers" style={{ fontSize: 22, margin: "0 0 10px" }}>{emoji} {title}</h2>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>No options have been added for this vote yet.</p>
+      </div>
+    );
+  }
   const maxHype = Math.max(...options.map(o => o.hype), 1);
   const winner = [...options].sort((a, b) => b.hype - a.hype)[0];
   const [floaters, setFloaters] = useState([]);
@@ -415,8 +414,8 @@ export default function OutsidersVoting({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ position: "relative", cursor: "pointer" }}><IconBell /><div className="notif-dot" /></div>
               <div className="profile-chip">
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
+                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
               </div>
             </div>
           </div>
@@ -450,8 +449,8 @@ export default function OutsidersVoting({ onNavigate }) {
                 {[
                   { label: "Total Location Hype", value: totalLocationHype, color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
                   { label: "Total Time Hype", value: totalTimeHype, color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
-                  { label: "Leading Location", value: locationWinner.emoji + " " + locationWinner.label, color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
-                  { label: "Leading Time", value: timeWinner.emoji + " " + timeWinner.label, color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
+                  { label: "Leading Location", value: locationWinner ? `${locationWinner.emoji} ${locationWinner.label}` : "—", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
+                  { label: "Leading Time", value: timeWinner ? `${timeWinner.emoji} ${timeWinner.label}` : "—", color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
                 ].map(s => (
                   <div key={s.label} style={{ background: s.bg, border: `3px solid ${s.border}`, borderRadius: 12, padding: "12px 16px", boxShadow: `4px 4px 0 ${s.border}`, minWidth: 140 }}>
                     <p style={{ fontSize: 11, fontWeight: 800, color: "#888", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</p>

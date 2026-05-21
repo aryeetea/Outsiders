@@ -349,26 +349,9 @@ const NAV_ITEMS = [
   { icon: <IconHeart />, label: "Debrief" },
 ];
 
-const HANGOUTS = [
-  { name: "Friday Night Out 🍕", date: "Fri, Jun 6", time: "8:00 PM", location: "Central Park", color: "#fff4e6", borderColor: "#ff9a3c", members: ["JD", "AL", "MK"], status: "Confirmed", statusColor: "#51cf66", statusBg: "#e8fde8" },
-  { name: "Beach Day 🏖", date: "Sun, Jun 15", time: "11:00 AM", location: "Santa Monica", color: "#e8f4fd", borderColor: "#4ecdc4", members: ["JD", "RB", "TW", "KL"], status: "Voting", statusColor: "#ff9a3c", statusBg: "#fff4e6" },
-  { name: "Rooftop Vibes 🌇", date: "Sat, Jun 21", time: "6:00 PM", location: "Brooklyn", color: "#f3e8fd", borderColor: "#9b59b6", members: ["JD", "AL"], status: "Planning", statusColor: "#4ecdc4", statusBg: "#e8f4fd" },
-];
-
-const FRIENDS = [
-  { initials: "AL", name: "Alex Lee", status: "Going to Beach Day", color: "#4ecdc4" },
-  { initials: "MK", name: "Maya Khan", status: "Voted on Friday Night", color: "#ff6b9d" },
-  { initials: "RB", name: "Ryan Brooks", status: "Joined Beach Day", color: "#a29bfe" },
-  { initials: "TW", name: "Taylor Wu", status: "Online now", color: "#51cf66" },
-];
-
-const ACTIVITY = [
-  { emoji: "🗳", text: "Alex voted on Beach Day location", time: "2m ago", color: "#4ecdc4" },
-  { emoji: "🎉", text: "Ryan joined your Beach Day hangout", time: "1h ago", color: "#51cf66" },
-  { emoji: "💬", text: "Maya started a debrief on Friday Night", time: "3h ago", color: "#ff6b9d" },
-  { emoji: "⭐", text: "Taylor rated Rooftop Vibes 9/10", time: "Yesterday", color: "#ffd93d" },
-  { emoji: "💸", text: "Bill split settled for Friday Night", time: "Yesterday", color: "#ff9a3c" },
-];
+const HANGOUTS = [];
+const FRIENDS = [];
+const ACTIVITY = [];
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 
@@ -414,8 +397,8 @@ export default function OutsidersDashboard({ onNavigate }) {
 
               {/* Profile chip */}
               <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 12 }}>JD</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
+                <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 11 }}>YOU</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
               </div>
             </div>
           </div>
@@ -455,9 +438,9 @@ export default function OutsidersDashboard({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <div>
                 <h1 className="bangers" style={{ fontSize: 34, margin: "0 0 4px", color: "#1a1a2e" }}>
-                  Hey Jordan! 👋
+                  Welcome! 👋
                 </h1>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Here's what your crew is up to.</p>
+                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>This dashboard stays empty until real activity starts happening.</p>
               </div>
               <button className="btn-primary" onClick={() => onNavigate?.("create-hangout")}>
                 <IconPlus /> Create Hangout
@@ -467,10 +450,10 @@ export default function OutsidersDashboard({ onNavigate }) {
             {/* ── Stat cards ── */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 28 }}>
               {[
-                { icon: "🗓", label: "Upcoming Hangouts", value: "3", bg: "#fff4e6", border: "#ff9a3c" },
-                { icon: "👥", label: "Crew Members", value: "8", bg: "#e8f4fd", border: "#4ecdc4" },
-                { icon: "✈️", label: "Trips Planned", value: "1", bg: "#f3e8fd", border: "#9b59b6" },
-                { icon: "💸", label: "Bills Pending", value: "$24", bg: "#fde8f0", border: "#ff6b9d" },
+                { icon: "🗓", label: "Upcoming Hangouts", value: "0", bg: "#fff4e6", border: "#ff9a3c" },
+                { icon: "👥", label: "Crew Members", value: "0", bg: "#e8f4fd", border: "#4ecdc4" },
+                { icon: "✈️", label: "Trips Planned", value: "0", bg: "#f3e8fd", border: "#9b59b6" },
+                { icon: "💸", label: "Bills Pending", value: "$0", bg: "#fde8f0", border: "#ff6b9d" },
               ].map((s) => (
                 <div key={s.label} className="stat-card" style={{ background: s.bg, borderColor: s.border, boxShadow: `5px 5px 0 ${s.border}` }}>
                   <div className="stat-icon" style={{ background: "#fff", borderColor: s.border, boxShadow: `3px 3px 0 ${s.border}` }}>{s.icon}</div>
@@ -495,7 +478,12 @@ export default function OutsidersDashboard({ onNavigate }) {
                     <button className="see-all" onClick={() => onNavigate?.("create-hangout")}>See All →</button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {HANGOUTS.map((h) => (
+                    {HANGOUTS.length === 0 ? (
+                      <div className="hangout-card" style={{ background: "#fff", borderColor: "#1a1a2e", boxShadow: "5px 5px 0 #1a1a2e", cursor: "default" }}>
+                        <h3 className="bangers" style={{ fontSize: 18, margin: "0 0 8px", color: "#1a1a2e" }}>No hangouts yet</h3>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Create one when you’re ready to start planning.</p>
+                      </div>
+                    ) : HANGOUTS.map((h) => (
                       <div key={h.name} className="hangout-card" style={{ background: h.color, borderColor: h.borderColor, boxShadow: `5px 5px 0 ${h.borderColor}` }}>
                         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
                           <h3 className="bangers" style={{ fontSize: 18, margin: 0, color: "#1a1a2e" }}>{h.name}</h3>
@@ -561,7 +549,9 @@ export default function OutsidersDashboard({ onNavigate }) {
                     <h2 className="bangers" style={{ fontSize: 22, margin: 0 }}>My Crew 👥</h2>
                     <button className="see-all" onClick={() => onNavigate?.("friend-groups")}>See All →</button>
                   </div>
-                  {FRIENDS.map((f) => (
+                  {FRIENDS.length === 0 ? (
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>No crew members yet. Invite people from the crew page.</p>
+                  ) : FRIENDS.map((f) => (
                     <div key={f.name} className="friend-item">
                       <div className="avatar" style={{ background: f.color }}>{f.initials}</div>
                       <div>
@@ -580,7 +570,9 @@ export default function OutsidersDashboard({ onNavigate }) {
                   <div className="section-header">
                     <h2 className="bangers" style={{ fontSize: 22, margin: 0 }}>Activity 🔔</h2>
                   </div>
-                  {ACTIVITY.map((a, i) => (
+                  {ACTIVITY.length === 0 ? (
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Recent activity will appear here once people start using the app.</p>
+                  ) : ACTIVITY.map((a, i) => (
                     <div key={i} className="activity-item">
                       <div className="activity-dot" style={{ background: a.color, borderColor: a.color }} />
                       <div style={{ flex: 1 }}>

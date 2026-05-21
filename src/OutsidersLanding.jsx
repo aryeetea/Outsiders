@@ -407,7 +407,7 @@ export default function OutsidersLanding({ onNavigate }) {
             <div style={{ marginTop: 32, display: "flex", justifyContent: "center", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 8, padding: "6px 16px", boxShadow: "4px 4px 0 #1a1a2e", display: "flex", alignItems: "center", gap: 8 }}>
                 <span>👥</span>
-                <span className="bangers" style={{ fontSize: 16, letterSpacing: "0.04em" }}>2.4k crews joined</span>
+                <span className="bangers" style={{ fontSize: 16, letterSpacing: "0.04em" }}>Start your crew here</span>
               </div>
               <span style={{ fontWeight: 800, color: "#aaa" }}>·</span>
               <span style={{ fontWeight: 800, color: "#888", fontSize: 14 }}>No download. Just open up and show up.</span>

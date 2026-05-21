@@ -46,18 +46,10 @@ const STYLES = `
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 const MEMBERS = [
-  { initials: "JD", name: "Jordan (You)" },
-  { initials: "AL", name: "Alex" },
-  { initials: "MK", name: "Maya" },
-  { initials: "RB", name: "Ryan" },
+  { initials: "YOU", name: "You" },
 ];
 
-const INITIAL_EXPENSES = [
-  { id: 1, desc: "Dinner at Ocean Drive 🍽", amount: 120, paidBy: 0, splitWith: [0,1,2,3], settled: false, emoji: "🍽" },
-  { id: 2, desc: "Uber to beach 🚗", amount: 32, paidBy: 1, splitWith: [0,1,2,3], settled: false, emoji: "🚗" },
-  { id: 3, desc: "Hotel room (2 nights) 🏨", amount: 280, paidBy: 0, splitWith: [0,1,2,3], settled: true, emoji: "🏨" },
-  { id: 4, desc: "Drinks at rooftop 🍹", amount: 68, paidBy: 2, splitWith: [0,1,2], settled: false, emoji: "🍹" },
-];
+const INITIAL_EXPENSES = [];
 
 const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
 const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
@@ -127,7 +119,7 @@ export default function OutsidersBillSplit({ onNavigate }) {
     setActiveNav(label);
     onNavigate?.(NAV_TARGETS[label] || "bill-split");
   };
-  const [form, setForm] = useState({ desc: "", amount: "", paidBy: 0, splitWith: [0,1,2,3] });
+  const [form, setForm] = useState({ desc: "", amount: "", paidBy: 0, splitWith: [0] });
   const [activeTab, setActiveTab] = useState("Expenses");
 
   const balances = calcBalances(expenses);
@@ -138,7 +130,7 @@ export default function OutsidersBillSplit({ onNavigate }) {
   const addExpense = () => {
     if (!form.desc.trim() || !form.amount) return;
     setExpenses(prev => [...prev, { id: Date.now(), desc: form.desc, amount: Number(form.amount), paidBy: Number(form.paidBy), splitWith: form.splitWith, settled: false, emoji: "💸" }]);
-    setForm({ desc: "", amount: "", paidBy: 0, splitWith: [0,1,2,3] });
+    setForm({ desc: "", amount: "", paidBy: 0, splitWith: [0] });
     setShowModal(false);
   };
 
@@ -158,8 +150,8 @@ export default function OutsidersBillSplit({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ position: "relative", cursor: "pointer" }}><IconBell /><div className="notif-dot" /></div>
               <div className="profile-chip">
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
+                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
               </div>
             </div>
           </div>
@@ -180,7 +172,7 @@ export default function OutsidersBillSplit({ onNavigate }) {
               <div>
                 <span className="comic-tag">Split it fair! 💸</span>
                 <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>Bill Split 💸</h1>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Miami Beach Trip · Nobody gets left holding the bill.</p>
+                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>No expenses are loaded until you add them.</p>
               </div>
               <button className="btn-primary" onClick={() => setShowModal(true)}><IconPlus /> Add Expense</button>
             </div>
@@ -212,7 +204,9 @@ export default function OutsidersBillSplit({ onNavigate }) {
                 <div className="section-header">
                   <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>All Expenses</h3>
                 </div>
-                {expenses.map(e => (
+                {expenses.length === 0 ? (
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>No expenses yet. Add one when something needs splitting.</p>
+                ) : expenses.map(e => (
                   <div key={e.id} className="expense-row">
                     <div style={{ width: 44, height: 44, background: e.settled ? "#f0ebe0" : "#fff4e6", border: `3px solid ${e.settled ? "#ccc" : "#ff9a3c"}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, boxShadow: `3px 3px 0 ${e.settled ? "#ccc" : "#ff9a3c"}`, flexShrink: 0 }}>{e.emoji}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>

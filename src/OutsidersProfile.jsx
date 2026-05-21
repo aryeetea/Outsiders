@@ -64,19 +64,12 @@ const NAV_ITEMS = [
   { icon: <IconHeart />, label: "Debrief" },
 ];
 
-const ACHIEVEMENTS = [
-  { emoji: "🎉", title: "Social Butterfly", desc: "Attended 10+ hangouts", earned: true, color: "#ffd93d", border: "#ff9a3c" },
-  { emoji: "✈️", title: "Globetrotter", desc: "Planned a trip outside your country", earned: true, color: "#e8f4fd", border: "#4ecdc4" },
-  { emoji: "💸", title: "Fair & Square", desc: "Settled all bills on time", earned: true, color: "#e8fde8", border: "#51cf66" },
-  { emoji: "🤝", title: "Peacemaker", desc: "Completed a debrief session", earned: false, color: "#fde8f0", border: "#ff6b9d" },
-  { emoji: "🔥", title: "Hype Machine", desc: "Cast 100 hype votes", earned: false, color: "#fff4e6", border: "#ff9a3c" },
-  { emoji: "⭐", title: "Critic", desc: "Rated 5+ outings", earned: false, color: "#f3e8fd", border: "#9b59b6" },
-];
+const ACHIEVEMENTS = [];
 
 const NOTIFICATIONS = [
-  { key: "hangouts", label: "New hangout invites", on: true },
-  { key: "votes", label: "Voting reminders", on: true },
-  { key: "bills", label: "Bill split requests", on: true },
+  { key: "hangouts", label: "New hangout invites", on: false },
+  { key: "votes", label: "Voting reminders", on: false },
+  { key: "bills", label: "Bill split requests", on: false },
   { key: "debrief", label: "Debrief session requests", on: false },
   { key: "activity", label: "Crew activity updates", on: false },
 ];
@@ -97,7 +90,7 @@ export default function OutsidersProfile({ onNavigate }) {
   const [avatar, setAvatar] = useState(null);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [profile, setProfile] = useState({ name: "Jordan Smith", username: "jordansmith", bio: "Just here for the good times and better people 🙌", location: "New York, NY", email: "jordan@email.com" });
+  const [profile, setProfile] = useState({ name: "", username: "", bio: "", location: "", email: "" });
   const [editForm, setEditForm] = useState({ ...profile });
   const [notifs, setNotifs] = useState(NOTIFICATIONS);
   const fileRef = useRef();
@@ -128,8 +121,8 @@ export default function OutsidersProfile({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setActiveTab("Notifications")}><IconBell /><div className="notif-dot" /></div>
               <div className="profile-chip" onClick={() => setActiveTab("Achievements")}>
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
+                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
               </div>
             </div>
           </div>
@@ -156,7 +149,7 @@ export default function OutsidersProfile({ onNavigate }) {
               <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
                 <div style={{ position: "relative" }}>
                   <div className="avatar-big" style={{ background: "#ff6b6b" }}>
-                    {avatar ? <img src={avatar} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "JD"}
+                    {avatar ? <img src={avatar} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "?"}
                   </div>
                   <button onClick={() => fileRef.current.click()} style={{ position: "absolute", bottom: 0, right: 0, width: 32, height: 32, background: "#1a1a2e", border: "2px solid #fff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <IconCamera />
@@ -164,12 +157,12 @@ export default function OutsidersProfile({ onNavigate }) {
                   <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) setAvatar(URL.createObjectURL(f)); }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <h2 className="bangers" style={{ fontSize: 28, margin: "0 0 4px" }}>{profile.name}</h2>
-                  <p style={{ fontSize: 15, fontWeight: 800, color: "#888", margin: "0 0 6px" }}>@{profile.username}</p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: "0 0 10px" }}>{profile.bio}</p>
+                  <h2 className="bangers" style={{ fontSize: 28, margin: "0 0 4px" }}>{profile.name || "Set up your profile"}</h2>
+                  <p style={{ fontSize: 15, fontWeight: 800, color: "#888", margin: "0 0 6px" }}>{profile.username ? `@${profile.username}` : "No username yet"}</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: "0 0 10px" }}>{profile.bio || "Add a short bio so people know who you are."}</p>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <span className="badge" style={{ background: "#fff", color: "#ff6b9d", borderColor: "#ff6b9d" }}>📍 {profile.location}</span>
-                    <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>🎉 Member since 2025</span>
+                    <span className="badge" style={{ background: "#fff", color: "#ff6b9d", borderColor: "#ff6b9d" }}>📍 {profile.location || "No location yet"}</span>
+                    <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>✨ Profile in progress</span>
                   </div>
                 </div>
                 <button className="btn-secondary" onClick={() => { setEditForm({ ...profile }); setEditing(true); }}>✏️ Edit Profile</button>
@@ -179,11 +172,11 @@ export default function OutsidersProfile({ onNavigate }) {
             {/* Stats */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px,1fr))", gap: 14, marginBottom: 24 }}>
               {[
-                { emoji: "🗓", label: "Hangouts", value: "14", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
-                { emoji: "✈️", label: "Trips", value: "3", color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
-                { emoji: "👥", label: "Groups", value: "2", color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
-                { emoji: "⭐", label: "Avg Rating", value: "8.4", color: "#ffd93d", bg: "#fffde8", border: "#ffd93d" },
-                { emoji: "💸", label: "Bills Paid", value: "22", color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
+                { emoji: "🗓", label: "Hangouts", value: "0", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
+                { emoji: "✈️", label: "Trips", value: "0", color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
+                { emoji: "👥", label: "Groups", value: "0", color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
+                { emoji: "⭐", label: "Avg Rating", value: "—", color: "#ffd93d", bg: "#fffde8", border: "#ffd93d" },
+                { emoji: "💸", label: "Bills Paid", value: "0", color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
               ].map(s => (
                 <div key={s.label} className="stat-box" style={{ background: s.bg, borderColor: s.border, boxShadow: `4px 4px 0 ${s.border}` }}>
                   <p style={{ fontSize: 22, margin: "0 0 4px" }}>{s.emoji}</p>
@@ -206,7 +199,9 @@ export default function OutsidersProfile({ onNavigate }) {
                   <h3 className="bangers" style={{ fontSize: 22, margin: 0 }}>Achievements 🏆</h3>
                   <span style={{ fontSize: 13, fontWeight: 800, color: "#888" }}>{ACHIEVEMENTS.filter(a => a.earned).length}/{ACHIEVEMENTS.length} earned</span>
                 </div>
-                {ACHIEVEMENTS.map((a, i) => (
+                {ACHIEVEMENTS.length === 0 ? (
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>No achievements yet. They’ll show up once you start using the app.</p>
+                ) : ACHIEVEMENTS.map((a, i) => (
                   <div key={i} className="achievement" style={{ opacity: a.earned ? 1 : 0.4 }}>
                     <div style={{ width: 52, height: 52, background: a.earned ? a.color : "#f0ebe0", border: `3px solid ${a.earned ? a.border : "#ccc"}`, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, boxShadow: a.earned ? `4px 4px 0 ${a.border}` : "none", flexShrink: 0 }}>{a.emoji}</div>
                     <div style={{ flex: 1 }}>

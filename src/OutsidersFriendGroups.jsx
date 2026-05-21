@@ -300,31 +300,7 @@ const GROUP_COLORS = [
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d", "#ff9a3c"];
 
-const INITIAL_GROUPS = [
-  {
-    id: 1, name: "College Crew 🎓", emoji: "🎓",
-    members: [
-      { initials: "JD", name: "Jordan (You)", role: "Admin" },
-      { initials: "AL", name: "Alex Lee", role: "Member" },
-      { initials: "MK", name: "Maya Khan", role: "Member" },
-      { initials: "RB", name: "Ryan Brooks", role: "Member" },
-    ],
-    pending: [{ initials: "TW", name: "Taylor Wu", username: "@taylorwu" }],
-    color: GROUP_COLORS[0],
-    code: "COL123",
-  },
-  {
-    id: 2, name: "Work Pals 💼", emoji: "💼",
-    members: [
-      { initials: "JD", name: "Jordan (You)", role: "Admin" },
-      { initials: "SM", name: "Sam Martinez", role: "Member" },
-      { initials: "KL", name: "Kim Li", role: "Member" },
-    ],
-    pending: [],
-    color: GROUP_COLORS[1],
-    code: "WRK456",
-  },
-];
+const INITIAL_GROUPS = [];
 
 const IconLogoMark = () => (
   <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
@@ -370,7 +346,7 @@ const NAV_TARGETS = {
 
 export default function OutsidersFriendGroups({ onNavigate }) {
   const [groups, setGroups] = useState(INITIAL_GROUPS);
-  const [selectedGroup, setSelectedGroup] = useState(INITIAL_GROUPS[0]);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [activeTab, setActiveTab] = useState("Members");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -394,7 +370,7 @@ export default function OutsidersFriendGroups({ onNavigate }) {
       id: Date.now(),
       name: `${newGroupName.trim()} ${newGroupEmoji}`,
       emoji: newGroupEmoji,
-      members: [{ initials: "JD", name: "Jordan (You)", role: "Admin" }],
+      members: [{ initials: "YOU", name: "You", role: "Admin" }],
       pending: [],
       color: GROUP_COLORS[groups.length % GROUP_COLORS.length],
       code: generateCode(),
@@ -457,8 +433,8 @@ export default function OutsidersFriendGroups({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
               <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 12 }}>JD</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
+                <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 11 }}>YOU</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
               </div>
             </div>
           </div>
@@ -495,6 +471,12 @@ export default function OutsidersFriendGroups({ onNavigate }) {
               {/* Group list */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <p className="bangers" style={{ fontSize: 14, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Your Groups</p>
+                {groups.length === 0 && (
+                  <div style={{ border: "3px dashed #ccc", borderRadius: 16, padding: "18px", textAlign: "center" }}>
+                    <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>No groups yet</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Create your first group to start inviting people.</p>
+                  </div>
+                )}
                 {groups.map((g, i) => (
                   <div
                     key={g.id}

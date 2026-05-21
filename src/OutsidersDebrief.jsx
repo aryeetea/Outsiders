@@ -49,10 +49,10 @@ const STYLES = `
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 const MEMBERS = [
-  { initials: "JD", name: "Jordan" },
-  { initials: "AL", name: "Alex" },
-  { initials: "MK", name: "Maya" },
-  { initials: "RB", name: "Ryan" },
+  { initials: "YOU", name: "You" },
+  { initials: "TM1", name: "Teammate 1" },
+  { initials: "TM2", name: "Teammate 2" },
+  { initials: "TM3", name: "Teammate 3" },
 ];
 
 const DEBRIEF_STEPS = [
@@ -64,36 +64,7 @@ const DEBRIEF_STEPS = [
   { emoji: "🤜🤛", label: "Close it out", desc: "Shake on it. You're still crew." },
 ];
 
-const INITIAL_SESSIONS = [
-  {
-    id: 1,
-    title: "The Miami Trip Tension",
-    between: [0, 1],
-    status: "In Progress",
-    step: 2,
-    bg: "#fde8f0", border: "#ff6b9d",
-    messages: [
-      { from: "system", text: "🤝 Debrief session started. Ground rules: listen, don't attack, be honest." },
-      { from: 1, text: "I felt like my opinion was ignored when we were planning the trip itinerary." },
-      { from: 0, text: "I hear you. I didn't realize I was doing that, I thought we were just going with the majority." },
-      { from: "system", text: "✅ Step 2 complete — both sides shared. Moving to Step 3: Reflect back." },
-    ],
-  },
-  {
-    id: 2,
-    title: "The Friday Night Situation",
-    between: [2, 3],
-    status: "Resolved",
-    step: 6,
-    bg: "#e8fde8", border: "#51cf66",
-    messages: [
-      { from: "system", text: "🤝 Debrief session started." },
-      { from: 2, text: "I was upset that you left early without telling anyone." },
-      { from: 3, text: "I get that, I should have said something. I just wasn't feeling well." },
-      { from: "system", text: "✅ Resolved — crew is back on good terms 🤜🤛" },
-    ],
-  },
-];
+const INITIAL_SESSIONS = [];
 
 const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
 const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
@@ -130,7 +101,7 @@ const NAV_TARGETS = {
 export default function OutsidersDebrief({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Debrief");
   const [sessions, setSessions] = useState(INITIAL_SESSIONS);
-  const [selectedSession, setSelectedSession] = useState(INITIAL_SESSIONS[0]);
+  const [selectedSession, setSelectedSession] = useState(null);
   const [message, setMessage] = useState("");
   const [showNewModal, setShowNewModal] = useState(false);
   const [newForm, setNewForm] = useState({ title: "", with: 1 });
@@ -192,8 +163,8 @@ export default function OutsidersDebrief({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
               <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
+                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
               </div>
             </div>
           </div>
@@ -233,6 +204,12 @@ export default function OutsidersDebrief({ onNavigate }) {
                   ))}
                 </div>
 
+                {sessions.length === 0 && (
+                  <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "16px", textAlign: "center" }}>
+                    <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>No debrief sessions yet</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Start one when your crew needs a structured conversation.</p>
+                  </div>
+                )}
                 {sessions.map(s => (
                   <div key={s.id} className="session-card" style={{ background: selectedSession?.id === s.id ? s.bg : "#fff", borderColor: selectedSession?.id === s.id ? s.border : "#1a1a2e", boxShadow: `5px 5px 0 ${selectedSession?.id === s.id ? s.border : "#1a1a2e"}` }} onClick={() => setSelectedSession(s)}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>

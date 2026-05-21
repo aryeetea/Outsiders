@@ -38,10 +38,7 @@ const STYLES = `
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 const MEMBERS = [
-  { initials: "JD", name: "Jordan (You)" },
-  { initials: "AL", name: "Alex" },
-  { initials: "MK", name: "Maya" },
-  { initials: "RB", name: "Ryan" },
+  { initials: "YOU", name: "You" },
 ];
 
 const CATEGORIES = [
@@ -51,25 +48,7 @@ const CATEGORIES = [
   { key: "crew", label: "The Crew", emoji: "👥" },
 ];
 
-const PAST_OUTINGS = [
-  {
-    id: 1, name: "Friday Night Out 🍕", date: "Jun 6", location: "Central Park, NY",
-    ratings: [
-      { member: 0, overall: 9, categories: { vibe: 9, location: 8, food: 10, crew: 10 }, comment: "One of the best nights this year honestly 🔥" },
-      { member: 1, overall: 8, categories: { vibe: 8, location: 9, food: 8, crew: 9 }, comment: "Great spot, would go back!" },
-      { member: 2, overall: 10, categories: { vibe: 10, location: 9, food: 10, crew: 10 }, comment: "PEAK. Need to do this again ASAP 🙌" },
-    ],
-    color: "#fff4e6", border: "#ff9a3c",
-  },
-  {
-    id: 2, name: "Bowling Night 🎳", date: "May 24", location: "Bowlmor Times Square",
-    ratings: [
-      { member: 0, overall: 7, categories: { vibe: 7, location: 6, food: 7, crew: 9 }, comment: "Fun but too loud, couldn't hear anyone lol" },
-      { member: 3, overall: 8, categories: { vibe: 8, location: 7, food: 6, crew: 10 }, comment: "The crew made it worth it" },
-    ],
-    color: "#e8f4fd", border: "#4ecdc4",
-  },
-];
+const PAST_OUTINGS = [];
 
 const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
 const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
@@ -127,7 +106,7 @@ export default function OutsidersRateOuting({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Ratings");
   const [activeTab, setActiveTab] = useState("Rate");
   const [outings, setOutings] = useState(PAST_OUTINGS);
-  const [selectedOuting, setSelectedOuting] = useState(PAST_OUTINGS[0]);
+  const [selectedOuting, setSelectedOuting] = useState(null);
   const [rating, setRating] = useState({ overall: 0, categories: { vibe: 0, location: 0, food: 0, crew: 0 }, comment: "" });
   const [submitted, setSubmitted] = useState(false);
   const handleNav = (label) => {
@@ -159,8 +138,8 @@ export default function OutsidersRateOuting({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
               <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
+                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
               </div>
             </div>
           </div>
@@ -188,6 +167,12 @@ export default function OutsidersRateOuting({ onNavigate }) {
               {/* Outing list */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <p className="bangers" style={{ fontSize: 13, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Past Outings</p>
+                {outings.length === 0 && (
+                  <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "16px", textAlign: "center" }}>
+                    <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>No outings to rate yet</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Finished hangouts will show up here for feedback.</p>
+                  </div>
+                )}
                 {outings.map(o => {
                   const avg = avgRating(o);
                   const myRating = o.ratings.find(r => r.member === 0);

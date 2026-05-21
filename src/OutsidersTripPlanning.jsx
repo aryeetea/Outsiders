@@ -300,55 +300,7 @@ const TRIP_COLORS = [
   { bg: "#f3e8fd", border: "#9b59b6", emoji: "🏔" },
 ];
 
-const INITIAL_TRIPS = [
-  {
-    id: 1,
-    name: "Miami Beach Trip",
-    destination: "Miami, Florida",
-    startDate: "2025-07-04",
-    endDate: "2025-07-07",
-    budget: 1200,
-    spent: 420,
-    members: ["JD", "AL", "MK", "RB"],
-    color: TRIP_COLORS[0],
-    status: "Planning",
-    itinerary: [
-      { day: 1, date: "Jul 4", activities: [{ time: "2:00 PM", name: "Arrive & check in 🏨" }, { time: "6:00 PM", name: "Beach sunset walk 🌅" }, { time: "8:00 PM", name: "Dinner at Ocean Drive 🍽" }] },
-      { day: 2, date: "Jul 5", activities: [{ time: "10:00 AM", name: "Beach day ☀️" }, { time: "1:00 PM", name: "Lunch at La Palapa 🌮" }, { time: "4:00 PM", name: "Pool time 🏊" }, { time: "9:00 PM", name: "Nightlife on Collins Ave 🎉" }] },
-      { day: 3, date: "Jul 6", activities: [{ time: "9:00 AM", name: "Wynwood Walls art tour 🎨" }, { time: "12:00 PM", name: "Little Havana food tour 🥘" }, { time: "7:00 PM", name: "Rooftop farewell dinner 🌃" }] },
-    ],
-    packingList: [
-      { id: 1, item: "Sunscreen SPF 50 ☀️", packed: true },
-      { id: 2, item: "Swimsuit 👙", packed: true },
-      { id: 3, item: "Flip flops 🩴", packed: false },
-      { id: 4, item: "Beach towel 🏖", packed: false },
-      { id: 5, item: "Sunglasses 🕶", packed: true },
-      { id: 6, item: "Travel adapter 🔌", packed: false },
-      { id: 7, item: "Portable charger 🔋", packed: false },
-      { id: 8, item: "Travel insurance docs 📄", packed: false },
-    ],
-  },
-  {
-    id: 2,
-    name: "Paris Weekend",
-    destination: "Paris, France",
-    startDate: "2025-09-12",
-    endDate: "2025-09-15",
-    budget: 2500,
-    spent: 0,
-    members: ["JD", "MK"],
-    color: TRIP_COLORS[1],
-    status: "Dreaming",
-    itinerary: [
-      { day: 1, date: "Sep 12", activities: [{ time: "3:00 PM", name: "Arrive CDG ✈️" }, { time: "7:00 PM", name: "Eiffel Tower visit 🗼" }] },
-    ],
-    packingList: [
-      { id: 1, item: "Passport 🛂", packed: false },
-      { id: 2, item: "Euro cash 💶", packed: false },
-      { id: 3, item: "Comfortable walking shoes 👟", packed: false },
-    ],
-  },
-];
+const INITIAL_TRIPS = [];
 
 const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
 const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
@@ -397,7 +349,7 @@ const NAV_TARGETS = {
 export default function OutsidersTripPlanning({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Trips");
   const [trips, setTrips] = useState(INITIAL_TRIPS);
-  const [selectedTrip, setSelectedTrip] = useState(INITIAL_TRIPS[0]);
+  const [selectedTrip, setSelectedTrip] = useState(null);
   const [activeTab, setActiveTab] = useState("Overview");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newActivity, setNewActivity] = useState({ day: 1, time: "", name: "" });
@@ -464,7 +416,7 @@ export default function OutsidersTripPlanning({ onNavigate }) {
       endDate: newTripForm.endDate,
       budget: Number(newTripForm.budget) || 0,
       spent: 0,
-      members: ["JD"],
+      members: ["YOU"],
       color: TRIP_COLORS[trips.length % TRIP_COLORS.length],
       status: "Planning",
       itinerary,
@@ -498,8 +450,8 @@ export default function OutsidersTripPlanning({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
               <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
+                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
               </div>
             </div>
           </div>
@@ -537,6 +489,12 @@ export default function OutsidersTripPlanning({ onNavigate }) {
               {/* Trip list */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <p className="bangers" style={{ fontSize: 13, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Your Trips</p>
+                {trips.length === 0 && (
+                  <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "16px", textAlign: "center" }}>
+                    <p className="bangers" style={{ fontSize: 15, color: "#aaa", margin: "0 0 6px" }}>No trips yet</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Plan your first trip when you’re ready.</p>
+                  </div>
+                )}
                 {trips.map((trip) => (
                   <div
                     key={trip.id}

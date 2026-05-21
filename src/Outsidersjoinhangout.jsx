@@ -172,10 +172,7 @@ const STYLES = `
 `;
 
 // Mock hangout database for demo
-const MOCK_HANGOUTS = {
-  "ABC123": { name: "Friday Night Out", date: "2025-06-06", time: "20:00", location: "Central Park, New York", vibe: "Casual dinner, dress comfy, good vibes only 🙌", host: "Jordan" },
-  "XYZ789": { name: "Beach Day 🏖", date: "2025-06-15", time: "11:00", location: "Santa Monica Beach", vibe: "Sun, surf and snacks. Bring sunscreen!", host: "Alex" },
-};
+const MOCK_HANGOUTS = {};
 
 const IconLogoMark = () => (
   <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
@@ -220,7 +217,7 @@ export default function OutsidersJoinHangout({ onNavigate }) {
   const handleJoin = () => {
     const code = chars.join("");
     if (code.length < 6) { setError("Enter the full 6-character code!"); return; }
-    const hangout = MOCK_HANGOUTS[code] || (code.length === 6 ? { name: "Weekend Vibes 🎉", date: "2025-06-20", time: "18:00", location: "Downtown", vibe: "Come through, it's going to be a good one!", host: "Your friend" } : null);
+    const hangout = MOCK_HANGOUTS[code] || null;
     if (!hangout) { setError("Hmm, that code doesn't exist. Check it and try again!"); return; }
     setJoined(hangout);
   };
