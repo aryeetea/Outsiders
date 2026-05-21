@@ -367,9 +367,23 @@ const NAV_ITEMS = [
   { icon: <IconHeart />, label: "Debrief" },
 ];
 
-export default function OutsidersVoting() {
+const NAV_TARGETS = {
+  "Dashboard": "dashboard",
+  "Hangouts": "create-hangout",
+  "My Crew": "friend-groups",
+  "Trips": "trip-planning",
+  "Bill Split": "bill-split",
+  "Ratings": "rate-outing",
+  "Debrief": "debrief",
+};
+
+export default function OutsidersVoting({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Hangouts");
   const [activeTab, setActiveTab] = useState("Location");
+  const handleNav = (label) => {
+    setActiveNav(label);
+    onNavigate?.(NAV_TARGETS[label] || "voting");
+  };
   const [locationOptions, setLocationOptions] = useState(INITIAL_LOCATION_OPTIONS);
   const [timeOptions, setTimeOptions] = useState(INITIAL_TIME_OPTIONS);
 
@@ -414,7 +428,7 @@ export default function OutsidersVoting() {
           <aside className="sidebar">
             <p className="nav-section-label">Menu</p>
             {NAV_ITEMS.map((item) => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => setActiveNav(item.label)}>
+              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
                 {item.icon} {item.label}
               </div>
             ))}

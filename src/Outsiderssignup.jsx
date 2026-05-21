@@ -222,7 +222,7 @@ function getPasswordStrength(pw) {
   return { score, ...map[score] };
 }
 
-export default function OutsidersSignUp() {
+export default function OutsidersSignUp({ onNavigate }) {
   const [avatar, setAvatar] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -253,7 +253,7 @@ export default function OutsidersSignUp() {
   const handleSubmit = () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    alert("🎉 Welcome to Outsiders!");
+    onNavigate?.("dashboard");
   };
 
   return (
@@ -357,7 +357,7 @@ export default function OutsidersSignUp() {
               </button>
 
               <p style={{ textAlign: "center", fontSize: 14, fontWeight: 800, color: "#888", margin: 0 }}>
-                Already have an account? <a className="link">Log In</a>
+                Already have an account? <a className="link" onClick={() => onNavigate?.("login")}>Log In</a>
               </p>
 
             </div>

@@ -384,7 +384,17 @@ const getDays = (start, end) => {
   return Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
 };
 
-export default function OutsidersTripPlanning() {
+const NAV_TARGETS = {
+  "Dashboard": "dashboard",
+  "Hangouts": "create-hangout",
+  "My Crew": "friend-groups",
+  "Trips": "trip-planning",
+  "Bill Split": "bill-split",
+  "Ratings": "rate-outing",
+  "Debrief": "debrief",
+};
+
+export default function OutsidersTripPlanning({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Trips");
   const [trips, setTrips] = useState(INITIAL_TRIPS);
   const [selectedTrip, setSelectedTrip] = useState(INITIAL_TRIPS[0]);
@@ -394,6 +404,10 @@ export default function OutsidersTripPlanning() {
   const [newPackItem, setNewPackItem] = useState("");
   const [newTripForm, setNewTripForm] = useState({ name: "", destination: "", startDate: "", endDate: "", budget: "" });
   const [formError, setFormError] = useState("");
+  const handleNav = (label) => {
+    setActiveNav(label);
+    onNavigate?.(NAV_TARGETS[label] || "trip-planning");
+  };
 
   const updateTrip = (updatedTrip) => {
     setTrips(prev => prev.map(t => t.id === updatedTrip.id ? updatedTrip : t));
@@ -482,8 +496,8 @@ export default function OutsidersTripPlanning() {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ position: "relative", cursor: "pointer" }}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip">
+              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
+              <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
                 <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
                 <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
               </div>
@@ -497,7 +511,7 @@ export default function OutsidersTripPlanning() {
           <aside className="sidebar">
             <p className="nav-section-label">Menu</p>
             {NAV_ITEMS.map((item) => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => setActiveNav(item.label)}>
+              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
                 {item.icon} {item.label}
               </div>
             ))}

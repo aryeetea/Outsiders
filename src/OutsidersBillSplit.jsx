@@ -109,10 +109,24 @@ function calcSettlements(balances) {
   return settlements;
 }
 
-export default function OutsidersBillSplit() {
+const NAV_TARGETS = {
+  "Dashboard": "dashboard",
+  "Hangouts": "create-hangout",
+  "My Crew": "friend-groups",
+  "Trips": "trip-planning",
+  "Bill Split": "bill-split",
+  "Ratings": "rate-outing",
+  "Debrief": "debrief",
+};
+
+export default function OutsidersBillSplit({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Bill Split");
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
   const [showModal, setShowModal] = useState(false);
+  const handleNav = (label) => {
+    setActiveNav(label);
+    onNavigate?.(NAV_TARGETS[label] || "bill-split");
+  };
   const [form, setForm] = useState({ desc: "", amount: "", paidBy: 0, splitWith: [0,1,2,3] });
   const [activeTab, setActiveTab] = useState("Expenses");
 
@@ -155,7 +169,7 @@ export default function OutsidersBillSplit() {
           <aside className="sidebar">
             <p className="nav-section-label">Menu</p>
             {NAV_ITEMS.map(item => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => setActiveNav(item.label)}>
+              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
                 {item.icon} {item.label}
               </div>
             ))}

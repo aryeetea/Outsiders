@@ -188,7 +188,7 @@ const IconCheck = () => (
   </svg>
 );
 
-export default function OutsidersJoinHangout() {
+export default function OutsidersJoinHangout({ onNavigate }) {
   const [chars, setChars] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
   const [joined, setJoined] = useState(null);
@@ -251,7 +251,7 @@ export default function OutsidersJoinHangout() {
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </div>
-            <button onClick={reset} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Bangers', cursive", fontSize: 16, color: "#888", letterSpacing: "0.04em" }}>
+            <button onClick={() => onNavigate ? onNavigate("dashboard") : reset()} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Bangers', cursive", fontSize: 16, color: "#888", letterSpacing: "0.04em" }}>
               ← Back
             </button>
           </div>
@@ -297,7 +297,7 @@ export default function OutsidersJoinHangout() {
                 <button className="btn-primary" onClick={handleJoin}>
                   Join The Hangout 🚀
                 </button>
-                <button className="btn-outline" onClick={reset}>
+                <button className="btn-outline" onClick={() => onNavigate?.("signup")}>
                   I Don't Have A Code
                 </button>
               </div>
@@ -306,7 +306,7 @@ export default function OutsidersJoinHangout() {
 
               <p style={{ textAlign: "center", fontSize: 13, color: "#aaa", fontWeight: 700, margin: 0 }}>
                 You need an Outsiders account to join. <br />
-                <span style={{ color: "#ff6b6b", cursor: "pointer", fontWeight: 800 }}>Sign up here →</span>
+                <span style={{ color: "#ff6b6b", cursor: "pointer", fontWeight: 800 }} onClick={() => onNavigate?.("signup")}>Sign up here →</span>
               </p>
             </div>
 
@@ -343,7 +343,7 @@ export default function OutsidersJoinHangout() {
                 </div>
               </div>
 
-              <button className="btn-primary" onClick={reset} style={{ marginBottom: 12 }}>
+              <button className="btn-primary" onClick={() => onNavigate?.("create-hangout")} style={{ marginBottom: 12 }}>
                 View My Hangouts 🗓
               </button>
               <button className="btn-outline" onClick={reset}>

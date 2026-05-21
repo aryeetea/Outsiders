@@ -113,13 +113,27 @@ function avgRating(outing) {
   return Math.round((outing.ratings.reduce((s, r) => s + r.overall, 0) / outing.ratings.length) * 10) / 10;
 }
 
-export default function OutsidersRateOuting() {
+const NAV_TARGETS = {
+  "Dashboard": "dashboard",
+  "Hangouts": "create-hangout",
+  "My Crew": "friend-groups",
+  "Trips": "trip-planning",
+  "Bill Split": "bill-split",
+  "Ratings": "rate-outing",
+  "Debrief": "debrief",
+};
+
+export default function OutsidersRateOuting({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Ratings");
   const [activeTab, setActiveTab] = useState("Rate");
   const [outings, setOutings] = useState(PAST_OUTINGS);
   const [selectedOuting, setSelectedOuting] = useState(PAST_OUTINGS[0]);
   const [rating, setRating] = useState({ overall: 0, categories: { vibe: 0, location: 0, food: 0, crew: 0 }, comment: "" });
   const [submitted, setSubmitted] = useState(false);
+  const handleNav = (label) => {
+    setActiveNav(label);
+    onNavigate?.(NAV_TARGETS[label] || "rate-outing");
+  };
 
   const alreadyRated = selectedOuting?.ratings.some(r => r.member === 0);
 
@@ -143,8 +157,8 @@ export default function OutsidersRateOuting() {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ position: "relative", cursor: "pointer" }}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip">
+              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
+              <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
                 <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
                 <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
               </div>
@@ -156,7 +170,7 @@ export default function OutsidersRateOuting() {
           <aside className="sidebar">
             <p className="nav-section-label">Menu</p>
             {NAV_ITEMS.map(item => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => setActiveNav(item.label)}>
+              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
                 {item.icon} {item.label}
               </div>
             ))}

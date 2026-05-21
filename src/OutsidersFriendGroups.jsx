@@ -358,7 +358,17 @@ function generateCode() {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
-export default function OutsidersFriendGroups() {
+const NAV_TARGETS = {
+  "Dashboard": "dashboard",
+  "Hangouts": "create-hangout",
+  "My Crew": "friend-groups",
+  "Trips": "trip-planning",
+  "Bill Split": "bill-split",
+  "Ratings": "rate-outing",
+  "Debrief": "debrief",
+};
+
+export default function OutsidersFriendGroups({ onNavigate }) {
   const [groups, setGroups] = useState(INITIAL_GROUPS);
   const [selectedGroup, setSelectedGroup] = useState(INITIAL_GROUPS[0]);
   const [activeTab, setActiveTab] = useState("Members");
@@ -373,6 +383,10 @@ export default function OutsidersFriendGroups() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [createError, setCreateError] = useState("");
   const [activeNav, setActiveNav] = useState("My Crew");
+  const handleNav = (label) => {
+    setActiveNav(label);
+    onNavigate?.(NAV_TARGETS[label] || "friend-groups");
+  };
 
   const handleCreateGroup = () => {
     if (!newGroupName.trim()) { setCreateError("Give your group a name!"); return; }
@@ -441,8 +455,8 @@ export default function OutsidersFriendGroups() {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ position: "relative", cursor: "pointer" }}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip">
+              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
+              <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
                 <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 12 }}>JD</div>
                 <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
               </div>
@@ -456,7 +470,7 @@ export default function OutsidersFriendGroups() {
           <aside className="sidebar">
             <p className="nav-section-label">Menu</p>
             {NAV_ITEMS.map((item) => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => setActiveNav(item.label)}>
+              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
                 {item.icon} {item.label}
               </div>
             ))}

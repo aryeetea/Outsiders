@@ -229,7 +229,7 @@ const IconGoogle = () => (
   </svg>
 );
 
-export default function OutsidersLogIn() {
+export default function OutsidersLogIn({ onNavigate }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -252,7 +252,10 @@ export default function OutsidersLogIn() {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); alert("👋 Welcome back!"); }, 1200);
+    setTimeout(() => {
+      setLoading(false);
+      onNavigate?.("dashboard");
+    }, 1200);
   };
 
   return (
@@ -268,7 +271,7 @@ export default function OutsidersLogIn() {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </div>
             <span style={{ fontWeight: 800, fontSize: 14, color: "#888" }}>
-              No account? <a className="link" style={{ fontSize: 15 }}>Sign up</a>
+              No account? <a className="link" style={{ fontSize: 15 }} onClick={() => onNavigate?.("signup")}>Sign up</a>
             </span>
           </div>
         </nav>
@@ -301,7 +304,7 @@ export default function OutsidersLogIn() {
             </div>
 
             {/* Google button */}
-            <button className="btn-google">
+            <button className="btn-google" onClick={() => onNavigate?.("dashboard")}>
               <IconGoogle /> Continue With Google
             </button>
 
@@ -324,7 +327,7 @@ export default function OutsidersLogIn() {
               <div>
                 <label className="form-label">
                   🔒 Password
-                  <a className="forgot-link">Forgot it?</a>
+                  <a className="forgot-link" onClick={() => window.alert("Password recovery isn’t connected to a backend in this demo yet.")}>Forgot it?</a>
                 </label>
                 <div style={{ position: "relative" }}>
                   <input
@@ -348,7 +351,7 @@ export default function OutsidersLogIn() {
               </button>
 
               <p style={{ textAlign: "center", fontSize: 14, fontWeight: 800, color: "#888", margin: 0 }}>
-                New here? <a className="link">Create an account</a>
+                New here? <a className="link" onClick={() => onNavigate?.("signup")}>Create an account</a>
               </p>
 
             </div>

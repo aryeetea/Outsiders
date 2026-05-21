@@ -269,7 +269,7 @@ const IconArrow = () => (
   </svg>
 );
 
-export default function OutsidersCreateHangout() {
+export default function OutsidersCreateHangout({ onNavigate }) {
   const [form, setForm] = useState({ name: "", date: "", time: "", location: "", vibe: "" });
   const [errors, setErrors] = useState({});
   const [hangout, setHangout] = useState(null);
@@ -324,7 +324,7 @@ export default function OutsidersCreateHangout() {
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </div>
-            <button onClick={reset} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Bangers', cursive", fontSize: 16, color: "#888", letterSpacing: "0.04em" }}>
+            <button onClick={() => onNavigate ? onNavigate("dashboard") : reset()} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Bangers', cursive", fontSize: 16, color: "#888", letterSpacing: "0.04em" }}>
               ← Back
             </button>
           </div>

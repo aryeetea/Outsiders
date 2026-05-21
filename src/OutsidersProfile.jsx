@@ -81,7 +81,17 @@ const NOTIFICATIONS = [
   { key: "activity", label: "Crew activity updates", on: false },
 ];
 
-export default function OutsidersProfile() {
+const NAV_TARGETS = {
+  "Dashboard": "dashboard",
+  "Hangouts": "create-hangout",
+  "My Crew": "friend-groups",
+  "Trips": "trip-planning",
+  "Bill Split": "bill-split",
+  "Ratings": "rate-outing",
+  "Debrief": "debrief",
+};
+
+export default function OutsidersProfile({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Dashboard");
   const [activeTab, setActiveTab] = useState("Profile");
   const [avatar, setAvatar] = useState(null);
@@ -100,6 +110,10 @@ export default function OutsidersProfile() {
   };
 
   const toggleNotif = (key) => setNotifs(prev => prev.map(n => n.key === key ? { ...n, on: !n.on } : n));
+  const handleNav = (label) => {
+    setActiveNav(label);
+    onNavigate?.(NAV_TARGETS[label] || "profile");
+  };
 
   return (
     <>
@@ -112,8 +126,8 @@ export default function OutsidersProfile() {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ position: "relative", cursor: "pointer" }}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip">
+              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setActiveTab("Notifications")}><IconBell /><div className="notif-dot" /></div>
+              <div className="profile-chip" onClick={() => setActiveTab("Achievements")}>
                 <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>JD</div>
                 <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
               </div>
@@ -125,7 +139,7 @@ export default function OutsidersProfile() {
           <aside className="sidebar">
             <p className="nav-section-label">Menu</p>
             {NAV_ITEMS.map(item => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => setActiveNav(item.label)}>
+              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
                 {item.icon} {item.label}
               </div>
             ))}
@@ -236,8 +250,12 @@ export default function OutsidersProfile() {
                   <h3 className="bangers" style={{ fontSize: 20, margin: "0 0 10px", color: "#ff6b6b" }}>Danger Zone ⚠️</h3>
                   <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: "0 0 16px" }}>These actions can't be undone. Be careful.</p>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <button className="btn-danger">🔒 Change Password</button>
-                    <button className="btn-danger">🗑 Delete Account</button>
+                    <button className="btn-danger" onClick={() => window.alert("Password change is reserved for the real auth flow, but the button is connected now.")}>🔒 Change Password</button>
+                    <button className="btn-danger" onClick={() => {
+                      if (window.confirm("Delete account? Demo mode will stop before anything destructive happens.")) {
+                        window.alert("Demo mode is keeping this account intact.");
+                      }
+                    }}>🗑 Delete Account</button>
                   </div>
                 </div>
               </div>

@@ -332,11 +332,12 @@ function FeatureCard({ icon, title, body, tag, delay, index }) {
   );
 }
 
-export default function OutsidersLanding() {
+export default function OutsidersLanding({ onNavigate }) {
   const [scrolled, setScrolled] = useState(false);
   const heroRef = useFadeUp(100);
   const subRef = useFadeUp(220);
   const ctaRef = useFadeUp(340);
+  const featuresRef = useRef(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -357,8 +358,8 @@ export default function OutsidersLanding() {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e", letterSpacing: "0.04em" }}>Outsiders</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button className="btn-ghost" style={{ padding: "8px 18px", fontSize: 16 }}>Log In</button>
-              <button className="btn-primary" style={{ padding: "8px 22px", fontSize: 16 }}>Sign Up</button>
+              <button className="btn-ghost" style={{ padding: "8px 18px", fontSize: 16 }} onClick={() => onNavigate?.("login")}>Log In</button>
+              <button className="btn-primary" style={{ padding: "8px 22px", fontSize: 16 }} onClick={() => onNavigate?.("signup")}>Sign Up</button>
             </div>
           </div>
         </nav>
@@ -394,10 +395,10 @@ export default function OutsidersLanding() {
 
             {/* CTA */}
             <div ref={ctaRef} className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
-              <button className="btn-primary" style={{ padding: "16px 36px", fontSize: 22, display: "flex", alignItems: "center", gap: 10 }}>
+              <button className="btn-primary" style={{ padding: "16px 36px", fontSize: 22, display: "flex", alignItems: "center", gap: 10 }} onClick={() => onNavigate?.("signup")}>
                 Get Started <IconArrowRight />
               </button>
-              <button className="btn-outline" style={{ padding: "16px 32px", fontSize: 22 }}>
+              <button className="btn-outline" style={{ padding: "16px 32px", fontSize: 22 }} onClick={() => featuresRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
                 See How It Works
               </button>
             </div>
@@ -415,7 +416,7 @@ export default function OutsidersLanding() {
         </section>
 
         {/* ── Features ── */}
-        <section style={{ position: "relative", zIndex: 1, maxWidth: 1160, margin: "0 auto", padding: "20px 24px 120px" }}>
+        <section ref={featuresRef} style={{ position: "relative", zIndex: 1, maxWidth: 1160, margin: "0 auto", padding: "20px 24px 120px" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }}>
             <span className="bangers" style={{ fontSize: 14, letterSpacing: "0.12em", color: "#ff6b6b", textTransform: "uppercase" }}>Everything your crew needs</span>
             <h2 className="bangers" style={{ fontSize: "clamp(32px, 5vw, 52px)", color: "#1a1a2e", margin: "8px 0 0" }}>

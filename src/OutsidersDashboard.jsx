@@ -372,8 +372,22 @@ const ACTIVITY = [
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 
-export default function OutsidersDashboard() {
+const NAV_TARGETS = {
+  "Dashboard": "dashboard",
+  "Hangouts": "create-hangout",
+  "My Crew": "friend-groups",
+  "Trips": "trip-planning",
+  "Bill Split": "bill-split",
+  "Ratings": "rate-outing",
+  "Debrief": "debrief",
+};
+
+export default function OutsidersDashboard({ onNavigate }) {
   const [activeNav, setActiveNav] = useState("Dashboard");
+  const handleNav = (label) => {
+    setActiveNav(label);
+    onNavigate?.(NAV_TARGETS[label] || "dashboard");
+  };
 
   return (
     <>
@@ -393,13 +407,13 @@ export default function OutsidersDashboard() {
             {/* Right side */}
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               {/* Notification bell */}
-              <div style={{ position: "relative", cursor: "pointer" }}>
+              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}>
                 <IconBell />
                 <div className="notif-dot" />
               </div>
 
               {/* Profile chip */}
-              <div className="profile-chip">
+              <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
                 <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 12 }}>JD</div>
                 <span style={{ fontWeight: 800, fontSize: 14 }}>Jordan</span>
               </div>
@@ -416,7 +430,7 @@ export default function OutsidersDashboard() {
               <div
                 key={item.label}
                 className={`nav-item ${activeNav === item.label ? "active" : ""}`}
-                onClick={() => setActiveNav(item.label)}
+                onClick={() => handleNav(item.label)}
               >
                 <span className="nav-icon">{item.icon}</span>
                 {item.label}
@@ -427,7 +441,7 @@ export default function OutsidersDashboard() {
               <div style={{ background: "#fde8f0", border: "3px solid #ff6b9d", borderRadius: 12, padding: "14px", boxShadow: "4px 4px 0 #ff6b9d", textAlign: "center" }}>
                 <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px", color: "#1a1a2e" }}>Got beef? 👀</p>
                 <p style={{ fontSize: 12, fontWeight: 700, color: "#666", margin: "0 0 10px" }}>Start a debrief session with your crew.</p>
-                <button style={{ width: "100%", background: "#ff6b9d", color: "#fff", border: "2px solid #1a1a2e", borderRadius: 8, padding: "8px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.04em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}>
+                <button style={{ width: "100%", background: "#ff6b9d", color: "#fff", border: "2px solid #1a1a2e", borderRadius: 8, padding: "8px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.04em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }} onClick={() => onNavigate?.("debrief")}>
                   Start Debrief
                 </button>
               </div>
@@ -445,7 +459,7 @@ export default function OutsidersDashboard() {
                 </h1>
                 <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Here's what your crew is up to.</p>
               </div>
-              <button className="btn-primary">
+              <button className="btn-primary" onClick={() => onNavigate?.("create-hangout")}>
                 <IconPlus /> Create Hangout
               </button>
             </div>
@@ -478,7 +492,7 @@ export default function OutsidersDashboard() {
                 <div className="card">
                   <div className="section-header">
                     <h2 className="bangers" style={{ fontSize: 22, margin: 0 }}>Upcoming Hangouts 🗓</h2>
-                    <button className="see-all">See All →</button>
+                    <button className="see-all" onClick={() => onNavigate?.("create-hangout")}>See All →</button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {HANGOUTS.map((h) => (
@@ -520,7 +534,16 @@ export default function OutsidersDashboard() {
                       { icon: "💸", label: "Split Bill" },
                       { icon: "⭐", label: "Rate Night" },
                     ].map((a) => (
-                      <button key={a.label} className="quick-btn">
+                      <button
+                        key={a.label}
+                        className="quick-btn"
+                        onClick={() => onNavigate?.({
+                          "Join Hangout": "join-hangout",
+                          "Plan Trip": "trip-planning",
+                          "Split Bill": "bill-split",
+                          "Rate Night": "rate-outing",
+                        }[a.label])}
+                      >
                         <span style={{ fontSize: 26 }}>{a.icon}</span>
                         {a.label}
                       </button>
@@ -536,7 +559,7 @@ export default function OutsidersDashboard() {
                 <div className="card">
                   <div className="section-header">
                     <h2 className="bangers" style={{ fontSize: 22, margin: 0 }}>My Crew 👥</h2>
-                    <button className="see-all">See All →</button>
+                    <button className="see-all" onClick={() => onNavigate?.("friend-groups")}>See All →</button>
                   </div>
                   {FRIENDS.map((f) => (
                     <div key={f.name} className="friend-item">
@@ -547,7 +570,7 @@ export default function OutsidersDashboard() {
                       </div>
                     </div>
                   ))}
-                  <button style={{ width: "100%", marginTop: 14, background: "#ffd93d", border: "3px solid #1a1a2e", borderRadius: 10, padding: "10px", fontFamily: "'Bangers', cursive", fontSize: 16, letterSpacing: "0.04em", cursor: "pointer", boxShadow: "4px 4px 0 #1a1a2e" }}>
+                  <button style={{ width: "100%", marginTop: 14, background: "#ffd93d", border: "3px solid #1a1a2e", borderRadius: 10, padding: "10px", fontFamily: "'Bangers', cursive", fontSize: 16, letterSpacing: "0.04em", cursor: "pointer", boxShadow: "4px 4px 0 #1a1a2e" }} onClick={() => onNavigate?.("friend-groups")}>
                     + Invite Friends
                   </button>
                 </div>
