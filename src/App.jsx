@@ -43,6 +43,10 @@ function getScreenFromLocation() {
 
 export default function App() {
   const [screen, setScreen] = useState(getScreenFromLocation);
+  const [appData, setAppData] = useState({
+    groups: [],
+    hangouts: [],
+  });
 
   useEffect(() => {
     const handleHashChange = () => setScreen(getScreenFromLocation());
@@ -61,5 +65,5 @@ export default function App() {
   };
 
   const Screen = SCREEN_COMPONENTS[screen];
-  return <Screen onNavigate={navigate} />;
+  return <Screen onNavigate={navigate} appData={appData} setAppData={setAppData} />;
 }

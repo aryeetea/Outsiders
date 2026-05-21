@@ -269,7 +269,7 @@ const IconArrow = () => (
   </svg>
 );
 
-export default function OutsidersCreateHangout({ onNavigate }) {
+export default function OutsidersCreateHangout({ onNavigate, setAppData }) {
   const [form, setForm] = useState({ name: "", date: "", time: "", location: "", vibe: "" });
   const [errors, setErrors] = useState({});
   const [hangout, setHangout] = useState(null);
@@ -295,7 +295,9 @@ export default function OutsidersCreateHangout({ onNavigate }) {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     const code = generateCode();
-    setHangout({ ...form, code, link: `https://outsiders.app/join/${code}` });
+    const createdHangout = { ...form, code, link: `https://outsiders.app/join/${code}`, id: Date.now(), members: ["YOU"] };
+    setHangout(createdHangout);
+    setAppData?.(prev => ({ ...prev, hangouts: [...prev.hangouts, createdHangout] }));
   };
 
   const copyCode = () => {

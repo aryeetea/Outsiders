@@ -344,8 +344,8 @@ const NAV_TARGETS = {
   "Debrief": "debrief",
 };
 
-export default function OutsidersFriendGroups({ onNavigate }) {
-  const [groups, setGroups] = useState(INITIAL_GROUPS);
+export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
+  const [groups, setGroups] = useState(appData?.groups?.length ? appData.groups : INITIAL_GROUPS);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [activeTab, setActiveTab] = useState("Members");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -376,6 +376,7 @@ export default function OutsidersFriendGroups({ onNavigate }) {
       code: generateCode(),
     };
     setGroups(prev => [...prev, newGroup]);
+    setAppData?.(prev => ({ ...prev, groups: [...prev.groups, newGroup] }));
     setSelectedGroup(newGroup);
     setShowCreateModal(false);
     setNewGroupName("");

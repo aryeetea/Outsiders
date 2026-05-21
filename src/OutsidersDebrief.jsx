@@ -48,7 +48,7 @@ const STYLES = `
 `;
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
-const MEMBERS = [
+const STANDALONE_MEMBERS = [
   { initials: "YOU", name: "You" },
   { initials: "TM1", name: "Teammate 1" },
   { initials: "TM2", name: "Teammate 2" },
@@ -98,17 +98,32 @@ const NAV_TARGETS = {
   "Debrief": "debrief",
 };
 
-export default function OutsidersDebrief({ onNavigate }) {
+export default function OutsidersDebrief({ onNavigate, appData }) {
   const [activeNav, setActiveNav] = useState("Debrief");
   const [sessions, setSessions] = useState(INITIAL_SESSIONS);
   const [selectedSession, setSelectedSession] = useState(null);
   const [message, setMessage] = useState("");
   const [showNewModal, setShowNewModal] = useState(false);
-  const [newForm, setNewForm] = useState({ title: "", with: 1 });
+  const [newForm, setNewForm] = useState({ title: "", sourceType: "standalone", contextId: "", with: "1" });
   const handleNav = (label) => {
     setActiveNav(label);
     onNavigate?.(NAV_TARGETS[label] || "debrief");
   };
+  const groups = appData?.groups || [];
+  const hangouts = appData?.hangouts || [];
+  const sourceOptions = {
+    "standalone": [],
+    "group": groups,
+    "hangout": hangouts,
+  };
+  const activeContext = newForm.sourceType === "standalone"
+    ? null
+    : sourceOptions[newForm.sourceType].find((item) => String(item.id) === String(newForm.contextId)) || null;
+  const participantOptions = newForm.sourceType === "standalone"
+    ? STANDALONE_MEMBERS.slice(1).map((member, index) => ({ ...member, value: String(index + 1) }))
+    : ((activeContext?.members || [])
+        .filter((member) => member !== "YOU")
+        .map((member, index) => ({ initials: member, name: member, value: String(index + 1) })));
 
   const sendMessage = () => {
     if (!message.trim()) return;
@@ -132,22 +147,29 @@ export default function OutsidersDebrief({ onNavigate }) {
 
   const createSession = () => {
     if (!newForm.title.trim()) return;
+    if (newForm.sourceType !== "standalone" && !activeContext) return;
+    if (participantOptions.length === 0) return;
+    const selectedParticipant = participantOptions.find((member) => member.value === String(newForm.with)) || participantOptions[0];
+    const sourceLabel = newForm.sourceType === "standalone"
+      ? "Standalone"
+      : `${newForm.sourceType === "group" ? "Group" : "Hangout"}: ${activeContext.name}`;
     const newSession = {
       id: Date.now(),
       title: newForm.title,
-      between: [0, Number(newForm.with)],
+      between: [{ initials: "YOU", name: "You" }, { initials: selectedParticipant.initials, name: selectedParticipant.name }],
+      sourceLabel,
       status: "In Progress",
       step: 1,
       bg: "#fde8f0", border: "#ff6b9d",
       messages: [
-        { from: "system", text: `🤝 Debrief session started between ${MEMBERS[0].name} and ${MEMBERS[Number(newForm.with)].name}. Ground rules: listen, don't attack, be honest.` },
+        { from: "system", text: `🤝 Debrief session started between You and ${selectedParticipant.name}. Context: ${sourceLabel}. Ground rules: listen, don't attack, be honest.` },
         { from: "system", text: `📌 Step 1: Set the tone — everyone agrees to listen without judgment.` },
       ],
     };
     setSessions(prev => [...prev, newSession]);
     setSelectedSession(newSession);
     setShowNewModal(false);
-    setNewForm({ title: "", with: 1 });
+    setNewForm({ title: "", sourceType: "standalone", contextId: "", with: "1" });
   };
 
   return (
@@ -223,10 +245,10 @@ export default function OutsidersDebrief({ onNavigate }) {
                       <span className="badge" style={{ background: s.status === "Resolved" ? "#e8fde8" : "#fde8f0", color: s.status === "Resolved" ? "#51cf66" : "#ff6b9d", borderColor: s.status === "Resolved" ? "#51cf66" : "#ff6b9d" }}>{s.status}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {s.between.map((mi, i) => (
-                        <div key={i} className="avatar" style={{ width: 28, height: 28, background: AVATAR_COLORS[mi], fontSize: 10 }}>{MEMBERS[mi].initials}</div>
+                      {s.between.map((member, i) => (
+                        <div key={i} className="avatar" style={{ width: 28, height: 28, background: AVATAR_COLORS[i], fontSize: 10 }}>{member.initials}</div>
                       ))}
-                      <span style={{ fontSize: 12, fontWeight: 800, color: "#888" }}>{MEMBERS[s.between[0]].name} & {MEMBERS[s.between[1]].name}</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#888" }}>{s.between[0].name} & {s.between[1].name}</span>
                     </div>
                     <div style={{ marginTop: 10 }}>
                       <div style={{ display: "flex", gap: 4 }}>
@@ -249,11 +271,12 @@ export default function OutsidersDebrief({ onNavigate }) {
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                       <div>
                         <h2 className="bangers" style={{ fontSize: 24, margin: "0 0 8px" }}>{selectedSession.title}</h2>
+                        <p style={{ fontSize: 12, fontWeight: 800, color: "#888", margin: "0 0 10px" }}>{selectedSession.sourceLabel}</p>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          {selectedSession.between.map((mi, i) => (
+                          {selectedSession.between.map((member, i) => (
                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <div className="avatar" style={{ width: 32, height: 32, background: AVATAR_COLORS[mi], fontSize: 11 }}>{MEMBERS[mi].initials}</div>
-                              <span style={{ fontSize: 13, fontWeight: 800 }}>{MEMBERS[mi].name}</span>
+                              <div className="avatar" style={{ width: 32, height: 32, background: AVATAR_COLORS[i], fontSize: 11 }}>{member.initials}</div>
+                              <span style={{ fontSize: 13, fontWeight: 800 }}>{member.name}</span>
                               {i === 0 && <span style={{ fontSize: 16 }}>↔️</span>}
                             </div>
                           ))}
@@ -292,8 +315,8 @@ export default function OutsidersDebrief({ onNavigate }) {
                         <div key={i} className={`message-bubble ${msg.from === "system" ? "system" : msg.from === 0 ? "me" : "them"}`}>
                           {msg.from !== "system" && msg.from !== 0 && (
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                              <div className="avatar" style={{ width: 24, height: 24, background: AVATAR_COLORS[msg.from], fontSize: 9 }}>{MEMBERS[msg.from].initials}</div>
-                              <span style={{ fontSize: 12, fontWeight: 800, color: "#888" }}>{MEMBERS[msg.from].name}</span>
+                              <div className="avatar" style={{ width: 24, height: 24, background: AVATAR_COLORS[1], fontSize: 9 }}>{selectedSession.between[1].initials}</div>
+                              <span style={{ fontSize: 12, fontWeight: 800, color: "#888" }}>{selectedSession.between[1].name}</span>
                             </div>
                           )}
                           {msg.from === "system"
@@ -335,19 +358,42 @@ export default function OutsidersDebrief({ onNavigate }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div>
                   <label className="form-label">What's this about?</label>
-                  <input className="form-input" type="text" placeholder="e.g. The Miami Trip Tension" value={newForm.title} onChange={e => setNewForm(p => ({ ...p, title: e.target.value }))} />
+                  <input className="form-input" type="text" placeholder="What needs to be worked through?" value={newForm.title} onChange={e => setNewForm(p => ({ ...p, title: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="form-label">Who's involved?</label>
-                  <select className="form-input" value={newForm.with} onChange={e => setNewForm(p => ({ ...p, with: e.target.value }))} style={{ padding: "10px 14px" }}>
-                    {MEMBERS.filter((_, i) => i !== 0).map((m, i) => <option key={i+1} value={i+1}>{m.name}</option>)}
+                  <label className="form-label">Start from</label>
+                  <select className="form-input" value={newForm.sourceType} onChange={e => setNewForm(p => ({ ...p, sourceType: e.target.value, contextId: "", with: "1" }))} style={{ padding: "10px 14px" }}>
+                    <option value="standalone">Debrief section only</option>
+                    <option value="group">Connected to a group</option>
+                    <option value="hangout">Connected to a hangout</option>
                   </select>
+                </div>
+                {newForm.sourceType !== "standalone" && (
+                  <div>
+                    <label className="form-label">{newForm.sourceType === "group" ? "Choose group" : "Choose hangout"}</label>
+                    <select className="form-input" value={newForm.contextId} onChange={e => setNewForm(p => ({ ...p, contextId: e.target.value, with: "1" }))} style={{ padding: "10px 14px" }}>
+                      <option value="">{newForm.sourceType === "group" ? "Select a group" : "Select a hangout"}</option>
+                      {sourceOptions[newForm.sourceType].map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="form-label">Who's involved?</label>
+                  {participantOptions.length === 0 ? (
+                    <div style={{ background: "#fffdf9", border: "3px dashed #ccc", borderRadius: 12, padding: "14px 16px", fontSize: 13, fontWeight: 700, color: "#888" }}>
+                      {newForm.sourceType === "standalone" ? "Add someone to debrief with." : `No linked people found in this ${newForm.sourceType} yet.`}
+                    </div>
+                  ) : (
+                    <select className="form-input" value={newForm.with} onChange={e => setNewForm(p => ({ ...p, with: e.target.value }))} style={{ padding: "10px 14px" }}>
+                      {participantOptions.map((member) => <option key={member.value} value={member.value}>{member.name}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px", boxShadow: "3px 3px 0 #ff9a3c" }}>
                   <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px", color: "#1a1a2e" }}>Ground rules 📋</p>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>No attacks. No interrupting. Just honest conversation with the goal of fixing things.</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>Debrief stands on its own, but it can also stay linked to a group or hangout for context. No attacks. No interrupting. Just honest conversation with the goal of fixing things.</p>
                 </div>
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px", marginTop: 4 }} onClick={createSession}>
+                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px", marginTop: 4, opacity: participantOptions.length === 0 ? 0.5 : 1 }} onClick={createSession}>
                   Start Session 🤝
                 </button>
               </div>
