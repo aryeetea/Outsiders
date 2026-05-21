@@ -389,6 +389,12 @@ export default function OutsidersDashboard({ onNavigate }) {
 
             {/* Right side */}
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <button
+                onClick={() => onNavigate?.("landing")}
+                style={{ background: "#ffd93d", color: "#1a1a2e", border: "3px solid #1a1a2e", borderRadius: 10, padding: "8px 14px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.05em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
+              >
+                Log Out
+              </button>
               {/* Notification bell */}
               <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}>
                 <IconBell />
