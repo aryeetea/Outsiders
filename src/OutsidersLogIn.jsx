@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -200,14 +201,29 @@ export default function OutsidersLogIn({ onNavigate }) {
     return errs;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (!isSupabaseConfigured) {
+      setErrors({ submit: supabaseConfigError });
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onNavigate?.("dashboard");
-    }, 1200);
+    setErrors({});
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: form.email.trim(),
+      password: form.password,
+    });
+
+    setLoading(false);
+    if (error) {
+      setErrors({ submit: error.message });
+      return;
+    }
+
+    onNavigate?.("dashboard");
   };
 
   return (
@@ -267,7 +283,18 @@ export default function OutsidersLogIn({ onNavigate }) {
               <div>
                 <label className="form-label">
                   🔒 Password
-                  <a className="forgot-link" onClick={() => window.alert("Password recovery isn’t connected to a backend in this demo yet.")}>Forgot it?</a>
+                  <a className="forgot-link" onClick={async () => {
+                    if (!form.email.trim()) {
+                      setErrors(prev => ({ ...prev, email: "Enter your email first." }));
+                      return;
+                    }
+                    if (!isSupabaseConfigured) {
+                      setErrors(prev => ({ ...prev, submit: supabaseConfigError }));
+                      return;
+                    }
+                    const { error } = await supabase.auth.resetPasswordForEmail(form.email.trim());
+                    window.alert(error ? error.message : "Password reset email sent.");
+                  }}>Forgot it?</a>
                 </label>
                 <div style={{ position: "relative" }}>
                   <input
@@ -286,7 +313,9 @@ export default function OutsidersLogIn({ onNavigate }) {
                 {errors.password && <p className="error-msg">{errors.password}</p>}
               </div>
 
-              <button className="btn-primary" onClick={handleSubmit} style={{ marginTop: 4 }}>
+              {errors.submit && <p className="error-msg" style={{ margin: 0 }}>{errors.submit}</p>}
+
+              <button className="btn-primary" onClick={handleSubmit} disabled={loading} style={{ marginTop: 4, opacity: loading ? 0.7 : 1 }}>
                 {loading ? "Logging In..." : "Log In 🚀"}
               </button>
 

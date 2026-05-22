@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&family=Caveat:wght@600;700&display=swap');
@@ -224,15 +225,21 @@ function getPasswordStrength(pw) {
 
 export default function OutsidersSignUp({ onNavigate }) {
   const [avatar, setAvatar] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
   const fileRef = useRef();
   const strength = getPasswordStrength(form.password);
 
   const handleAvatar = (e) => {
     const file = e.target.files[0];
-    if (file) setAvatar(URL.createObjectURL(file));
+    if (file) {
+      setAvatarFile(file);
+      setAvatar(URL.createObjectURL(file));
+      setErrors(prev => ({ ...prev, avatar: "" }));
+    }
   };
   const handleChange = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
@@ -250,9 +257,61 @@ export default function OutsidersSignUp({ onNavigate }) {
     else if (form.password.length < 8) errs.password = "At least 8 characters!";
     return errs;
   };
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (!isSupabaseConfigured) {
+      setErrors({ submit: supabaseConfigError });
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+
+    const cleanUsername = form.username.trim().replace(/^@/, "").toLowerCase();
+    const { data, error } = await supabase.auth.signUp({
+      email: form.email.trim(),
+      password: form.password,
+      options: {
+        data: {
+          full_name: form.name.trim(),
+          username: cleanUsername,
+        },
+      },
+    });
+
+    if (error) {
+      setErrors({ submit: error.message });
+      setLoading(false);
+      return;
+    }
+
+    if (data.user && data.session) {
+      const { error: profileError } = await supabase.from("profiles").upsert({
+        id: data.user.id,
+        full_name: form.name.trim(),
+        username: cleanUsername,
+        email: form.email.trim(),
+      });
+
+      if (profileError) {
+        setErrors({ submit: profileError.message });
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (avatarFile) {
+      console.info("Avatar selected for future Supabase Storage upload:", avatarFile.name);
+    }
+
+    setLoading(false);
+    if (!data.session) {
+      window.alert("Account created. Check your email to confirm it, then log in.");
+      onNavigate?.("login");
+      return;
+    }
+
     onNavigate?.("dashboard");
   };
 
@@ -352,8 +411,10 @@ export default function OutsidersSignUp({ onNavigate }) {
                 {errors.password && <p className="error-msg">{errors.password}</p>}
               </div>
 
-              <button className="btn-primary" onClick={handleSubmit} style={{ marginTop: 8 }}>
-                Create My Account 🚀
+              {errors.submit && <p className="error-msg" style={{ margin: 0 }}>{errors.submit}</p>}
+
+              <button className="btn-primary" onClick={handleSubmit} disabled={loading} style={{ marginTop: 8, opacity: loading ? 0.7 : 1 }}>
+                {loading ? "Creating Account..." : "Create My Account 🚀"}
               </button>
 
               <p style={{ textAlign: "center", fontSize: 14, fontWeight: 800, color: "#888", margin: 0 }}>
