@@ -453,6 +453,16 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                     <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>Cases in this room naming you directly.</p>
                   </div>
 
+                  <div className="card" style={{ background: "#e8f4fd", borderColor: "#4ecdc4", boxShadow: "5px 5px 0 #4ecdc4" }}>
+                    <p className="bangers" style={{ fontSize: 16, margin: "0 0 8px" }}>Current Peace Maker</p>
+                    <p style={{ fontSize: 24, margin: "0 0 4px", fontWeight: 900, color: "#4ecdc4" }}>
+                      {peaceMakerBench.electedMemberName || "No one yet"}
+                    </p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>
+                      {peaceMakerVoteEntries.length} crew vote{peaceMakerVoteEntries.length === 1 ? "" : "s"} have been cast.
+                    </p>
+                  </div>
+
                   <div className="card" style={{ background: "#fff4e6", borderColor: "#ff9a3c", boxShadow: "5px 5px 0 #ff9a3c" }}>
                     <p className="bangers" style={{ fontSize: 16, margin: "0 0 8px" }}>Room Rules</p>
                     {[
@@ -475,6 +485,15 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                     <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 10px" }}>
                       The crew can vote for one trusted peace maker to step in on group cases. One-on-one cases can optionally name a separate mediator.
                     </p>
+                    <div style={{ background: "#fff", border: "2px solid #1a1a2e", borderRadius: 12, padding: "10px 12px", marginBottom: 12 }}>
+                      <p className="bangers" style={{ fontSize: 13, margin: "0 0 4px" }}>Bench result</p>
+                      <p style={{ fontSize: 13, fontWeight: 900, color: "#1a1a2e", margin: "0 0 4px" }}>
+                        {peaceMakerBench.electedMemberName || "No elected peace maker yet"}
+                      </p>
+                      <p style={{ fontSize: 12, fontWeight: 800, color: "#777", margin: 0 }}>
+                        {peaceMakerLeader?.name ? `${peaceMakerLeader.name} is currently leading the vote.` : "Nobody is leading because no vote has been cast yet."}
+                      </p>
+                    </div>
                     <p style={{ fontSize: 12, fontWeight: 800, color: "#1a1a2e", margin: "0 0 12px" }}>
                       {peaceMakerBench.oath || "Hear both sides, cool the temperature, and push the room toward something fair."}
                     </p>
@@ -544,9 +563,17 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                           <p style={{ fontSize: 13, fontWeight: 800, color: "#888", margin: "0 0 10px" }}>
                             {selectedCase.visibility === "group" ? "Whole group issue" : `Against ${selectedCase.targetName}`} · {selectedCase.sourceLabel}
                           </p>
-                          <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 10px" }}>
-                            Peace maker: {selectedCase.mediatorName || (selectedCase.visibility === "group" ? "Use the elected peace maker if needed" : "None assigned")}
-                          </p>
+                          <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 12, padding: "12px 14px", boxShadow: "3px 3px 0 #4ecdc4", margin: "0 0 12px", maxWidth: 360 }}>
+                            <p className="bangers" style={{ fontSize: 14, margin: "0 0 4px" }}>Peace Maker On This Case</p>
+                            <p style={{ fontSize: 13, fontWeight: 900, color: "#1a1a2e", margin: "0 0 4px" }}>
+                              {selectedCase.mediatorName || (selectedCase.visibility === "group" ? peaceMakerBench.electedMemberName || "No elected peace maker yet" : "None assigned")}
+                            </p>
+                            <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: 0 }}>
+                              {selectedCase.visibility === "group"
+                                ? "Group cases can use the crew's voted peace maker."
+                                : "Personal cases can bring in an optional peace maker if the filer wants one."}
+                            </p>
+                          </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <div className="avatar" style={{ background: "#1a1a2e" }}>AN</div>
                             <span style={{ fontSize: 13, fontWeight: 800 }}>Anonymous filer</span>
