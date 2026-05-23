@@ -136,14 +136,7 @@ const STYLES = `
     display: flex;
     flex-direction: column;
     gap: 14px;
-  }
-
-  .outsiders-ai-card {
-    border: 3px solid #1a1a2e;
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 4px 4px 0 #1a1a2e;
-    padding: 14px;
+    min-height: 320px;
   }
 
   .outsiders-ai-input,
@@ -228,6 +221,22 @@ const STYLES = `
     box-shadow: 4px 4px 0 #51cf66;
   }
 
+  .outsiders-ai-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .outsiders-ai-footer {
+    border-top: 4px solid #1a1a2e;
+    background: #fff;
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
   .outsiders-ai-note {
     font-size: 12px;
     line-height: 1.45;
@@ -296,6 +305,11 @@ function getSystemInstructions(screen) {
 
 function getInitialApiKey() {
   return localStorage.getItem(STORAGE_KEY) || import.meta.env.VITE_OPENAI_API_KEY || "";
+}
+
+function getGreeting(screen) {
+  const activeScreenLabel = SCREEN_LABELS[screen] || "this screen";
+  return `Hello, how can I help you today? I can help with ${activeScreenLabel.toLowerCase()} planning, better copy, smarter flows, and feature ideas.`;
 }
 
 export default function OutsidersAI({ screen, appData }) {
@@ -383,7 +397,7 @@ export default function OutsidersAI({ screen, appData }) {
                     Outsiders AI
                   </h3>
                   <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, fontWeight: 800, color: "#5d5967" }}>
-                    A site-wide copilot for UX copy, planning ideas, summaries, and friendlier flows.
+                    Chat with Outsiders AI for help on anything happening in the app.
                   </p>
                 </div>
                 <button
@@ -397,45 +411,10 @@ export default function OutsidersAI({ screen, appData }) {
             </div>
 
             <div className="outsiders-ai-body">
-              <div className="outsiders-ai-card">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-                  <strong style={{ fontFamily: "'Bangers', cursive", fontSize: 18, letterSpacing: "0.05em" }}>OpenAI Setup</strong>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <strong style={{ fontFamily: "'Bangers', cursive", fontSize: 18, letterSpacing: "0.05em" }}>Chat</strong>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 11, fontWeight: 900, color: "#4ecdc4" }}>{DEFAULT_OPENAI_MODEL}</span>
-                </div>
-                <input
-                  className="outsiders-ai-input"
-                  type="password"
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  placeholder="Paste your OpenAI API key"
-                />
-                <p className="outsiders-ai-note" style={{ margin: "10px 0 0" }}>
-                  This version runs directly in the browser. For production, move the API call behind your own server so the key is not exposed client-side.
-                </p>
-              </div>
-
-              <div className="outsiders-ai-card">
-                <strong style={{ display: "block", fontFamily: "'Bangers', cursive", fontSize: 18, letterSpacing: "0.05em", marginBottom: 10 }}>
-                  Quick Starts
-                </strong>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {quickActions.map((action) => (
-                    <button
-                      key={action}
-                      type="button"
-                      className="outsiders-ai-chip"
-                      onClick={() => submitPrompt(action)}
-                      disabled={isLoading}
-                    >
-                      {action}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="outsiders-ai-card">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-                  <strong style={{ fontFamily: "'Bangers', cursive", fontSize: 18, letterSpacing: "0.05em" }}>Chat</strong>
                   <button
                     type="button"
                     onClick={clearConversation}
@@ -444,46 +423,71 @@ export default function OutsidersAI({ screen, appData }) {
                     Reset
                   </button>
                 </div>
+              </div>
 
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {messages.length === 0 ? (
                   <div className="outsiders-ai-msg assistant">
-                    Ask for UX copy, smarter planning, summaries, feature ideas, onboarding improvements, or AI-powered behaviors for the {activeScreenLabel} screen.
+                    {getGreeting(screen)}
+                    <div className="outsiders-ai-options">
+                      {quickActions.map((action) => (
+                        <button
+                          key={action}
+                          type="button"
+                          className="outsiders-ai-chip"
+                          onClick={() => submitPrompt(action)}
+                          disabled={isLoading}
+                        >
+                          {action}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
-                    {messages.map((message, index) => (
-                      <div key={`${message.role}-${index}`} className={`outsiders-ai-msg ${message.role}`}>
-                        {message.text}
-                      </div>
-                    ))}
-                    {isLoading ? <div className="outsiders-ai-msg assistant">Thinking through the best next step...</div> : null}
-                  </div>
+                  messages.map((message, index) => (
+                    <div key={`${message.role}-${index}`} className={`outsiders-ai-msg ${message.role}`}>
+                      {message.text}
+                    </div>
+                  ))
                 )}
+                {isLoading ? <div className="outsiders-ai-msg assistant">Thinking through the best next step...</div> : null}
+              </div>
+            </div>
 
-                <textarea
-                  className="outsiders-ai-textarea"
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  placeholder={`Ask Outsiders AI how to improve ${activeScreenLabel.toLowerCase()}...`}
-                />
+            <div className="outsiders-ai-footer">
+              <input
+                className="outsiders-ai-input"
+                type="password"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder="Paste your OpenAI API key"
+              />
 
-                {error ? (
-                  <p style={{ margin: "10px 0 0", color: "#ff3b30", fontWeight: 900, fontSize: 12 }}>
-                    {error}
-                  </p>
-                ) : null}
+              <textarea
+                className="outsiders-ai-textarea"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder={`Ask Outsiders AI anything about ${activeScreenLabel.toLowerCase()}...`}
+              />
 
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12 }}>
-                  <span className="outsiders-ai-note">The assistant automatically receives the current screen and shared app data as context.</span>
-                  <button
-                    type="button"
-                    className="outsiders-ai-btn"
-                    onClick={() => submitPrompt(draft)}
-                    disabled={!canSend}
-                  >
-                    {isLoading ? "Thinking..." : "Send"}
-                  </button>
-                </div>
+              {error ? (
+                <p style={{ margin: 0, color: "#ff3b30", fontWeight: 900, fontSize: 12 }}>
+                  {error}
+                </p>
+              ) : null}
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span className="outsiders-ai-note">
+                  The assistant gets the current screen and shared app context automatically.
+                </span>
+                <button
+                  type="button"
+                  className="outsiders-ai-btn"
+                  onClick={() => submitPrompt(draft)}
+                  disabled={!canSend}
+                >
+                  {isLoading ? "Thinking..." : "Send"}
+                </button>
               </div>
             </div>
           </div>
