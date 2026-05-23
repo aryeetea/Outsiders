@@ -453,8 +453,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
               </div>
             </button>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="btn ghost" onClick={() => onNavigate?.("create-hangout")}>New proposal</button>
+              <button type="button" className="btn ghost" onClick={() => onNavigate?.("dashboard")}>Dashboard</button>
               <button type="button" className="btn ghost" onClick={() => onNavigate?.("profile")}>Availability</button>
+              <button type="button" className="btn ghost" onClick={() => onNavigate?.("create-hangout")}>New proposal</button>
             </div>
           </div>
 

@@ -189,6 +189,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
               </div>
             </button>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button type="button" className="chip-btn" onClick={() => onNavigate?.("profile")}>Availability</button>
               <button type="button" className="chip-btn" onClick={() => onNavigate?.("profile")}>{unreadNotifications.length} notifications</button>
               <button type="button" className="chip-btn" onClick={() => onNavigate?.("friend-groups")}>{groups.length} crews</button>
               <button type="button" className="chip-btn" onClick={() => onNavigate?.("landing")}>Log out</button>

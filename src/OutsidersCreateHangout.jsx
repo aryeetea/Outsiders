@@ -369,8 +369,9 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
               </div>
             </button>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="btn ghost" onClick={() => onNavigate?.("friend-groups")}>Open My Crew</button>
+              <button type="button" className="btn ghost" onClick={() => onNavigate?.("dashboard")}>Dashboard</button>
               <button type="button" className="btn ghost" onClick={() => onNavigate?.("profile")}>Availability</button>
+              <button type="button" className="btn ghost" onClick={() => onNavigate?.("friend-groups")}>Open My Crew</button>
             </div>
           </div>
 

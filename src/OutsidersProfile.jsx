@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
+import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE } from "./appState";
-import { TIME_BLOCKS, WEEK_DAYS, availabilityToText, blocksToAvailability, formatTimeLabel, getAvailabilityBlockSet, hasAvailability } from "./scheduling";
+import { availabilityToText, hasAvailability } from "./scheduling";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
@@ -209,114 +210,6 @@ const STYLES = `
     resize: vertical;
   }
 
-  .sheet-panel {
-    padding: 24px;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at top right, rgba(123,214,255,0.24), transparent 25%),
-      radial-gradient(circle at top left, rgba(255,122,107,0.18), transparent 30%),
-      rgba(255,255,255,0.88);
-  }
-
-  .sheet-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 18px;
-  }
-
-  .sheet-frame {
-    border-radius: 24px;
-    border: 1px solid rgba(29, 34, 56, 0.12);
-    overflow: auto;
-    background: rgba(248, 250, 252, 0.9);
-  }
-
-  .sheet-grid {
-    display: grid;
-    grid-template-columns: 86px repeat(7, minmax(110px, 1fr));
-    min-width: 900px;
-  }
-
-  .sheet-head, .time-cell, .slot-cell {
-    border-right: 1px solid rgba(29, 34, 56, 0.08);
-    border-bottom: 1px solid rgba(29, 34, 56, 0.08);
-  }
-
-  .sheet-head {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: rgba(255,255,255,0.95);
-    padding: 14px 10px;
-    text-align: center;
-  }
-
-  .sheet-head strong {
-    display: block;
-    font: 700 14px 'Sora', sans-serif;
-  }
-
-  .sheet-head span {
-    font-size: 12px;
-    color: #7a8294;
-  }
-
-  .time-cell {
-    padding: 12px 10px;
-    background: rgba(255,255,255,0.9);
-    font-size: 12px;
-    font-weight: 700;
-    color: #7a8294;
-    text-align: right;
-  }
-
-  .slot-cell {
-    min-height: 40px;
-    background: rgba(255,255,255,0.56);
-    cursor: pointer;
-    position: relative;
-  }
-
-  .slot-cell::after {
-    content: "";
-    position: absolute;
-    inset: 6px;
-    border-radius: 12px;
-    transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
-  }
-
-  .slot-cell:hover::after {
-    background: rgba(123, 214, 255, 0.18);
-    transform: scale(0.97);
-  }
-
-  .slot-cell.active::after {
-    background: linear-gradient(135deg, #7bd6ff, #56e0a0);
-    box-shadow: inset 0 0 0 1px rgba(12, 80, 56, 0.12), 0 10px 18px rgba(86, 224, 160, 0.18);
-  }
-
-  .slot-cell.dragging::after {
-    background: linear-gradient(135deg, #ffd58f, #ff8f7a);
-  }
-
-  .summary-row {
-    margin-top: 18px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .slot-chip {
-    border: 1px solid rgba(29, 34, 56, 0.12);
-    background: rgba(255,255,255,0.92);
-    border-radius: 999px;
-    padding: 10px 12px;
-    font: 700 13px 'Space Grotesk', sans-serif;
-    color: #3d475d;
-  }
-
   .notice-card {
     padding: 16px 18px;
     border-radius: 22px;
@@ -385,18 +278,8 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
   const profile = appData?.profile || DEFAULT_PROFILE;
   const notifications = appData?.notifications || [];
   const [draft, setDraft] = useState(() => profile);
-  const [dragMode, setDragMode] = useState(null);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (!dragMode) return undefined;
-    const stopDrag = () => setDragMode(null);
-    window.addEventListener("mouseup", stopDrag);
-    return () => window.removeEventListener("mouseup", stopDrag);
-  }, [dragMode]);
-
-  const activeBlocks = useMemo(() => getAvailabilityBlockSet(draft.availability), [draft.availability]);
-  const availabilitySummary = useMemo(() => weekSummary(draft.availability), [draft.availability]);
+  const availabilitySummary = weekSummary(draft.availability);
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const availabilityReady = hasAvailability(draft.availability);
 
@@ -414,26 +297,6 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
     }));
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
-  };
-
-  const clearAvailability = () => {
-    setDraft((prev) => ({ ...prev, availability: DEFAULT_PROFILE.availability }));
-  };
-
-  const toggleBlock = (day, time, forcedMode = null) => {
-    const key = `${day}-${time}`;
-    const blocks = new Set(activeBlocks);
-    const shouldAdd = forcedMode ? forcedMode === "add" : !blocks.has(key);
-    if (shouldAdd) blocks.add(key);
-    else blocks.delete(key);
-    setDraft((prev) => ({ ...prev, availability: blocksToAvailability(blocks) }));
-  };
-
-  const startDrag = (day, time) => {
-    const key = `${day}-${time}`;
-    const mode = activeBlocks.has(key) ? "remove" : "add";
-    setDragMode(mode);
-    toggleBlock(day, time, mode);
   };
 
   return (
@@ -528,54 +391,14 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
             </section>
           </div>
 
-          <section className="sheet-panel">
-            <div className="sheet-header">
-              <div>
-                <span className="eyebrow" style={{ background: "rgba(123, 214, 255, 0.18)", color: "#155e75" }}>Availability studio</span>
-                <h2 style={{ margin: "12px 0 8px", font: "800 32px 'Sora', sans-serif" }}>Weekly availability sheet</h2>
-                <p style={{ margin: 0, color: "#556077", maxWidth: 700, lineHeight: 1.6 }}>
-                  Mark every half-hour block when you would realistically say yes to a crew plan. The more accurate this is, the better your hangout suggestions and proposal voting will be.
-                </p>
-              </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button type="button" className="ghost-btn" onClick={clearAvailability}>Clear Sheet</button>
-                <button type="button" className="action-btn" onClick={saveProfile}>Save Availability</button>
-              </div>
-            </div>
-
-            <div className="sheet-frame">
-              <div className="sheet-grid">
-                <div className="sheet-head" />
-                {WEEK_DAYS.map((day) => (
-                  <div key={day} className="sheet-head">
-                    <strong>{day}</strong>
-                    <span>{(getAvailabilityBlockSet(draft.availability).size > 0 && (draft.availability?.slots?.[day]?.length || 0) > 0) ? "Free time saved" : "Tap to mark"}</span>
-                  </div>
-                ))}
-
-                {TIME_BLOCKS.map((time) => (
-                  <FragmentRow
-                    key={time}
-                    time={time}
-                    activeBlocks={activeBlocks}
-                    dragMode={dragMode}
-                    onMouseDown={startDrag}
-                    onMouseEnter={(day) => {
-                      if (!dragMode) return;
-                      toggleBlock(day, time, dragMode);
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="summary-row">
-              <div className="slot-chip">Green blocks = available</div>
-              <div className="slot-chip">Tap once for a single slot</div>
-              <div className="slot-chip">Click and drag to fill a whole stretch</div>
-              <div className="slot-chip">{availabilitySummary}</div>
-            </div>
-          </section>
+          <AvailabilitySheet
+            value={draft.availability}
+            onChange={(nextAvailability) => setDraft((prev) => ({ ...prev, availability: nextAvailability }))}
+            title="Weekly availability sheet"
+            subtitle="This is your dedicated availability section as a logged-in user. Mark every half-hour block when you would realistically say yes to a crew plan."
+            required
+            footerAction={<button type="button" className="availability-btn primary" onClick={saveProfile}>Save availability</button>}
+          />
 
           <section className="panel">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
@@ -617,28 +440,6 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
           </section>
         </div>
       </div>
-    </>
-  );
-}
-
-function FragmentRow({ time, activeBlocks, dragMode, onMouseDown, onMouseEnter }) {
-  return (
-    <>
-      <div className="time-cell">{formatTimeLabel(time)}</div>
-      {WEEK_DAYS.map((day) => {
-        const key = `${day}-${time}`;
-        return (
-          <div
-            key={key}
-            className={`slot-cell ${activeBlocks.has(key) ? "active" : ""} ${dragMode ? "dragging" : ""}`}
-            onMouseDown={() => onMouseDown(day, time)}
-            onMouseEnter={() => onMouseEnter(day)}
-            onClick={() => {
-              if (!dragMode) onMouseDown(day, time);
-            }}
-          />
-        );
-      })}
     </>
   );
 }

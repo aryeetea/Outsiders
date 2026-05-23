@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
+import AvailabilitySheet from "./AvailabilitySheet";
 import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
-import { DEFAULT_AVAILABILITY, WEEK_DAYS, availabilityToText, hasAvailability } from "./scheduling";
+import { DEFAULT_AVAILABILITY, availabilityToText, hasAvailability } from "./scheduling";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&family=Caveat:wght@600;700&display=swap');
@@ -79,57 +80,6 @@ const STYLES = `
     border-radius: 16px;
     padding: 18px;
     box-shadow: 5px 5px 0 #1a1a2e;
-  }
-
-  .availability-panel {
-    background: #e8f4fd;
-    border: 3px solid #4ecdc4;
-    border-radius: 16px;
-    padding: 18px;
-    box-shadow: 5px 5px 0 #4ecdc4;
-  }
-
-  .availability-days {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-
-  .day-chip {
-    min-height: 42px;
-    border-radius: 10px;
-    border: 3px solid #1a1a2e;
-    background: #fff;
-    box-shadow: 3px 3px 0 #1a1a2e;
-    cursor: pointer;
-    font-weight: 900;
-    font-size: 12px;
-    color: #1a1a2e;
-    transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
-  }
-
-  .day-chip.selected {
-    background: #ffd93d;
-    box-shadow: 3px 3px 0 #ff9a3c;
-    border-color: #ff9a3c;
-  }
-
-  .availability-summary {
-    background: #fff;
-    border: 3px solid #1a1a2e;
-    border-radius: 12px;
-    padding: 12px 14px;
-    box-shadow: 3px 3px 0 #1a1a2e;
-    font-size: 13px;
-    font-weight: 800;
-    color: #555;
-  }
-
-  .time-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
   }
 
   .form-label {
@@ -254,8 +204,6 @@ const STYLES = `
 
   @media (max-width: 640px) {
     .signup-card { padding: 30px 20px; }
-    .availability-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .time-grid { grid-template-columns: 1fr; }
   }
 `;
 
@@ -324,36 +272,6 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
   const handleChange = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
     setErrors(prev => ({ ...prev, [field]: "" }));
-  };
-  const addAvailabilitySlot = (day, slot = { start: "15:00", end: "20:00" }) => {
-    setAvailability((prev) => ({
-      ...prev,
-      slots: {
-        ...(prev.slots || DEFAULT_AVAILABILITY.slots),
-        [day]: [...(prev.slots?.[day] || []), slot],
-      },
-    }));
-    setErrors((prev) => ({ ...prev, availability: "" }));
-  };
-  const updateAvailabilitySlot = (day, index, field, value) => {
-    setAvailability((prev) => ({
-      ...prev,
-      slots: {
-        ...(prev.slots || DEFAULT_AVAILABILITY.slots),
-        [day]: (prev.slots?.[day] || []).map((slot, slotIndex) => (
-          slotIndex === index ? { ...slot, [field]: value } : slot
-        )),
-      },
-    }));
-  };
-  const removeAvailabilitySlot = (day, index) => {
-    setAvailability((prev) => ({
-      ...prev,
-      slots: {
-        ...(prev.slots || DEFAULT_AVAILABILITY.slots),
-        [day]: (prev.slots?.[day] || []).filter((_, slotIndex) => slotIndex !== index),
-      },
-    }));
   };
   const validate = () => {
     const errs = {};
@@ -523,39 +441,21 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
                 {errors.password && <p className="error-msg">{errors.password}</p>}
               </div>
 
-              <div className="availability-panel">
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-                  <div>
-                    <label className="form-label" style={{ marginBottom: 4 }}>Hangout Availability</label>
-                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: 0 }}>Add when your crew can usually catch you.</p>
-                  </div>
-                  <span className="comic-tag" style={{ margin: 0, background: "#fff", transform: "rotate(2deg)" }}>Required</span>
-                </div>
-                <div style={{ display: "grid", gap: 12 }}>
-                  {WEEK_DAYS.map((day) => (
-                    <div key={day} style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 12, padding: "12px", boxShadow: "3px 3px 0 #1a1a2e" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: availability.slots?.[day]?.length ? 10 : 0 }}>
-                        <span className="bangers" style={{ fontSize: 16 }}>{day}</span>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <button type="button" className="day-chip" onClick={() => addAvailabilitySlot(day, { start: "00:00", end: "23:59" })}>All day</button>
-                          <button type="button" className="day-chip selected" onClick={() => addAvailabilitySlot(day)}>+ Time</button>
-                        </div>
-                      </div>
-                      {(availability.slots?.[day] || []).map((slot, index) => (
-                        <div key={`${day}-${index}`} className="time-grid" style={{ alignItems: "center", marginTop: 8 }}>
-                          <input className="form-input" type="time" aria-label={`${day} start`} value={slot.start} onChange={(e) => updateAvailabilitySlot(day, index, "start", e.target.value)} />
-                          <input className="form-input" type="time" aria-label={`${day} end`} value={slot.end} onChange={(e) => updateAvailabilitySlot(day, index, "end", e.target.value)} />
-                          <button type="button" className="day-chip" onClick={() => removeAvailabilitySlot(day, index)}>Remove</button>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-                {errors.availability && <p className="error-msg">{errors.availability}</p>}
-                <div className="availability-summary" style={{ marginTop: 14 }}>
-                  <span className="bangers" style={{ display: "block", fontSize: 13, color: "#4ecdc4", marginBottom: 4 }}>Saved to your profile</span>
-                  {availabilitySummary}
-                </div>
+              <AvailabilitySheet
+                value={availability}
+                onChange={(nextAvailability) => {
+                  setAvailability(nextAvailability);
+                  setErrors((prev) => ({ ...prev, availability: "" }));
+                }}
+                title="Set your availability before you join"
+                subtitle="Signing up users get their own dedicated availability section too. Fill this out now so your crew can vote and plan around your real schedule from day one."
+                required
+                compact
+              />
+              {errors.availability && <p className="error-msg">{errors.availability}</p>}
+              <div style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 12, padding: "12px 14px", boxShadow: "3px 3px 0 #1a1a2e", fontSize: 13, fontWeight: 800, color: "#555" }}>
+                <span className="bangers" style={{ display: "block", fontSize: 13, color: "#4ecdc4", marginBottom: 4 }}>Saved to your profile</span>
+                {availabilitySummary}
               </div>
 
               {errors.submit && <p className="error-msg" style={{ margin: 0 }}>{errors.submit}</p>}
