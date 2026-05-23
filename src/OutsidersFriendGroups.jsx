@@ -340,8 +340,20 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const [joinCode, setJoinCode] = useState("");
   const [notice, setNotice] = useState("");
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
+  const currentMember = selectedGroup?.members?.find((member) => member.name === currentName || member.username === `@${profile.username}`) || null;
+  const isCurrentMemberAdmin = currentMember?.role === "Admin";
   const debriefCount = useMemo(() => selectedGroup?.cases?.length || 0, [selectedGroup]);
   const openDebriefCount = useMemo(() => (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length, [selectedGroup]);
+
+  useEffect(() => {
+    if (!groups.length) {
+      setSelectedGroupId("");
+      return;
+    }
+    if (!selectedGroupId || !groups.some((group) => String(group.id) === String(selectedGroupId))) {
+      setSelectedGroupId(groups[0].id);
+    }
+  }, [groups, selectedGroupId]);
 
   useEffect(() => {
     if (!selectedGroup) return;
@@ -525,6 +537,78 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     }));
   };
 
+  const leaveGroup = () => {
+    if (!selectedGroup || !currentMember) return;
+
+    const confirmed = window.confirm(
+      selectedGroup.members.length === 1
+        ? `You are the last member of ${selectedGroup.name}. Leaving will delete the group.`
+        : `Leave ${selectedGroup.name}? You can join again later with the crew code if someone invites you back.`
+    );
+    if (!confirmed) return;
+
+    const remainingMembers = selectedGroup.members.filter((member) => (
+      member.name !== currentMember.name && member.username !== currentMember.username
+    ));
+
+    if (!remainingMembers.length) {
+      setAppData?.((prev) => ({
+        ...prev,
+        groups: prev.groups.filter((group) => group.id !== selectedGroup.id),
+      }));
+      setNotice(`${selectedGroup.name} was deleted because you were the last member.`);
+      return;
+    }
+
+    const nextMembers = remainingMembers.some((member) => member.role === "Admin")
+      ? remainingMembers
+      : remainingMembers.map((member, index) => ({ ...member, role: index === 0 ? "Admin" : (member.role || "Member") }));
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => {
+        if (group.id !== selectedGroup.id) return group;
+
+        return {
+          ...group,
+          members: nextMembers,
+          hangoutProposals: (group.hangoutProposals || []).map((proposal) => ({
+            ...proposal,
+            participants: (proposal.participants || []).filter((participant) => (
+              participant.name !== currentMember.name && participant.username !== currentMember.username
+            )),
+            votes: {
+              ...(proposal.votes || {}),
+              availability: Object.fromEntries(Object.entries(proposal.votes?.availability || {}).filter(([key]) => key !== currentUserKey)),
+              vibe: Object.fromEntries(Object.entries(proposal.votes?.vibe || {}).filter(([key]) => key !== currentUserKey)),
+              time: Object.fromEntries(Object.entries(proposal.votes?.time || {}).filter(([key]) => key !== currentUserKey)),
+              location: Object.fromEntries(Object.entries(proposal.votes?.location || {}).filter(([key]) => key !== currentUserKey)),
+            },
+          })),
+          billWatch: {
+            ...(group.billWatch || {}),
+            electedMemberName: group.billWatch?.electedMemberName === currentMember.name ? "" : (group.billWatch?.electedMemberName || ""),
+            votes: Object.fromEntries(Object.entries(group.billWatch?.votes || {}).filter(([key]) => key !== currentUserKey)),
+          },
+        };
+      }),
+    }));
+    setNotice(`You left ${selectedGroup.name}.`);
+  };
+
+  const deleteGroup = () => {
+    if (!selectedGroup || !isCurrentMemberAdmin) return;
+
+    const confirmed = window.confirm(`Delete ${selectedGroup.name} for everyone? This removes the whole crew and its proposals.`);
+    if (!confirmed) return;
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.filter((group) => group.id !== selectedGroup.id),
+    }));
+    setNotice(`${selectedGroup.name} was deleted.`);
+  };
+
   const billLeader = selectedGroup?.members?.reduce((best, member) => {
     const votes = Object.values(selectedGroup.billWatch?.votes || {}).filter((value) => value === member.name).length;
     if (!best || votes > best.count) return { name: member.name, count: votes };
@@ -623,9 +707,15 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                         <h2 className="bangers" style={{ margin: "0 0 8px", fontSize: 30 }}>{selectedGroup.emoji} {selectedGroup.name}</h2>
                         <p style={{ margin: 0, color: "#667085" }}>{selectedGroup.members.length} members · crew code {selectedGroup.code}</p>
                       </div>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active proposals</span>
                         <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.pending?.length || 0} pending invites</span>
+                        <button type="button" className="btn ghost" onClick={leaveGroup}>Leave group</button>
+                        {isCurrentMemberAdmin ? (
+                          <button type="button" className="btn ghost" style={{ background: "#fff0f0", color: "#b42318", borderColor: "#b42318", boxShadow: "4px 4px 0 #b42318" }} onClick={deleteGroup}>
+                            Delete group
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                     <div className="tab-row" style={{ marginTop: 16 }}>
