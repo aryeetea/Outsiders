@@ -86,8 +86,11 @@ const NAV_TARGETS = {
   "Debrief": "debrief",
 };
 
+const AVAILABILITY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const AVAILABILITY_TIMES = ["Morning", "Afternoon", "Evening"];
+
 const PROFILE_STORAGE_KEY = "outsiders-profile";
-const DEFAULT_PROFILE = { name: "", username: "", bio: "", location: "", email: "" };
+const DEFAULT_PROFILE = { name: "", username: "", bio: "", location: "", email: "", availability: { days: [], times: [] } };
 
 function readStoredProfile() {
   if (typeof window === "undefined") {
@@ -204,7 +207,7 @@ export default function OutsidersProfile({ onNavigate }) {
     async function loadRemoteProfile() {
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, username, email, avatar_url")
+        .select("full_name, username, email, avatar_url, availability")
         .eq("id", currentUser.id)
         .maybeSingle();
 
@@ -215,12 +218,14 @@ export default function OutsidersProfile({ onNavigate }) {
         name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
         username: data.username || prev.username || currentUser.user_metadata?.username || "",
         email: data.email || prev.email || currentUser.email || "",
+        availability: data.availability || prev.availability || { days: [], times: [] },
       }));
       setEditForm((prev) => ({
         ...prev,
         name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
         username: data.username || prev.username || currentUser.user_metadata?.username || "",
         email: data.email || prev.email || currentUser.email || "",
+        availability: data.availability || prev.availability || { days: [], times: [] },
       }));
 
       if (data.avatar_url) {
@@ -245,6 +250,10 @@ export default function OutsidersProfile({ onNavigate }) {
       bio: nextProfile.bio.trim(),
       location: nextProfile.location.trim(),
       email: nextProfile.email.trim(),
+      availability: {
+        days: nextProfile.availability?.days || [],
+        times: nextProfile.availability?.times || [],
+      },
     };
 
     setProfile(cleanedProfile);
@@ -258,6 +267,7 @@ export default function OutsidersProfile({ onNavigate }) {
         username: cleanedProfile.username,
         email: cleanedProfile.email || currentUser.email || "",
         avatar_url: nextAvatar,
+        availability: cleanedProfile.availability,
       });
 
       if (error) {
@@ -275,6 +285,20 @@ export default function OutsidersProfile({ onNavigate }) {
   }
 
   const handleSave = () => saveProfile(editForm);
+  const toggleAvailability = (field, value, target = "profile") => {
+    const setter = target === "edit" ? setEditForm : setProfile;
+    setter((prev) => {
+      const currentValues = prev.availability?.[field] || [];
+      const hasValue = currentValues.includes(value);
+      return {
+        ...prev,
+        availability: {
+          ...(prev.availability || { days: [], times: [] }),
+          [field]: hasValue ? currentValues.filter((item) => item !== value) : [...currentValues, value],
+        },
+      };
+    });
+  };
 
   const handleAvatarChange = async (event) => {
     const file = event.target.files?.[0];
@@ -358,6 +382,8 @@ export default function OutsidersProfile({ onNavigate }) {
                   <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: "0 0 10px" }}>{profile.bio || "Add a short bio so people know who you are."}</p>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <span className="badge" style={{ background: "#fff", color: "#ff6b9d", borderColor: "#ff6b9d" }}>📍 {profile.location || "No location yet"}</span>
+                    <span className="badge" style={{ background: "#fff", color: "#ff9a3c", borderColor: "#ff9a3c" }}>🗓 {profile.availability?.days?.length || 0} days picked</span>
+                    <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>⏰ {profile.availability?.times?.length || 0} time windows</span>
                     <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>✨ Profile in progress</span>
                   </div>
                 </div>
@@ -431,6 +457,25 @@ export default function OutsidersProfile({ onNavigate }) {
                       <label className="form-label">Bio</label>
                       <textarea className="form-input" rows={3} value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} />
                     </div>
+                    <div>
+                      <label className="form-label">Weekly Availability</label>
+                      <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff9a3c" }}>
+                        <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Days:</p>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                          {AVAILABILITY_DAYS.map((day) => {
+                            const selected = profile.availability?.days?.includes(day);
+                            return <button key={day} type="button" onClick={() => toggleAvailability("days", day)} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{day}</button>;
+                          })}
+                        </div>
+                        <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Times:</p>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {AVAILABILITY_TIMES.map((time) => {
+                            const selected = profile.availability?.times?.includes(time);
+                            return <button key={time} type="button" onClick={() => toggleAvailability("times", time)} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#4ecdc4" : "#1a1a2e"}`, background: selected ? "#edfdfb" : "#fff", boxShadow: selected ? "3px 3px 0 #4ecdc4" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{time}</button>;
+                          })}
+                        </div>
+                      </div>
+                    </div>
                     {saveError && <p style={{ fontSize: 13, fontWeight: 800, color: "#ff6b6b", margin: 0 }}>{saveError}</p>}
                     {saved && <p className="bangers" style={{ fontSize: 16, color: "#51cf66", margin: 0, letterSpacing: "0.04em" }}>✅ Changes saved!</p>}
                     <div style={{ display: "flex", gap: 12 }}>
@@ -490,6 +535,25 @@ export default function OutsidersProfile({ onNavigate }) {
                 <div>
                   <label className="form-label">Bio</label>
                   <textarea className="form-input" rows={3} value={editForm.bio} onChange={e => setEditForm(p => ({ ...p, bio: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Weekly Availability</label>
+                  <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff9a3c" }}>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Days:</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                      {AVAILABILITY_DAYS.map((day) => {
+                        const selected = editForm.availability?.days?.includes(day);
+                        return <button key={day} type="button" onClick={() => toggleAvailability("days", day, "edit")} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{day}</button>;
+                      })}
+                    </div>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Times:</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {AVAILABILITY_TIMES.map((time) => {
+                        const selected = editForm.availability?.times?.includes(time);
+                        return <button key={time} type="button" onClick={() => toggleAvailability("times", time, "edit")} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#4ecdc4" : "#1a1a2e"}`, background: selected ? "#edfdfb" : "#fff", boxShadow: selected ? "3px 3px 0 #4ecdc4" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{time}</button>;
+                      })}
+                    </div>
+                  </div>
                 </div>
                 {saveError && <p style={{ fontSize: 13, fontWeight: 800, color: "#ff6b6b", margin: 0 }}>{saveError}</p>}
                 <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={handleSave} disabled={isSaving}>

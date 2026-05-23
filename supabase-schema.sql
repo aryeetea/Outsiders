@@ -15,6 +15,7 @@ create table if not exists public.profiles (
   username text not null unique,
   email text not null,
   avatar_url text,
+  availability jsonb not null default '{"days":[],"times":[]}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -24,6 +25,7 @@ alter table public.profiles
   add column if not exists username text,
   add column if not exists email text,
   add column if not exists avatar_url text,
+  add column if not exists availability jsonb not null default '{"days":[],"times":[]}'::jsonb,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 

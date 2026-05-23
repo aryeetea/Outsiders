@@ -429,6 +429,25 @@ function rankAvailabilitySuggestions(people) {
     }));
 }
 
+function getAvailabilityIssues(people) {
+  return (people || []).reduce((issues, person) => {
+    const missingDays = !person.days.length;
+    const missingTimes = !person.times.length;
+
+    if (!missingDays && !missingTimes) return issues;
+
+    if (missingDays && missingTimes) {
+      return [...issues, `${person.name} still needs days and times.`];
+    }
+
+    if (missingDays) {
+      return [...issues, `${person.name} still needs available days.`];
+    }
+
+    return [...issues, `${person.name} still needs preferred times.`];
+  }, []);
+}
+
 function getStoredApiKey() {
   return localStorage.getItem("outsiders-ai-api-key") || import.meta.env.VITE_OPENAI_API_KEY || "";
 }
@@ -497,6 +516,10 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     () => rankAvailabilitySuggestions(availPeople),
     [availPeople]
   );
+  const availabilityIssues = useMemo(
+    () => getAvailabilityIssues(availPeople),
+    [availPeople]
+  );
 
   const handleChange = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
@@ -547,6 +570,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   const reset = () => {
     setHangout(null);
     setForm({ name: "", date: "", time: "", location: "", vibe: "" });
+    setErrors({});
   };
 
   function toggleDay(personId, dayValue) {
@@ -791,14 +815,31 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 {/* Availability Finder */}
                 <div>
                   <button type="button" className="avail-toggle" onClick={() => setShowAvailability(prev => !prev)}>
-                    <span>🗓 Find Best Time With AI</span>
+                    <span>🗓 Add Crew Availability</span>
                     <span style={{ fontSize: 12 }}>{showAvailability ? "▲" : "▼"}</span>
                   </button>
                   {showAvailability && (
                     <div className="avail-panel">
                       <p style={{ fontFamily: "'Bangers', cursive", fontSize: 15, letterSpacing: "0.05em", margin: "0 0 14px", color: "#6c3483" }}>
-                        Mark your crew&apos;s availability and the app suggests the strongest overlap.
+                        Ask every crew member to add their days and time windows here, but you can still keep planning even if some people have not filled it in yet.
                       </p>
+
+                      {availabilityIssues.length > 0 ? (
+                        <div style={{ background: "#fff", border: "2px solid #ff6b6b", borderRadius: 10, padding: "10px 12px", boxShadow: "3px 3px 0 #ff6b6b", marginBottom: 12 }}>
+                          <p className="bangers" style={{ fontSize: 13, margin: "0 0 6px", color: "#ff6b6b" }}>Still missing</p>
+                          {availabilityIssues.map((issue) => (
+                            <p key={issue} style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 4px" }}>• {issue}</p>
+                          ))}
+                          <p style={{ fontSize: 12, fontWeight: 800, color: "#7a4d00", margin: "8px 0 0" }}>
+                            Planning is still allowed. These missing entries just make the suggested date and time less accurate.
+                          </p>
+                        </div>
+                      ) : (
+                        <div style={{ background: "#e8fde8", border: "2px solid #51cf66", borderRadius: 10, padding: "10px 12px", boxShadow: "3px 3px 0 #51cf66", marginBottom: 12 }}>
+                          <p className="bangers" style={{ fontSize: 13, margin: "0 0 4px", color: "#51cf66" }}>Availability complete</p>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: 0 }}>Everybody on this list has at least one day and one time selected.</p>
+                        </div>
+                      )}
 
                       {availPeople.map((person) => (
                         <div key={person.id} style={{ background: "#fff", border: "2px solid #9b59b6", borderRadius: 10, padding: "12px 14px", marginBottom: 12, boxShadow: "3px 3px 0 #9b59b6" }}>
