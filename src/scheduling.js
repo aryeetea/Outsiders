@@ -1,4 +1,8 @@
 export const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const TIME_BLOCKS = Array.from({ length: 30 }, (_, index) => {
+  const minutes = (8 * 60) + (index * 30);
+  return minutesToTime(minutes);
+});
 
 export const DEFAULT_AVAILABILITY = {
   slots: WEEK_DAYS.reduce((acc, day) => ({ ...acc, [day]: [] }), {}),
@@ -54,6 +58,70 @@ export function normalizeAvailability(availability) {
   }
 
   return normalized;
+}
+
+export function getAvailabilityBlockSet(availability) {
+  const normalized = normalizeAvailability(availability);
+  const blocks = new Set();
+
+  WEEK_DAYS.forEach((day) => {
+    const slots = normalized.slots[day] || [];
+    slots.forEach((slot) => {
+      const start = toMinutes(slot.start);
+      const end = toMinutes(slot.end);
+      if (start === null || end === null || end <= start) return;
+      for (let minutes = start; minutes < end; minutes += 30) {
+        blocks.add(`${day}-${minutesToTime(minutes)}`);
+      }
+    });
+  });
+
+  return blocks;
+}
+
+export function blocksToAvailability(blockKeys) {
+  const grouped = WEEK_DAYS.reduce((acc, day) => ({ ...acc, [day]: [] }), {});
+
+  (Array.isArray(blockKeys) ? blockKeys : Array.from(blockKeys || [])).forEach((key) => {
+    const [day, time] = String(key).split("-");
+    if (!WEEK_DAYS.includes(day) || !time) return;
+    const minutes = toMinutes(time);
+    if (minutes === null) return;
+    grouped[day].push(minutes);
+  });
+
+  return {
+    slots: WEEK_DAYS.reduce((acc, day) => {
+      const sorted = [...new Set(grouped[day])].sort((a, b) => a - b);
+      const slots = [];
+      let start = null;
+      let previous = null;
+
+      sorted.forEach((minutes) => {
+        if (start === null) {
+          start = minutes;
+          previous = minutes;
+          return;
+        }
+
+        if (minutes === previous + 30) {
+          previous = minutes;
+          return;
+        }
+
+        slots.push({ start: minutesToTime(start), end: minutesToTime(previous + 30) });
+        start = minutes;
+        previous = minutes;
+      });
+
+      if (start !== null && previous !== null) {
+        slots.push({ start: minutesToTime(start), end: minutesToTime(previous + 30) });
+      }
+
+      acc[day] = slots;
+      return acc;
+    }, {}),
+  };
 }
 
 export function hasAvailability(availability) {

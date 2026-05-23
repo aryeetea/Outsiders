@@ -1,1498 +1,736 @@
 import { useEffect, useState } from "react";
+import { createId, getCurrentUserKey, getDisplayName } from "./appState";
 import { buildGroupInviteLink } from "./siteConfig";
-import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
+import { availabilityToText, hasAvailability } from "./scheduling";
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
-
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
   * { box-sizing: border-box; }
-  body { background: #f5f3ee; margin: 0; }
-
+  body { margin: 0; background: #f6f3eb; }
   .root {
-    font-family: 'Nunito', sans-serif;
-    background: #f5f3ee;
-    color: #1a1a2e;
     min-height: 100vh;
+    color: #1d2238;
+    font-family: 'Space Grotesk', sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(255, 122, 107, 0.16), transparent 25%),
+      radial-gradient(circle at top right, rgba(123, 214, 255, 0.22), transparent 24%),
+      linear-gradient(180deg, #fff9ef 0%, #f7f3eb 100%);
+  }
+  .shell {
+    max-width: 1380px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+    display: grid;
+    gap: 24px;
+  }
+  .glass, .card {
+    border-radius: 28px;
+    border: 1px solid rgba(29,34,56,0.1);
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 20px 52px rgba(29,34,56,0.08);
+  }
+  .glass {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 22px;
+    flex-wrap: wrap;
   }
-
-  .root::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: radial-gradient(circle, #1a1a2e 1px, transparent 1px);
-    background-size: 24px 24px;
-    opacity: 0.03;
-    pointer-events: none;
-    z-index: 0;
+  .card { padding: 22px; }
+  .brand-btn, .btn, .crew-card, .tab-btn, .vote-btn, .roast-card {
+    transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
   }
-
-  .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
-
-  .top-nav {
-    position: sticky; top: 0; z-index: 50;
-    background: #fffdf9;
-    border-bottom: 4px solid #1a1a2e;
-    box-shadow: 0 4px 0 #1a1a2e;
-  }
-
-  .logo-mark {
-    width: 36px; height: 36px;
-    background: #ff6b6b;
-    border: 3px solid #1a1a2e;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 3px 3px 0 #1a1a2e;
-  }
-
-  .logo-link {
+  .brand-btn {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    background: none;
+    gap: 12px;
     border: none;
-    padding: 0;
+    background: none;
+    cursor: pointer;
+    color: #1d2238;
+  }
+  .logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #ff7a6b, #ffb36c);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 12px 24px rgba(255,122,107,0.28);
+  }
+  .hero {
+    padding: 28px;
+    background:
+      radial-gradient(circle at right top, rgba(123,214,255,0.18), transparent 28%),
+      linear-gradient(135deg, #fffef9, #fff5e5 52%, #eef9ff 100%);
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 22px;
+  }
+  .sidebar-stack, .detail-stack {
+    display: grid;
+    gap: 16px;
+    align-content: start;
+  }
+  .crew-card {
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(29,34,56,0.08);
+    background: rgba(255,255,255,0.9);
     cursor: pointer;
   }
-
-  .layout { display: flex; flex: 1; position: relative; z-index: 1; }
-
-  .sidebar {
-    width: 220px; flex-shrink: 0;
-    background: #fffdf9;
-    border-right: 4px solid #1a1a2e;
-    padding: 24px 16px;
-    display: flex; flex-direction: column; gap: 6px;
-    position: sticky; top: 68px;
-    height: calc(100vh - 68px);
-    overflow-y: auto;
+  .crew-card.active, .crew-card:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(135deg, rgba(114,216,255,0.18), rgba(139,240,196,0.18));
+    border-color: rgba(86,224,160,0.34);
   }
-
-  .nav-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; border-radius: 10px;
-    cursor: pointer; font-weight: 800; font-size: 14px;
-    color: #666; border: 2.5px solid transparent;
-    transition: all 0.15s;
+  .btn, .vote-btn, .tab-btn {
+    border: none;
+    cursor: pointer;
+    font: 700 14px 'Space Grotesk', sans-serif;
   }
-  .nav-item:hover { background: #f5f3ee; color: #1a1a2e; border-color: #e0dbd0; }
-  .nav-item.active { background: #fff; color: #1a1a2e; border: 2.5px solid #1a1a2e; box-shadow: 3px 3px 0 #1a1a2e; }
-
-  .nav-section-label {
-    font-family: 'Bangers', cursive;
-    font-size: 12px; letter-spacing: 0.1em;
-    color: #bbb; padding: 8px 14px 4px;
-    text-transform: uppercase;
-  }
-
-  .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
-
-  .crew-hero {
-    background: #fff;
-    border: 3px solid #1a1a2e;
+  .btn {
     border-radius: 18px;
-    box-shadow: 6px 6px 0 #1a1a2e;
-    padding: 22px 24px;
-    margin-bottom: 24px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 20px;
-    align-items: center;
+    padding: 13px 16px;
   }
-
-  .crew-actions {
+  .btn.primary {
+    background: linear-gradient(135deg, #ff7a6b, #ff9671);
+    color: white;
+    box-shadow: 0 18px 32px rgba(255,122,107,0.28);
+  }
+  .btn.secondary {
+    background: linear-gradient(135deg, #72d8ff, #8bf0c4);
+    color: #093344;
+    box-shadow: 0 18px 32px rgba(114,216,255,0.24);
+  }
+  .btn.ghost {
+    background: rgba(255,255,255,0.88);
+    color: #1d2238;
+    border: 1px solid rgba(29,34,56,0.12);
+  }
+  .tab-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.84);
+    border: 1px solid rgba(29,34,56,0.1);
+    color: #667085;
+  }
+  .tab-btn.active {
+    background: #1d2238;
+    color: white;
+  }
+  .member-row, .pending-row, .proposal-card, .roast-card, .bill-card {
+    border-radius: 22px;
+    border: 1px solid rgba(29,34,56,0.08);
+    background: rgba(255,255,255,0.9);
+    padding: 16px;
+  }
+  .vote-grid, .member-list, .roast-list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(150px, 1fr));
     gap: 12px;
   }
-
-  .action-tile {
-    border: 3px solid #1a1a2e;
-    border-radius: 16px;
-    background: #fffdf9;
-    box-shadow: 4px 4px 0 #1a1a2e;
-    padding: 14px;
-    cursor: pointer;
-    text-align: left;
-    transition: transform 0.12s, box-shadow 0.12s;
-    min-height: 104px;
-  }
-
-  .action-tile:hover {
-    transform: translate(-2px,-2px);
-    box-shadow: 6px 6px 0 #1a1a2e;
-  }
-
-  .action-icon {
-    width: 34px;
-    height: 34px;
-    border: 3px solid #1a1a2e;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 2px 2px 0 #1a1a2e;
-    margin-bottom: 10px;
-  }
-
-  .crew-grid {
-    display: grid;
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
-  }
-
-  .group-list-panel {
-    background: #fffdf9;
-    border: 3px solid #1a1a2e;
-    border-radius: 18px;
-    box-shadow: 5px 5px 0 #1a1a2e;
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .empty-crew {
-    border: 3px dashed #4ecdc4;
-    border-radius: 16px;
-    padding: 22px 18px;
-    text-align: center;
-    background: #e8f4fd;
-  }
-
-  .card {
-    background: #fff;
-    border: 3px solid #1a1a2e;
-    border-radius: 16px;
-    box-shadow: 5px 5px 0 #1a1a2e;
-    padding: 22px 24px;
-  }
-
-  .group-card {
-    background: #fff;
-    border: 3px solid #1a1a2e;
-    border-radius: 16px;
-    box-shadow: 5px 5px 0 #1a1a2e;
-    padding: 20px 22px;
-    transition: transform 0.15s, box-shadow 0.15s;
-    cursor: pointer;
-  }
-  .group-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 #1a1a2e; }
-
-  .btn-primary {
-    background: #ff6b6b; color: #fff;
-    border: 3px solid #1a1a2e;
-    cursor: pointer;
-    font-family: 'Bangers', cursive;
-    letter-spacing: 0.08em;
-    border-radius: 10px;
-    box-shadow: 4px 4px 0 #1a1a2e;
-    transition: transform 0.12s, box-shadow 0.12s;
-    font-size: 16px; padding: 10px 20px;
-    display: inline-flex; align-items: center; gap: 8px;
-  }
-  .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
-  .btn-primary:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 #1a1a2e; }
-
-  .btn-secondary {
-    background: #ffd93d; color: #1a1a2e;
-    border: 3px solid #1a1a2e;
-    cursor: pointer;
-    font-family: 'Bangers', cursive;
-    letter-spacing: 0.08em;
-    border-radius: 10px;
-    box-shadow: 4px 4px 0 #1a1a2e;
-    transition: transform 0.12s, box-shadow 0.12s;
-    font-size: 16px; padding: 10px 20px;
-    display: inline-flex; align-items: center; gap: 8px;
-  }
-  .btn-secondary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
-
-  .btn-outline {
-    background: #fff; color: #1a1a2e;
-    border: 3px solid #1a1a2e;
-    cursor: pointer;
-    font-family: 'Bangers', cursive;
-    letter-spacing: 0.08em;
-    border-radius: 10px;
-    box-shadow: 4px 4px 0 #1a1a2e;
-    transition: transform 0.12s, box-shadow 0.12s;
-    font-size: 15px; padding: 9px 18px;
-    display: inline-flex; align-items: center; gap: 8px;
-  }
-  .btn-outline:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
-
-  .btn-danger {
-    background: #fff; color: #ff6b6b;
-    border: 2px solid #ff6b6b;
-    cursor: pointer;
-    font-family: 'Bangers', cursive;
-    letter-spacing: 0.06em;
-    border-radius: 8px;
-    transition: background 0.15s;
-    font-size: 13px; padding: 6px 12px;
-  }
-  .btn-danger:hover { background: #fde8e8; }
-
-  .form-input {
+  .vote-btn {
     width: 100%;
-    padding: 12px 16px;
-    font-size: 15px;
-    font-family: 'Nunito', sans-serif;
-    font-weight: 700; color: #1a1a2e;
-    background: #fffdf9;
-    border: 3px solid #1a1a2e;
-    border-radius: 10px; outline: none;
-    transition: box-shadow 0.15s, border-color 0.15s;
-    box-shadow: 4px 4px 0 #1a1a2e;
+    padding: 12px 14px;
+    border-radius: 18px;
+    text-align: left;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(29,34,56,0.08);
   }
-  .form-input:focus { border-color: #ff6b6b; box-shadow: 4px 4px 0 #ff6b6b; }
-  .form-input::placeholder { color: #bbb; font-weight: 600; }
-
-  .form-label {
-    display: block;
-    font-family: 'Bangers', cursive;
-    font-size: 16px; letter-spacing: 0.05em;
-    color: #1a1a2e; margin-bottom: 8px;
+  .vote-btn.active {
+    background: linear-gradient(135deg, rgba(114,216,255,0.18), rgba(139,240,196,0.18));
+    border-color: rgba(86,224,160,0.34);
   }
-
-  .avatar {
-    width: 38px; height: 38px; border-radius: 50%;
-    border: 2.5px solid #1a1a2e;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 900; font-size: 13px; color: #fff;
-    flex-shrink: 0; box-shadow: 2px 2px 0 #1a1a2e;
+  .roast-card {
+    background: linear-gradient(135deg, rgba(255,245,230,0.96), rgba(255,255,255,0.9));
   }
-
-  .avatar-sm {
-    width: 28px; height: 28px; border-radius: 50%;
-    border: 2px solid #1a1a2e;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 900; font-size: 10px; color: #fff;
-    flex-shrink: 0;
+  .field {
+    display: grid;
+    gap: 8px;
   }
-
-  .badge {
-    display: inline-flex; align-items: center;
-    padding: 3px 10px; border-radius: 6px;
-    font-family: 'Bangers', cursive;
-    font-size: 12px; letter-spacing: 0.05em; border: 2px solid;
+  .field label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #667085;
   }
-
-  .member-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 0; border-bottom: 2px dashed #f0ebe0;
+  .field input, .field textarea, .field select {
+    width: 100%;
+    border: 1px solid rgba(29,34,56,0.12);
+    border-radius: 18px;
+    padding: 13px 14px;
+    background: rgba(255,255,255,0.92);
+    font: 500 15px 'Space Grotesk', sans-serif;
+    color: #1d2238;
+    outline: none;
   }
-  .member-row:last-child { border-bottom: none; }
-
-  .pending-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 0; border-bottom: 2px dashed #f0ebe0;
+  .field textarea {
+    min-height: 116px;
+    resize: vertical;
   }
-  .pending-row:last-child { border-bottom: none; }
-
-  .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 100;
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px;
-  }
-
-  .modal {
-    background: #fff;
-    border: 4px solid #1a1a2e;
-    border-radius: 20px;
-    box-shadow: 10px 10px 0 #1a1a2e;
-    padding: 36px 32px;
-    width: 100%; max-width: 480px;
-    position: relative;
-  }
-
-  .close-btn {
-    position: absolute; top: 16px; right: 16px;
-    background: #f5f3ee; border: 2px solid #1a1a2e;
-    border-radius: 50%; width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 16px;
-    box-shadow: 2px 2px 0 #1a1a2e;
-  }
-
-  .comic-tag {
-    display: inline-block;
-    background: #ffd93d; border: 2px solid #1a1a2e;
-    border-radius: 6px; padding: 1px 10px;
-    font-family: 'Bangers', cursive; font-size: 12px;
-    letter-spacing: 0.06em; box-shadow: 2px 2px 0 #1a1a2e;
-    transform: rotate(-2deg); margin-bottom: 10px;
-  }
-
-  .link-box {
-    background: #fffdf9; border: 3px solid #1a1a2e;
-    border-radius: 10px; padding: 10px 14px;
-    font-size: 13px; font-weight: 800; color: #555;
-    word-break: break-all; box-shadow: 3px 3px 0 #1a1a2e;
-  }
-
-  .error-msg {
-    font-family: 'Bangers', cursive;
-    font-size: 14px; color: #ff6b6b; margin-top: 6px;
-    letter-spacing: 0.04em;
-  }
-
-  .tab {
-    padding: 8px 18px;
-    font-family: 'Bangers', cursive;
-    font-size: 16px; letter-spacing: 0.05em;
-    border: 3px solid transparent;
-    border-radius: 10px; cursor: pointer;
-    background: none; color: #888;
-    transition: all 0.15s;
-  }
-  .tab.active {
-    background: #fff; color: #1a1a2e;
-    border-color: #1a1a2e;
-    box-shadow: 3px 3px 0 #1a1a2e;
-  }
-
-  .section-header {
-    display: flex; align-items: center;
-    justify-content: space-between; margin-bottom: 16px;
-  }
-
-  .profile-chip {
-    display: flex; align-items: center; gap: 8px;
-    background: #fff; border: 3px solid #1a1a2e;
-    border-radius: 50px; padding: 4px 14px 4px 4px;
-    box-shadow: 3px 3px 0 #1a1a2e; cursor: pointer;
-  }
-
-  .notif-dot {
-    width: 8px; height: 8px; background: #ff6b6b;
-    border: 2px solid #1a1a2e; border-radius: 50%;
-    position: absolute; top: -2px; right: -2px;
-  }
-
-  @media (max-width: 980px) {
-    .layout { display: block; }
-    .sidebar {
-      position: static;
-      width: auto;
-      height: auto;
-      border-right: none;
-      border-bottom: 4px solid #1a1a2e;
-      flex-direction: row;
-      overflow-x: auto;
+  @media (max-width: 1080px) {
+    .layout {
+      grid-template-columns: 1fr;
     }
-    .crew-hero { grid-template-columns: 1fr; }
-    .crew-grid { grid-template-columns: 1fr; }
   }
-
-  @media (max-width: 640px) {
-    .main { padding: 22px 16px; }
-    .crew-actions { grid-template-columns: 1fr; }
+  @media (max-width: 720px) {
+    .shell { padding: 16px 12px 36px; }
+    .glass, .hero, .card { padding: 18px; border-radius: 24px; }
   }
 `;
 
-const GROUP_COLORS = [
-  { bg: "#fff4e6", border: "#ff9a3c", avatar: "#ff9a3c" },
-  { bg: "#e8f4fd", border: "#4ecdc4", avatar: "#4ecdc4" },
-  { bg: "#fde8f0", border: "#ff6b9d", avatar: "#ff6b9d" },
-  { bg: "#e8fde8", border: "#51cf66", avatar: "#51cf66" },
-  { bg: "#f3e8fd", border: "#9b59b6", avatar: "#9b59b6" },
-];
-
-const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d", "#ff9a3c"];
-
-const INITIAL_GROUPS = [];
-
-const IconLogoMark = () => (
-  <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-    <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/>
-  </svg>
-);
-const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-const IconCalendar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
-const IconUsers = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-const IconPlane = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>;
-const IconSplit = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
-const IconHeart = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
-const IconStar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
-const IconBell = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
-const IconPlus = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
-const IconCopy = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
-const IconCheck = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
-
-const NAV_ITEMS = [
-  { icon: <IconHome />, label: "Dashboard" },
-  { icon: <IconCalendar />, label: "Hangouts" },
-  { icon: <IconUsers />, label: "My Crew", active: true },
-  { icon: <IconPlane />, label: "Trips" },
-  { icon: <IconSplit />, label: "Bill Split" },
-  { icon: <IconStar />, label: "Ratings" },
-  { icon: <IconHeart />, label: "Debrief" },
-];
+const GROUP_COLORS = ["#ff8f7a", "#6ed7ff", "#73e2a7", "#ffcf6e", "#c6a6ff"];
 
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
-const NAV_TARGETS = {
-  "Dashboard": "dashboard",
-  "Hangouts": "create-hangout",
-  "My Crew": "friend-groups",
-  "Trips": "trip-planning",
-  "Bill Split": "bill-split",
-  "Ratings": "rate-outing",
-  "Debrief": "debrief",
-};
-
 function getInitials(name) {
-  const cleaned = (name || "").replace(/^@/, "").trim();
-  if (!cleaned) return "YU";
-  return cleaned.slice(0, 2).toUpperCase();
+  return (name || "You").replace(/^@/, "").trim().slice(0, 2).toUpperCase() || "YO";
 }
 
-function normalizeMember(member, fallbackName = "You") {
-  const name = member?.name || fallbackName;
-  return {
-    initials: member?.initials || getInitials(name),
-    name,
-    role: member?.role || "Member",
-    username: member?.username || "",
-    userId: member?.userId || null,
-  };
+function countVotes(votes = {}, optionId) {
+  return Object.values(votes).filter((value) => value === optionId).length;
 }
 
-function mapDbGroupToUi(row) {
-  const colorIndex = Number.isInteger(row?.color_index) ? row.color_index : 0;
-  return {
-    id: row.id,
-    name: row.name,
-    emoji: row.emoji || "👥",
-    members: Array.isArray(row.members) ? row.members.map((member) => normalizeMember(member)) : [],
-    pending: Array.isArray(row.pending) ? row.pending : [],
-    color: GROUP_COLORS[colorIndex % GROUP_COLORS.length],
-    colorIndex,
-    code: row.code,
-    cases: Array.isArray(row.cases) ? row.cases : [],
-    billWatch: row.bill_watch || null,
-    peaceMaker: row.peace_maker || null,
-    ownerId: row.owner_id || null,
-    ownerUsername: row.owner_username || "",
-  };
+function pickWinner(options = [], votes = {}) {
+  return [...options].sort((a, b) => countVotes(votes, b.id) - countVotes(votes, a.id))[0] || null;
 }
 
-function mapUiGroupToDb(group) {
-  return {
-    name: group.name,
-    emoji: group.emoji,
-    members: group.members,
-    pending: group.pending,
-    color_index: group.colorIndex || 0,
-    code: group.code,
-    cases: group.cases || [],
-    bill_watch: group.billWatch || null,
-    peace_maker: group.peaceMaker || null,
-    owner_id: group.ownerId || null,
-    owner_username: group.ownerUsername || "",
-  };
-}
-
-export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams }) {
-  const [groups, setGroups] = useState(appData?.groups?.length ? appData.groups : INITIAL_GROUPS);
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [activeTab, setActiveTab] = useState("Members");
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showJoinModal, setShowJoinModal] = useState(false);
+export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
+  const groups = appData?.groups ?? [];
+  const profile = appData?.profile || {};
+  const currentName = getDisplayName(profile);
+  const currentUserKey = getCurrentUserKey(profile);
+  const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
+  const [activeTab, setActiveTab] = useState("Proposals");
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupEmoji, setNewGroupEmoji] = useState("👥");
   const [inviteUsername, setInviteUsername] = useState("");
-  const [inviteError, setInviteError] = useState("");
-  const [inviteSent, setInviteSent] = useState(false);
-  const [joinCode, setJoinCode] = useState(routeParams?.groupCode || "");
-  const [joinError, setJoinError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
-  const [createError, setCreateError] = useState("");
-  const [activeNav, setActiveNav] = useState("My Crew");
-  const [currentUser, setCurrentUser] = useState(null);
-  const [currentProfile, setCurrentProfile] = useState(null);
-  const [groupsLoading, setGroupsLoading] = useState(false);
-  const [groupsNotice, setGroupsNotice] = useState("");
-  const handleNav = (label) => {
-    setActiveNav(label);
-    onNavigate?.(NAV_TARGETS[label] || "friend-groups");
-  };
+  const [joinCode, setJoinCode] = useState("");
+  const [notice, setNotice] = useState("");
+  const [roastForm, setRoastForm] = useState({ target: "", caseAgainst: "" });
+
+  const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
 
   useEffect(() => {
-    setAppData?.((prev) => ({ ...prev, groups }));
-  }, [groups, setAppData]);
-
-  useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
-
-    let isActive = true;
-
-    async function loadAuthState() {
-      const { data } = await supabase.auth.getUser();
-      if (!isActive) return;
-      setCurrentUser(data.user || null);
+    if (!selectedGroup) return;
+    const me = selectedGroup.members.find((member) => member.name === currentName || member.username === `@${profile.username}`);
+    if (me && hasAvailability(profile.availability) && availabilityToText(me.availability) !== availabilityToText(profile.availability)) {
+      setAppData?.((prev) => ({
+        ...prev,
+        groups: prev.groups.map((group) => (
+          group.id === selectedGroup.id
+            ? {
+                ...group,
+                members: group.members.map((member) => (
+                  member.name === me.name ? { ...member, availability: profile.availability } : member
+                )),
+              }
+            : group
+        )),
+      }));
     }
+  }, [currentName, profile.availability, profile.username, selectedGroup, setAppData]);
 
-    loadAuthState();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user || null);
-    });
-
-    return () => {
-      isActive = false;
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isSupabaseConfigured || !currentUser?.id) {
-      queueMicrotask(() => setCurrentProfile(null));
+  const createGroup = () => {
+    if (!newGroupName.trim()) {
+      setNotice("Give the crew a name first.");
       return;
     }
-
-    let isActive = true;
-
-    async function loadProfile() {
-      const { data } = await supabase
-        .from("profiles")
-        .select("username, full_name")
-        .eq("id", currentUser.id)
-        .maybeSingle();
-
-      if (isActive) {
-        setCurrentProfile(data || null);
-      }
-    }
-
-    loadProfile();
-    return () => {
-      isActive = false;
-    };
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (!isSupabaseConfigured || !currentUser?.id) return undefined;
-
-    let isActive = true;
-
-    async function loadGroups() {
-      setGroupsLoading(true);
-      const { data, error } = await supabase
-        .from("groups")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!isActive) return;
-
-      if (error) {
-        setGroupsNotice(error.message);
-        setGroupsLoading(false);
-        return;
-      }
-
-      const nextGroups = (data || []).map(mapDbGroupToUi);
-      setGroups(nextGroups);
-      setGroupsLoading(false);
-      setGroupsNotice("");
-    }
-
-    loadGroups();
-
-    const channel = supabase
-      .channel("outsiders-groups")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "groups" },
-        () => {
-          loadGroups();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      isActive = false;
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser]);
-
-  useEffect(() => {
-    const requestedCode = (routeParams?.groupCode || "").toUpperCase();
-    if (requestedCode && selectedGroup?.code?.toUpperCase() !== requestedCode) {
-      const matched = groups.find((group) => group.code?.toUpperCase() === requestedCode);
-      if (matched) {
-        queueMicrotask(() => {
-          setSelectedGroup(matched);
-          setActiveTab("Invite Link");
-        });
-      }
-      return;
-    }
-
-    if (selectedGroup) {
-      const refreshed = groups.find((group) => group.id === selectedGroup.id);
-      queueMicrotask(() => setSelectedGroup(refreshed || null));
-      return;
-    }
-  }, [groups, routeParams, selectedGroup]);
-
-  useEffect(() => {
-    if (routeParams?.groupCode) {
-      queueMicrotask(() => setJoinCode(routeParams.groupCode));
-    }
-  }, [routeParams?.groupCode]);
-
-  const currentDisplayName = currentProfile?.full_name || currentUser?.user_metadata?.full_name || "You";
-  const currentUsername = currentProfile?.username || currentUser?.user_metadata?.username || "";
-  const requestedGroupCode = (routeParams?.groupCode || "").trim().toUpperCase();
-  const canManageSelectedGroup = Boolean(
-    selectedGroup && (
-      (currentUser?.id && selectedGroup.ownerId === currentUser.id) ||
-      (!currentUser?.id && (!selectedGroup.ownerId || selectedGroup.ownerId === "local-user"))
-    )
-  );
-  const isViewingInviteLink = Boolean(requestedGroupCode);
-  const inviteLink = selectedGroup ? buildGroupInviteLink(selectedGroup.code) : "";
-  const currentVoteKey = currentUser?.id || (currentUsername ? `username:${currentUsername}` : `name:${currentDisplayName}`);
-  const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
-  const billWatchVoteEntries = Object.entries(selectedBillWatch.votes || {});
-  const billWatchLeader = selectedGroup?.members?.reduce((best, member) => {
-    const memberVotes = billWatchVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
-    if (!best || memberVotes > best.votes) {
-      return { name: member.name, votes: memberVotes };
-    }
-    return best;
-  }, null);
-
-  async function persistGroup(nextGroup) {
-    if (isSupabaseConfigured && currentUser?.id) {
-      const { data, error } = await supabase
-        .from("groups")
-        .update(mapUiGroupToDb(nextGroup))
-        .eq("id", nextGroup.id)
-        .select("*")
-        .single();
-
-      if (error) {
-        setGroupsNotice(error.message);
-        return null;
-      }
-
-      const savedGroup = mapDbGroupToUi(data);
-      setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
-      setSelectedGroup(savedGroup);
-      return savedGroup;
-    }
-
-    setGroups((prev) => prev.map((group) => (group.id === nextGroup.id ? nextGroup : group)));
-    setSelectedGroup(nextGroup);
-    return nextGroup;
-  }
-
-  const handleCreateGroup = async () => {
-    if (!newGroupName.trim()) { setCreateError("Give your group a name!"); return; }
-    if (isSupabaseConfigured && !currentUser?.id) {
-      setCreateError(`Log in first to create a shared group. ${supabaseConfigError}`);
-      return;
-    }
-    const newGroup = {
-      id: Date.now(),
+    const nextGroup = {
+      id: createId("group"),
       name: newGroupName.trim(),
       emoji: newGroupEmoji,
+      code: generateCode(),
       members: [{
-        initials: getInitials(currentDisplayName),
-        name: currentDisplayName,
+        name: currentName,
+        initials: getInitials(currentName),
         role: "Admin",
-        username: currentUsername ? `@${currentUsername}` : "",
-        userId: currentUser?.id || "local-user",
+        username: profile.username ? `@${profile.username}` : "",
+        availability: profile.availability,
       }],
       pending: [],
-      color: GROUP_COLORS[groups.length % GROUP_COLORS.length],
-      colorIndex: groups.length % GROUP_COLORS.length,
-      code: generateCode(),
-      cases: [],
-      billWatch: {
-        electedMemberName: "",
-        votes: {},
-        checklist: [
-          "Track what each person paid",
-          "Check every split before people settle up",
-          "Post the final math after each hangout",
-        ],
-      },
-      peaceMaker: {
-        electedMemberName: "",
-        votes: {},
-        oath: "Hear both sides, cool the temperature, and push the room toward something fair.",
-      },
-      ownerId: currentUser?.id || "local-user",
-      ownerUsername: currentUsername,
+      hangoutProposals: [],
+      roastBoard: [],
+      billWatch: { electedMemberName: "", votes: {}, checklist: ["Track who paid", "Post the split", "Confirm balances"] },
     };
-
-    if (isSupabaseConfigured && currentUser?.id) {
-      const { data, error } = await supabase
-        .from("groups")
-        .insert(mapUiGroupToDb(newGroup))
-        .select("*")
-        .single();
-
-      if (error) {
-        setCreateError(error.message);
-        return;
-      }
-
-      const savedGroup = mapDbGroupToUi(data);
-      setGroups((prev) => [savedGroup, ...prev]);
-      setSelectedGroup(savedGroup);
-    } else {
-      setGroups(prev => [...prev, newGroup]);
-      setSelectedGroup(newGroup);
-    }
-    setShowCreateModal(false);
+    setAppData?.((prev) => ({ ...prev, groups: [...prev.groups, nextGroup] }));
+    setSelectedGroupId(nextGroup.id);
     setNewGroupName("");
-    setNewGroupEmoji("👥");
-    setCreateError("");
+    setNotice(`Created ${nextGroup.name}.`);
   };
 
-  const handleInvite = async () => {
-    if (!inviteUsername.trim()) { setInviteError("Enter a username!"); return; }
-    if (!selectedGroup) return;
+  const joinCrew = () => {
+    const code = joinCode.trim().toUpperCase();
+    const target = groups.find((group) => group.code === code);
+    if (!target) {
+      setNotice("No crew was found with that code.");
+      return;
+    }
+    const already = target.members.some((member) => member.name === currentName || member.username === `@${profile.username}`);
+    if (already) {
+      setSelectedGroupId(target.id);
+      setNotice("You are already in that crew.");
+      return;
+    }
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (
+        group.id === target.id
+          ? {
+              ...group,
+              members: [...group.members, {
+                name: currentName,
+                initials: getInitials(currentName),
+                role: "Member",
+                username: profile.username ? `@${profile.username}` : "",
+                availability: profile.availability,
+              }],
+            }
+          : group
+      )),
+    }));
+    setSelectedGroupId(target.id);
+    setJoinCode("");
+    setNotice(`Joined ${target.name}.`);
+  };
+
+  const inviteMember = () => {
+    if (!selectedGroup || !inviteUsername.trim()) {
+      setNotice("Add a username to invite.");
+      return;
+    }
     const username = inviteUsername.startsWith("@") ? inviteUsername : `@${inviteUsername}`;
-    const initials = getInitials(inviteUsername);
-    const newPending = { initials, name: inviteUsername, username };
-    const nextGroup = { ...selectedGroup, pending: [...selectedGroup.pending, newPending] };
-
-    if (isSupabaseConfigured && currentUser?.id) {
-      const { data, error } = await supabase
-        .from("groups")
-        .update(mapUiGroupToDb(nextGroup))
-        .eq("id", selectedGroup.id)
-        .select("*")
-        .single();
-
-      if (error) {
-        setInviteError(error.message);
-        return;
-      }
-
-      const savedGroup = mapDbGroupToUi(data);
-      setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
-      setSelectedGroup(savedGroup);
-    } else {
-      setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, pending: [...g.pending, newPending] } : g));
-      setSelectedGroup(prev => ({ ...prev, pending: [...prev.pending, newPending] }));
-    }
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (
+        group.id === selectedGroup.id
+          ? {
+              ...group,
+              pending: [...(group.pending || []), { username, name: username.replace(/^@/, ""), initials: getInitials(username) }],
+            }
+          : group
+      )),
+    }));
     setInviteUsername("");
-    setInviteSent(true);
-    setTimeout(() => setInviteSent(false), 2000);
-    setInviteError("");
+    setNotice(`${username} was added to pending invites.`);
   };
 
-  const handleRemoveMember = async (name) => {
+  const castProposalVote = (proposalId, category, optionId) => {
     if (!selectedGroup) return;
-    const nextGroup = { ...selectedGroup, members: selectedGroup.members.filter((member) => member.name !== name) };
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (
+        group.id === selectedGroup.id
+          ? {
+              ...group,
+              hangoutProposals: group.hangoutProposals.map((proposal) => (
+                proposal.id === proposalId
+                  ? {
+                      ...proposal,
+                      votes: {
+                        ...proposal.votes,
+                        [category]: {
+                          ...(proposal.votes?.[category] || {}),
+                          [currentUserKey]: optionId,
+                        },
+                      },
+                    }
+                  : proposal
+              )),
+            }
+          : group
+      )),
+    }));
+  };
 
-    if (isSupabaseConfigured && currentUser?.id) {
-      const { data } = await supabase
-        .from("groups")
-        .update(mapUiGroupToDb(nextGroup))
-        .eq("id", selectedGroup.id)
-        .select("*")
-        .single();
+  const finalizeProposal = (proposal) => {
+    if (!selectedGroup) return;
+    const winningTime = pickWinner(proposal.timeOptions, proposal.votes?.time);
+    const winningLocation = pickWinner(proposal.locationOptions, proposal.votes?.location);
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (
+        group.id === selectedGroup.id
+          ? {
+              ...group,
+              hangoutProposals: group.hangoutProposals.map((item) => (
+                item.id === proposal.id
+                  ? {
+                      ...item,
+                      status: "finalized",
+                      finalizedChoice: {
+                        time: winningTime || null,
+                        location: winningLocation || null,
+                      },
+                    }
+                  : item
+              )),
+            }
+          : group
+      )),
+    }));
+    setNotice(`${proposal.name} was finalized for the crew.`);
+  };
 
-      if (data) {
-        const savedGroup = mapDbGroupToUi(data);
-        setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
-        setSelectedGroup(savedGroup);
-      }
+  const postRoast = () => {
+    if (!selectedGroup || !roastForm.target || !roastForm.caseAgainst.trim()) {
+      setNotice("Pick a crew member and write your playful case against them.");
       return;
     }
-
-    setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, members: g.members.filter(m => m.name !== name) } : g));
-    setSelectedGroup(prev => ({ ...prev, members: prev.members.filter(m => m.name !== name) }));
-  };
-
-  const handleCancelInvite = async (username) => {
-    if (!selectedGroup) return;
-    const nextGroup = { ...selectedGroup, pending: selectedGroup.pending.filter((pendingInvite) => pendingInvite.username !== username) };
-
-    if (isSupabaseConfigured && currentUser?.id) {
-      const { data } = await supabase
-        .from("groups")
-        .update(mapUiGroupToDb(nextGroup))
-        .eq("id", selectedGroup.id)
-        .select("*")
-        .single();
-
-      if (data) {
-        const savedGroup = mapDbGroupToUi(data);
-        setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
-        setSelectedGroup(savedGroup);
-      }
-      return;
-    }
-
-    setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, pending: g.pending.filter(p => p.username !== username) } : g));
-    setSelectedGroup(prev => ({ ...prev, pending: prev.pending.filter(p => p.username !== username) }));
-  };
-
-  const handleBillWatchVote = async (memberName) => {
-    if (!selectedGroup) return;
-    const nextGroup = {
-      ...selectedGroup,
-      billWatch: {
-        ...selectedBillWatch,
-        electedMemberName: memberName,
-        votes: {
-          ...(selectedBillWatch.votes || {}),
-          [currentVoteKey]: memberName,
-        },
-      },
+    const roast = {
+      id: createId("roast"),
+      author: currentName,
+      target: roastForm.target,
+      caseAgainst: roastForm.caseAgainst.trim(),
+      createdAt: new Date().toISOString(),
     };
-
-    const savedGroup = await persistGroup(nextGroup);
-    if (!savedGroup) return;
-    setGroupsNotice(`${memberName} just got your Bill Watch vote.`);
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (
+        group.id === selectedGroup.id
+          ? { ...group, roastBoard: [roast, ...(group.roastBoard || [])] }
+          : group
+      )),
+    }));
+    setRoastForm({ target: "", caseAgainst: "" });
+    setNotice("Roast posted to the crew board.");
   };
 
-  const handleDeleteGroup = async () => {
-    if (!selectedGroup || !canManageSelectedGroup) return;
-    const confirmed = window.confirm(`Delete "${selectedGroup.name}"? This can't be undone.`);
-    if (!confirmed) return;
-
-    if (isSupabaseConfigured && currentUser?.id) {
-      const { error } = await supabase.from("groups").delete().eq("id", selectedGroup.id);
-      if (error) {
-        setGroupsNotice(error.message);
-        return;
-      }
-    }
-
-    setGroups((prev) => prev.filter((group) => group.id !== selectedGroup.id));
-    setSelectedGroup(null);
-    setActiveTab("Members");
+  const castBillWatchVote = (memberName) => {
+    if (!selectedGroup) return;
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (
+        group.id === selectedGroup.id
+          ? {
+              ...group,
+              billWatch: {
+                ...(group.billWatch || {}),
+                electedMemberName: memberName,
+                votes: {
+                  ...(group.billWatch?.votes || {}),
+                  [currentUserKey]: memberName,
+                },
+              },
+            }
+          : group
+      )),
+    }));
   };
 
-  const joinSelectedGroup = async (groupToJoin) => {
-    if (!groupToJoin) return false;
-    if (isSupabaseConfigured && !currentUser?.id) {
-      onNavigate?.("login", { redirect: "friend-groups", groupCode: groupToJoin.code });
-      return false;
-    }
-
-    const alreadyMember = groupToJoin.members.some(
-      (member) => member.userId === currentUser?.id || member.username === (currentUsername ? `@${currentUsername}` : "")
-    );
-
-    if (alreadyMember) {
-      setGroupsNotice("You're already in this crew.");
-      setSelectedGroup(groupToJoin);
-      setActiveTab("Members");
-      return true;
-    }
-
-    const joiningMember = normalizeMember({
-      name: currentDisplayName,
-      initials: getInitials(currentDisplayName),
-      role: "Member",
-      username: currentUsername ? `@${currentUsername}` : "",
-      userId: currentUser?.id || "local-user",
-    }, currentDisplayName);
-
-    const nextGroup = {
-      ...groupToJoin,
-      members: [...groupToJoin.members, joiningMember],
-      pending: groupToJoin.pending.filter((pendingInvite) => pendingInvite.username !== `@${currentUsername}`),
-    };
-
-    if (isSupabaseConfigured && currentUser?.id) {
-      const { data, error } = await supabase
-        .from("groups")
-        .update(mapUiGroupToDb(nextGroup))
-        .eq("id", groupToJoin.id)
-        .select("*")
-        .single();
-
-      if (error) {
-        setGroupsNotice(error.message);
-        return false;
-      }
-
-      const savedGroup = mapDbGroupToUi(data);
-      setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
-      setSelectedGroup(savedGroup);
-    } else {
-      setGroups((prev) => prev.map((group) => (group.id === groupToJoin.id ? nextGroup : group)));
-      setSelectedGroup(nextGroup);
-    }
-
-    setGroupsNotice(`You're now in ${groupToJoin.name}.`);
-    setActiveTab("Members");
-    return true;
-  };
-
-  const handleJoinFromInviteLink = async () => {
-    if (!selectedGroup) {
-      if (isSupabaseConfigured && !currentUser?.id) {
-        onNavigate?.("login", { redirect: "friend-groups", groupCode: requestedGroupCode });
-        return;
-      }
-      setGroupsNotice("That crew invite could not be found.");
-      return;
-    }
-    await joinSelectedGroup(selectedGroup);
-  };
-
-  const handleJoinByCode = async () => {
-    const normalizedCode = joinCode.trim().toUpperCase();
-    if (!normalizedCode) {
-      setJoinError("Enter a crew code.");
-      return;
-    }
-
-    const matchedGroup = groups.find((group) => group.code?.toUpperCase() === normalizedCode);
-    if (!matchedGroup) {
-      setJoinError(groupsLoading ? "Crews are still loading. Try again in a second." : "No crew found with that code.");
-      return;
-    }
-
-    setJoinError("");
-    const joined = await joinSelectedGroup(matchedGroup);
-    if (joined) {
-      setShowJoinModal(false);
-      setJoinCode("");
-    }
-  };
-
-  const copyCode = () => {
-    navigator.clipboard.writeText(selectedGroup.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(inviteLink);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
-  };
+  const billLeader = selectedGroup?.members?.reduce((best, member) => {
+    const votes = Object.values(selectedGroup.billWatch?.votes || {}).filter((value) => value === member.name).length;
+    if (!best || votes > best.count) return { name: member.name, count: votes };
+    return best;
+  }, null);
 
   return (
     <>
       <style>{STYLES}</style>
       <div className="root">
-
-        {/* Top Nav */}
-        <nav className="top-nav">
-          <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
-              <div className="logo-mark"><IconLogoMark /></div>
-              <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <button
-                onClick={() => onNavigate?.("landing")}
-                style={{ background: "#ffd93d", color: "#1a1a2e", border: "3px solid #1a1a2e", borderRadius: 10, padding: "8px 14px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.05em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
-              >
-                Log Out
-              </button>
-              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 11 }}>YOU</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
+        <div className="shell">
+          <div className="glass">
+            <button type="button" className="brand-btn" onClick={() => onNavigate?.("dashboard")}>
+              <div className="logo">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
               </div>
+              <div>
+                <div style={{ font: "800 22px 'Sora', sans-serif" }}>My Crew</div>
+                <div style={{ fontSize: 12, color: "#7a8294" }}>Proposal voting, invites, and roast board</div>
+              </div>
+            </button>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button type="button" className="btn ghost" onClick={() => onNavigate?.("create-hangout")}>New proposal</button>
+              <button type="button" className="btn ghost" onClick={() => onNavigate?.("profile")}>Availability</button>
             </div>
           </div>
-        </nav>
 
-        <div className="layout">
-
-          {/* Sidebar */}
-          <aside className="sidebar">
-            <p className="nav-section-label">Menu</p>
-            {NAV_ITEMS.map((item) => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
-                {item.icon} {item.label}
-              </div>
-            ))}
-          </aside>
-
-          {/* Main */}
-          <main className="main">
-
-            {/* Header */}
-            <div className="crew-hero">
-              <div>
-                <span className="comic-tag">Crew HQ</span>
-                <h1 className="bangers" style={{ fontSize: 38, margin: "0 0 6px", color: "#1a1a2e" }}>My Crew</h1>
-                <p style={{ fontSize: 14, color: "#666", fontWeight: 800, margin: "0 0 14px", maxWidth: 560 }}>Create a group, join one from an invite code, and keep the roster, links, votes, and planning details in one place.</p>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <span className="badge" style={{ background: "#e8f4fd", color: "#4ecdc4", borderColor: "#4ecdc4" }}>{groups.length} group{groups.length === 1 ? "" : "s"}</span>
-                  <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>
-                    {groups.reduce((count, group) => count + group.members.length, 0)} total member{groups.reduce((count, group) => count + group.members.length, 0) === 1 ? "" : "s"}
-                  </span>
-                </div>
-              </div>
-              <div className="crew-actions">
-                <button className="action-tile" onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
-                  <span className="action-icon" style={{ background: "#ffd93d" }}><IconUsers /></span>
-                  <span className="bangers" style={{ display: "block", fontSize: 19, color: "#1a1a2e", marginBottom: 4 }}>Join Crew</span>
-                  <span style={{ display: "block", fontSize: 12, fontWeight: 800, color: "#666" }}>Use an invite code or link.</span>
-                </button>
-                <button className="action-tile" onClick={() => setShowCreateModal(true)}>
-                  <span className="action-icon" style={{ background: "#ff6b6b", color: "#fff" }}><IconPlus /></span>
-                  <span className="bangers" style={{ display: "block", fontSize: 19, color: "#1a1a2e", marginBottom: 4 }}>Create Group</span>
-                  <span style={{ display: "block", fontSize: 12, fontWeight: 800, color: "#666" }}>Start a new crew space.</span>
-                </button>
-              </div>
+          <section className="glass hero">
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "#fff0c2", color: "#7b4e12", fontWeight: 700 }}>Crew HQ</div>
+              <h1 style={{ margin: 0, font: "800 40px 'Sora', sans-serif" }}>Every proposal, vote, invite, and playful callout now lives inside the crew.</h1>
+              <p style={{ margin: 0, maxWidth: 900, color: "#556077", lineHeight: 1.6 }}>
+                Crew members can propose hangouts, vote on every time and place option, manage outside invites in context, get notifications, and post a funny case against who should not be planning the next outing.
+              </p>
             </div>
+          </section>
 
-            {groupsNotice && (
-              <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "12px 16px", boxShadow: "4px 4px 0 #ff9a3c", marginBottom: 18 }}>
-                <p style={{ fontSize: 13, fontWeight: 800, color: "#7a4d00", margin: 0 }}>{groupsNotice}</p>
-              </div>
-            )}
+          {notice ? (
+            <div className="card" style={{ background: "linear-gradient(135deg, rgba(255,245,230,0.96), rgba(255,255,255,0.92))" }}>
+              <strong>{notice}</strong>
+            </div>
+          ) : null}
 
-            {isViewingInviteLink && !selectedGroup && (
-              <div style={{ background: "#fff", border: "3px solid #4ecdc4", borderRadius: 16, padding: "18px 20px", boxShadow: "5px 5px 0 #4ecdc4", marginBottom: 18 }}>
-                <p className="bangers" style={{ fontSize: 20, margin: "0 0 6px", color: "#1a1a2e" }}>Crew Invite Ready</p>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: "0 0 14px" }}>
-                  This invite code is {requestedGroupCode}. Log in or sign up, then you can join the crew from this same link.
-                </p>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button className="btn-primary" onClick={() => onNavigate?.("login", { redirect: "friend-groups", groupCode: requestedGroupCode })}>
-                    Log In To Join
-                  </button>
-                  <button className="btn-outline" onClick={() => onNavigate?.("signup", { redirect: "friend-groups", groupCode: requestedGroupCode })}>
-                    Sign Up
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="crew-grid">
-
-              {/* Group list */}
-              <div className="group-list-panel">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                  <p className="bangers" style={{ fontSize: 14, color: "#888", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Your Groups</p>
-                  <button className="btn-outline" style={{ padding: "7px 10px", fontSize: 13 }} onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
-                    Join
-                  </button>
-                </div>
-                {groups.length === 0 && (
-                  <div className="empty-crew">
-                    <p style={{ fontSize: 30, margin: "0 0 8px" }}>👥</p>
-                    <p className="bangers" style={{ fontSize: 20, color: "#1a1a2e", margin: "0 0 6px" }}>No crews yet</p>
-                    <p style={{ fontSize: 13, fontWeight: 800, color: "#555", margin: "0 0 14px" }}>Create a group or join one with an invite code.</p>
-                    <div style={{ display: "grid", gap: 10 }}>
-                      <button className="btn-secondary" style={{ justifyContent: "center" }} onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
-                        <IconUsers /> Join Crew
-                      </button>
-                      <button className="btn-primary" style={{ justifyContent: "center" }} onClick={() => setShowCreateModal(true)}>
-                        <IconPlus /> Create New Group
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {groupsLoading && (
-                  <div style={{ border: "3px dashed #4ecdc4", borderRadius: 16, padding: "18px", textAlign: "center", background: "#e8f4fd" }}>
-                    <p className="bangers" style={{ fontSize: 16, color: "#1a1a2e", margin: "0 0 6px" }}>Loading your shared crews...</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#666", margin: 0 }}>Pulling the latest groups from Supabase.</p>
-                  </div>
-                )}
-                {groups.map((g) => (
-                  <div
-                    key={g.id}
-                    className="group-card"
-                    style={{
-                      background: selectedGroup?.id === g.id ? g.color.bg : "#fff",
-                      borderColor: selectedGroup?.id === g.id ? g.color.border : "#1a1a2e",
-                      boxShadow: `5px 5px 0 ${selectedGroup?.id === g.id ? g.color.border : "#1a1a2e"}`,
-                    }}
-                    onClick={() => { setSelectedGroup(g); setActiveTab("Members"); }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                      <div style={{ width: 44, height: 44, background: g.color.bg, border: `3px solid ${g.color.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: `3px 3px 0 ${g.color.border}` }}>
-                        {g.emoji}
-                      </div>
-                      <div>
-                        <p className="bangers" style={{ fontSize: 17, margin: 0, color: "#1a1a2e" }}>{g.name}</p>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: 0 }}>{g.members.length} members</p>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: -6 }}>
-                      {g.members.slice(0, 4).map((m, j) => (
-                        <div key={m.name} className="avatar-sm" style={{ background: AVATAR_COLORS[j], marginLeft: j > 0 ? -8 : 0, border: "2px solid #fff", zIndex: 4 - j }}>
-                          {m.initials}
-                        </div>
-                      ))}
-                      {g.pending.length > 0 && (
-                        <span style={{ fontSize: 11, fontWeight: 800, color: "#ff9a3c", marginLeft: 10, alignSelf: "center" }}>
-                          {g.pending.length} pending
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {groups.length > 0 && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <button className="btn-secondary" style={{ justifyContent: "center", padding: "10px 12px" }} onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
-                      <IconUsers /> Join
-                    </button>
-                    <button className="btn-primary" style={{ justifyContent: "center", padding: "10px 12px" }} onClick={() => setShowCreateModal(true)}>
-                      <IconPlus /> New
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Group detail */}
-              {selectedGroup && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-                  {/* Group header card */}
-                  <div className="card" style={{ background: selectedGroup.color.bg, borderColor: selectedGroup.color.border, boxShadow: `5px 5px 0 ${selectedGroup.color.border}` }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                        <div style={{ width: 56, height: 56, background: "#fff", border: `3px solid ${selectedGroup.color.border}`, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, boxShadow: `4px 4px 0 ${selectedGroup.color.border}` }}>
-                          {selectedGroup.emoji}
-                        </div>
+          <div className="layout">
+            <aside className="sidebar-stack">
+              <div className="card">
+                <h2 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Your crews</h2>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {groups.map((group, index) => (
+                    <button key={group.id} type="button" className={`crew-card ${selectedGroup?.id === group.id ? "active" : ""}`} onClick={() => setSelectedGroupId(group.id)}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                         <div>
-                          <h2 className="bangers" style={{ fontSize: 26, margin: 0, color: "#1a1a2e" }}>{selectedGroup.name}</h2>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#666", margin: 0 }}>
-                            {selectedGroup.members.length} members · {selectedGroup.pending.length} pending
-                            {selectedGroup.ownerUsername ? ` · Created by @${selectedGroup.ownerUsername}` : ""}
-                          </p>
+                          <strong style={{ display: "block", fontSize: 18 }}>{group.emoji} {group.name}</strong>
+                          <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} proposals</span>
                         </div>
+                        <div style={{ width: 14, height: 14, borderRadius: 999, background: GROUP_COLORS[index % GROUP_COLORS.length] }} />
                       </div>
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <button className="btn-secondary" onClick={() => setShowInviteModal(true)}>
-                          <IconPlus /> Invite
+                    </button>
+                  ))}
+                  {!groups.length ? <p style={{ margin: 0, color: "#667085" }}>No crews yet. Create one below.</p> : null}
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 style={{ margin: "0 0 12px", font: "800 20px 'Sora', sans-serif" }}>Create a crew</h3>
+                <div className="field">
+                  <label>crew name</label>
+                  <input value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} placeholder="Downtown Day Ones" />
+                </div>
+                <div className="field" style={{ marginTop: 12 }}>
+                  <label>emoji</label>
+                  <select value={newGroupEmoji} onChange={(event) => setNewGroupEmoji(event.target.value)}>
+                    {["👥", "🎉", "🍕", "🏝", "🎮", "🌆", "🛼", "🎬"].map((emoji) => <option key={emoji} value={emoji}>{emoji}</option>)}
+                  </select>
+                </div>
+                <button type="button" className="btn primary" style={{ width: "100%", marginTop: 14 }} onClick={createGroup}>Create crew</button>
+              </div>
+
+              <div className="card">
+                <h3 style={{ margin: "0 0 12px", font: "800 20px 'Sora', sans-serif" }}>Join by code</h3>
+                <div className="field">
+                  <label>crew code</label>
+                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="ABC123" />
+                </div>
+                <button type="button" className="btn secondary" style={{ width: "100%", marginTop: 14 }} onClick={joinCrew}>Join crew</button>
+              </div>
+            </aside>
+
+            <section className="detail-stack">
+              {selectedGroup ? (
+                <>
+                  <div className="card">
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+                      <div>
+                        <h2 style={{ margin: "0 0 8px", font: "800 30px 'Sora', sans-serif" }}>{selectedGroup.emoji} {selectedGroup.name}</h2>
+                        <p style={{ margin: 0, color: "#667085" }}>{selectedGroup.members.length} members · crew code {selectedGroup.code}</p>
+                      </div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <span style={{ borderRadius: 999, padding: "10px 12px", background: "#eefdf5", color: "#0f766e", fontWeight: 700 }}>{selectedGroup.hangoutProposals?.length || 0} active proposals</span>
+                        <span style={{ borderRadius: 999, padding: "10px 12px", background: "#fff5e6", color: "#9a6700", fontWeight: 700 }}>{selectedGroup.pending?.length || 0} pending invites</span>
+                      </div>
+                    </div>
+                    <div className="tab-row" style={{ marginTop: 16 }}>
+                      {["Proposals", "Members", "Invites", "Roast Board", "Bill Watch"].map((tab) => (
+                        <button key={tab} type="button" className={`tab-btn ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
+                          {tab}
                         </button>
-                        {canManageSelectedGroup && (
-                          <button className="btn-danger" onClick={handleDeleteGroup}>
-                            Delete Group
-                          </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {activeTab === "Proposals" ? (
+                    <div className="card">
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+                        <div>
+                          <h3 style={{ margin: "0 0 6px", font: "800 24px 'Sora', sans-serif" }}>Hangout proposals</h3>
+                          <p style={{ margin: 0, color: "#667085" }}>Every crew member can see and vote on each proposal below.</p>
+                        </div>
+                        <button type="button" className="btn primary" onClick={() => onNavigate?.("create-hangout")}>Propose a hangout</button>
+                      </div>
+                      <div className="vote-grid">
+                        {selectedGroup.hangoutProposals?.length ? selectedGroup.hangoutProposals.map((proposal) => {
+                          const topTime = pickWinner(proposal.timeOptions, proposal.votes?.time);
+                          const topLocation = pickWinner(proposal.locationOptions, proposal.votes?.location);
+                          return (
+                            <div key={proposal.id} className="proposal-card">
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginBottom: 12 }}>
+                                <div>
+                                  <strong style={{ display: "block", fontSize: 20 }}>{proposal.name}</strong>
+                                  <span style={{ color: "#667085", fontWeight: 700 }}>Proposed by {proposal.proposerName}</span>
+                                </div>
+                                <span style={{ borderRadius: 999, padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700", fontWeight: 700 }}>{proposal.status}</span>
+                              </div>
+                              <p style={{ margin: "0 0 12px", color: "#475467" }}>{proposal.description || "No extra description added."}</p>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                                <div>
+                                  <strong style={{ display: "block", marginBottom: 8 }}>Vote the best time</strong>
+                                  <div className="vote-grid">
+                                    {proposal.timeOptions.map((option) => (
+                                      <button key={option.id} type="button" className={`vote-btn ${proposal.votes?.time?.[currentUserKey] === option.id ? "active" : ""}`} onClick={() => castProposalVote(proposal.id, "time", option.id)}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                          <span>{option.label}</span>
+                                          <strong>{countVotes(proposal.votes?.time, option.id)}</strong>
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <strong style={{ display: "block", marginBottom: 8 }}>Vote the best place</strong>
+                                  <div className="vote-grid">
+                                    {proposal.locationOptions.map((option) => (
+                                      <button key={option.id} type="button" className={`vote-btn ${proposal.votes?.location?.[currentUserKey] === option.id ? "active" : ""}`} onClick={() => castProposalVote(proposal.id, "location", option.id)}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                          <span>{option.label}</span>
+                                          <strong>{countVotes(proposal.votes?.location, option.id)}</strong>
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginTop: 14, alignItems: "center" }}>
+                                <div style={{ color: "#667085", fontWeight: 700 }}>
+                                  Top time: {topTime?.label || "No votes yet"}<br />
+                                  Top place: {topLocation?.label || "No votes yet"}
+                                </div>
+                                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                  <span style={{ borderRadius: 999, padding: "10px 12px", background: "#eef8ff", color: "#155e75", fontWeight: 700 }}>{proposal.externalInvites?.length || 0} outside invite{proposal.externalInvites?.length === 1 ? "" : "s"}</span>
+                                  {proposal.status !== "finalized" ? <button type="button" className="btn secondary" onClick={() => finalizeProposal(proposal)}>Finalize leading pick</button> : null}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }) : (
+                          <div className="proposal-card">
+                            <strong>No hangout proposals yet.</strong>
+                            <p style={{ margin: "8px 0 0", color: "#667085" }}>Any member can post one from the hangout proposal screen.</p>
+                          </div>
                         )}
                       </div>
                     </div>
-                    {isViewingInviteLink && routeParams?.groupCode?.toUpperCase() === selectedGroup.code?.toUpperCase() && (
-                      <div style={{ marginTop: 14, background: "#fff", border: `3px solid ${selectedGroup.color.border}`, borderRadius: 12, padding: "14px 16px", boxShadow: `4px 4px 0 ${selectedGroup.color.border}` }}>
-                        <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px", color: "#1a1a2e" }}>Invite Link Opened</p>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: "0 0 12px" }}>
-                          This link points to {selectedGroup.name}. Log in, then tap below to join this crew.
-                        </p>
-                        <button className="btn-primary" style={{ width: "auto" }} onClick={handleJoinFromInviteLink}>
-                          Join This Crew
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  ) : null}
 
-                  {/* Tabs */}
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {["Members", "Pending", "Invite Link", "Bill Watch"].map(t => (
-                      <button key={t} className={`tab ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>
-                        {t} {t === "Pending" && selectedGroup.pending.length > 0 && `(${selectedGroup.pending.length})`}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Tab content */}
-                  {activeTab === "Members" && (
+                  {activeTab === "Members" ? (
                     <div className="card">
-                      <div className="section-header">
-                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Members ({selectedGroup.members.length})</h3>
-                      </div>
-                      {selectedGroup.members.map((m, i) => (
-                        <div key={m.name} className="member-row">
-                          <div className="avatar" style={{ background: AVATAR_COLORS[i] }}>{m.initials}</div>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{m.name}</p>
+                      <h3 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Crew members</h3>
+                      <div className="member-list">
+                        {selectedGroup.members.map((member) => (
+                          <div key={`${member.name}-${member.username || ""}`} className="member-row">
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                              <div>
+                                <strong style={{ display: "block" }}>{member.name}</strong>
+                                <span style={{ color: "#667085", fontWeight: 700 }}>{member.role || "Member"} {member.username ? `· ${member.username}` : ""}</span>
+                              </div>
+                              <span style={{ borderRadius: 999, padding: "8px 12px", background: hasAvailability(member.availability) ? "#eefdf5" : "#fff5e6", color: hasAvailability(member.availability) ? "#0f766e" : "#9a6700", fontWeight: 700 }}>
+                                {hasAvailability(member.availability) ? "Availability set" : "Availability missing"}
+                              </span>
+                            </div>
+                            <p style={{ margin: "10px 0 0", color: "#667085" }}>{availabilityToText(member.availability)}</p>
                           </div>
-                          <span className="badge" style={{
-                            background: m.role === "Admin" ? "#fff4e6" : "#e8f4fd",
-                            color: m.role === "Admin" ? "#ff9a3c" : "#4ecdc4",
-                            borderColor: m.role === "Admin" ? "#ff9a3c" : "#4ecdc4",
-                          }}>{m.role}</span>
-                          {canManageSelectedGroup && m.role !== "Admin" && (
-                            <button className="btn-danger" onClick={() => handleRemoveMember(m.name)}>Remove</button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeTab === "Pending" && (
-                    <div className="card">
-                      <div className="section-header">
-                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Pending Invites ({selectedGroup.pending.length})</h3>
-                      </div>
-                      {selectedGroup.pending.length === 0 ? (
-                        <div style={{ textAlign: "center", padding: "32px 0" }}>
-                          <p style={{ fontSize: 32, margin: "0 0 8px" }}>🎉</p>
-                          <p className="bangers" style={{ fontSize: 18, color: "#aaa", margin: 0 }}>No pending invites!</p>
-                        </div>
-                      ) : selectedGroup.pending.map((p) => (
-                        <div key={p.username} className="pending-row">
-                          <div className="avatar" style={{ background: "#ffd93d", color: "#1a1a2e" }}>{p.initials}</div>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{p.username}</p>
-                            <p style={{ fontSize: 12, fontWeight: 700, color: "#ff9a3c", margin: 0 }}>⏳ Invite pending</p>
-                          </div>
-                          {canManageSelectedGroup ? <button className="btn-danger" onClick={() => handleCancelInvite(p.username)}>Cancel</button> : null}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeTab === "Bill Watch" && (
-                    <div className="card">
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-                        <div>
-                          <h3 className="bangers" style={{ fontSize: 20, margin: "0 0 4px" }}>Bill Watch Roster 🧮</h3>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Vote for the most observant and trustworthy person to track every hangout split.</p>
-                        </div>
-                        <span className="badge" style={{ background: "#e8f4fd", color: "#4ecdc4", borderColor: "#4ecdc4" }}>
-                          {billWatchLeader?.name ? `${billWatchLeader.name} leading` : "No votes yet"}
-                        </span>
-                      </div>
-
-                      <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff9a3c", marginBottom: 18 }}>
-                        <p className="bangers" style={{ fontSize: 14, margin: "0 0 8px" }}>Money job checklist</p>
-                        {(selectedBillWatch.checklist || []).map((item) => (
-                          <p key={item} style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: "0 0 6px" }}>• {item}</p>
                         ))}
                       </div>
+                    </div>
+                  ) : null}
 
-                      <div style={{ display: "grid", gap: 12 }}>
-                        {selectedGroup.members.map((member, index) => {
-                          const voteCount = billWatchVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
-                          const isMyVote = selectedBillWatch.votes?.[currentVoteKey] === member.name;
-                          const isLeader = billWatchLeader?.name === member.name && voteCount > 0;
+                  {activeTab === "Invites" ? (
+                    <div className="card">
+                      <h3 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Crew invites</h3>
+                      <div className="field">
+                        <label>Invite username</label>
+                        <input value={inviteUsername} onChange={(event) => setInviteUsername(event.target.value)} placeholder="theirusername" />
+                      </div>
+                      <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+                        <button type="button" className="btn primary" onClick={inviteMember}>Add pending invite</button>
+                        <button type="button" className="btn ghost" onClick={() => navigator.clipboard.writeText(buildGroupInviteLink(selectedGroup.code))}>Copy invite link</button>
+                      </div>
+                      <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
+                        {selectedGroup.pending?.length ? selectedGroup.pending.map((invite) => (
+                          <div key={invite.username} className="pending-row">
+                            <strong>{invite.username}</strong>
+                          </div>
+                        )) : <div className="pending-row"><strong>No pending invites.</strong></div>}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {activeTab === "Roast Board" ? (
+                    <div className="card">
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+                        <div>
+                          <h3 style={{ margin: "0 0 6px", font: "800 24px 'Sora', sans-serif" }}>Make a Case Against 🔥</h3>
+                          <p style={{ margin: 0, color: "#667085" }}>A lighthearted board for nominating who should absolutely not plan the next hangout.</p>
+                        </div>
+                      </div>
+                      <div className="field">
+                        <label>Who are we calling out?</label>
+                        <select value={roastForm.target} onChange={(event) => setRoastForm((prev) => ({ ...prev, target: event.target.value }))}>
+                          <option value="">Choose a crew member</option>
+                          {selectedGroup.members.filter((member) => member.name !== currentName).map((member) => (
+                            <option key={member.name} value={member.name}>{member.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field" style={{ marginTop: 14 }}>
+                        <label>Your playful argument</label>
+                        <textarea value={roastForm.caseAgainst} onChange={(event) => setRoastForm((prev) => ({ ...prev, caseAgainst: event.target.value }))} placeholder="Example: They said 'let's just wing it' and then disappeared for three hours. Respectfully, no." />
+                      </div>
+                      <button type="button" className="btn primary" style={{ marginTop: 14 }} onClick={postRoast}>Post to roast board</button>
+                      <div className="roast-list" style={{ marginTop: 18 }}>
+                        {selectedGroup.roastBoard?.length ? selectedGroup.roastBoard.map((entry) => (
+                          <div key={entry.id} className="roast-card">
+                            <strong>{entry.target} should not plan the next one.</strong>
+                            <p style={{ margin: "10px 0 10px", color: "#475467", lineHeight: 1.6 }}>{entry.caseAgainst}</p>
+                            <span style={{ color: "#667085", fontWeight: 700 }}>Posted by {entry.author}</span>
+                          </div>
+                        )) : (
+                          <div className="roast-card">
+                            <strong>No one has been called out yet.</strong>
+                            <p style={{ margin: "8px 0 0", color: "#667085" }}>Keep it funny, keep it crew-safe, and make your case.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {activeTab === "Bill Watch" ? (
+                    <div className="card">
+                      <h3 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Bill Watch</h3>
+                      <p style={{ margin: "0 0 16px", color: "#667085" }}>Existing crew money-role voting still works here too.</p>
+                      <div className="vote-grid">
+                        {selectedGroup.members.map((member) => {
+                          const totalVotes = Object.values(selectedGroup.billWatch?.votes || {}).filter((value) => value === member.name).length;
+                          const isMine = selectedGroup.billWatch?.votes?.[currentUserKey] === member.name;
                           return (
-                            <div key={member.name} style={{ border: "3px solid #1a1a2e", borderRadius: 14, padding: "14px 16px", boxShadow: "4px 4px 0 #1a1a2e", background: isLeader ? "#e8fde8" : "#fff" }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                  <div className="avatar" style={{ background: AVATAR_COLORS[index % AVATAR_COLORS.length] }}>{member.initials}</div>
-                                  <div>
-                                    <p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{member.name}</p>
-                                    <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: 0 }}>
-                                      {voteCount} crew vote{voteCount === 1 ? "" : "s"} {isMyVote ? "· You picked them" : ""}
-                                    </p>
-                                  </div>
+                            <div key={member.name} className="bill-card">
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                <div>
+                                  <strong style={{ display: "block" }}>{member.name}</strong>
+                                  <span style={{ color: "#667085", fontWeight: 700 }}>{totalVotes} vote{totalVotes === 1 ? "" : "s"} {isMine ? "· your pick" : ""}</span>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                  {isLeader ? <span className="badge" style={{ background: "#e8fde8", color: "#51cf66", borderColor: "#51cf66" }}>Top Pick</span> : null}
-                                  <button className="btn-secondary" style={{ fontSize: 14, padding: "8px 14px" }} onClick={() => handleBillWatchVote(member.name)}>
-                                    {isMyVote ? "Change Vote" : "Vote For This Person"}
-                                  </button>
-                                </div>
+                                <button type="button" className="btn secondary" onClick={() => castBillWatchVote(member.name)}>Vote for this person</button>
                               </div>
                             </div>
                           );
                         })}
                       </div>
-
-                      {selectedBillWatch.electedMemberName ? (
-                        <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #4ecdc4", marginTop: 18 }}>
-                          <p className="bangers" style={{ fontSize: 14, margin: "0 0 6px" }}>Current designated tracker</p>
-                          <p style={{ fontSize: 15, fontWeight: 900, color: "#1a1a2e", margin: 0 }}>{selectedBillWatch.electedMemberName}</p>
-                        </div>
-                      ) : null}
+                      {billLeader?.name ? <p style={{ margin: "16px 0 0", color: "#0f766e", fontWeight: 700 }}>{billLeader.name} is currently leading Bill Watch.</p> : null}
                     </div>
-                  )}
-
-                  {activeTab === "Invite Link" && (
-                    <div className="card">
-                      <h3 className="bangers" style={{ fontSize: 20, margin: "0 0 20px" }}>Share Invite 🔗</h3>
-
-                      {/* Code */}
-                      <div style={{ marginBottom: 20 }}>
-                        <p className="form-label">Group Code</p>
-                        <div style={{ background: "#1a1a2e", color: "#ffd93d", border: "4px solid #1a1a2e", borderRadius: 12, padding: "16px", textAlign: "center", fontFamily: "'Bangers', cursive", fontSize: 40, letterSpacing: "0.3em", boxShadow: "5px 5px 0 #ff6b6b", marginBottom: 10 }}>
-                          {selectedGroup.code}
-                        </div>
-                        <button className="btn-outline" style={{ width: "100%", justifyContent: "center" }} onClick={copyCode}>
-                          {copied ? <><IconCheck /> Copied!</> : <><IconCopy /> Copy Code</>}
-                        </button>
-                      </div>
-
-                      {/* Link */}
-                      <div>
-                        <p className="form-label">Invite Link</p>
-                        <div className="link-box" style={{ marginBottom: 10 }}>
-                          {inviteLink}
-                        </div>
-                        <button className="btn-outline" style={{ width: "100%", justifyContent: "center" }} onClick={copyLink}>
-                          {linkCopied ? <><IconCheck /> Copied!</> : <><IconCopy /> Copy Link</>}
-                        </button>
-                      </div>
-
-                      <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 12, padding: "14px 16px", marginTop: 20, boxShadow: "4px 4px 0 #4ecdc4" }}>
-                        <p className="bangers" style={{ fontSize: 14, margin: "0 0 4px", letterSpacing: "0.04em" }}>How it works:</p>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>Send the code or this link. When your friend logs in on Outsiders, the link opens this crew and lets them join it.</p>
-                      </div>
-                    </div>
-                  )}
+                  ) : null}
+                </>
+              ) : (
+                <div className="card">
+                  <strong>No crew selected.</strong>
+                  <p style={{ margin: "8px 0 0", color: "#667085" }}>Create a crew or join one with a code to start planning.</p>
                 </div>
               )}
-              {!selectedGroup && (
-                <div className="card" style={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", background: "#fffdf9" }}>
-                  <div style={{ maxWidth: 420 }}>
-                    <div style={{ width: 70, height: 70, border: "3px solid #1a1a2e", borderRadius: 18, boxShadow: "4px 4px 0 #1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", background: "#ffd93d", fontSize: 32 }}>
-                      👥
-                    </div>
-                    <p className="bangers" style={{ fontSize: 26, margin: "0 0 8px", color: "#1a1a2e" }}>Pick Or Join A Crew</p>
-                    <p style={{ fontSize: 14, fontWeight: 800, color: "#666", margin: "0 0 18px" }}>Select a group from the left, paste an invite code, or create a new group for your people.</p>
-                    <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-                      <button className="btn-secondary" onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
-                        <IconUsers /> Join Crew
-                      </button>
-                      <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-                        <IconPlus /> Create Group
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </main>
+            </section>
+          </div>
         </div>
-
-        {/* ── Create Group Modal ── */}
-        {showCreateModal && (
-          <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <button className="close-btn" onClick={() => setShowCreateModal(false)}>✕</button>
-              <div style={{ textAlign: "center", marginBottom: 24 }}>
-                <span className="comic-tag">New group! 🎉</span>
-                <h2 className="bangers" style={{ fontSize: 32, margin: "8px 0 4px" }}>Create A Group</h2>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Give your crew a name and pick an emoji.</p>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div>
-                  <label className="form-label">Group Name</label>
-                  <input className="form-input" type="text" placeholder="e.g. College Crew" value={newGroupName} onChange={e => { setNewGroupName(e.target.value); setCreateError(""); }} />
-                  {createError && <p className="error-msg">{createError}</p>}
-                </div>
-                <div>
-                  <label className="form-label">Pick An Emoji</label>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {["👥", "🎓", "💼", "🏖", "🎉", "🏠", "🎮", "🍕", "✈️", "🏋️"].map(e => (
-                      <button
-                        key={e}
-                        onClick={() => setNewGroupEmoji(e)}
-                        style={{
-                          width: 44, height: 44, fontSize: 22, cursor: "pointer",
-                          background: newGroupEmoji === e ? "#ffd93d" : "#fff",
-                          border: `3px solid ${newGroupEmoji === e ? "#1a1a2e" : "#e0dbd0"}`,
-                          borderRadius: 10,
-                          boxShadow: newGroupEmoji === e ? "3px 3px 0 #1a1a2e" : "none",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {e}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px", marginTop: 8 }} onClick={handleCreateGroup}>
-                  Create Group 🚀
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Join Crew Modal ── */}
-        {showJoinModal && (
-          <div className="modal-overlay" onClick={() => setShowJoinModal(false)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <button className="close-btn" onClick={() => setShowJoinModal(false)}>✕</button>
-              <div style={{ textAlign: "center", marginBottom: 24 }}>
-                <span className="comic-tag">Got a code?</span>
-                <h2 className="bangers" style={{ fontSize: 32, margin: "8px 0 4px" }}>Join A Crew</h2>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Paste the crew code from your invitation.</p>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div>
-                  <label className="form-label">Crew Code</label>
-                  <input
-                    className="form-input"
-                    type="text"
-                    placeholder="ABC123"
-                    value={joinCode}
-                    onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); }}
-                    onKeyDown={e => e.key === "Enter" && handleJoinByCode()}
-                    style={{ textTransform: "uppercase", letterSpacing: "0.16em", textAlign: "center" }}
-                  />
-                  {joinError && <p className="error-msg">{joinError}</p>}
-                </div>
-                {isSupabaseConfigured && !currentUser?.id ? (
-                  <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={() => onNavigate?.("login", { redirect: "friend-groups", groupCode: joinCode.trim().toUpperCase() })}>
-                    Log In To Join
-                  </button>
-                ) : (
-                  <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={handleJoinByCode}>
-                    Join Crew
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Invite Modal ── */}
-        {showInviteModal && (
-          <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <button className="close-btn" onClick={() => setShowInviteModal(false)}>✕</button>
-              <div style={{ textAlign: "center", marginBottom: 24 }}>
-                <span className="comic-tag">Grow the crew! 👥</span>
-                <h2 className="bangers" style={{ fontSize: 32, margin: "8px 0 4px" }}>Invite Someone</h2>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Enter their Outsiders username to send an invite.</p>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div>
-                  <label className="form-label">Username</label>
-                  <div style={{ position: "relative" }}>
-                    <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontWeight: 900, color: "#aaa", fontSize: 16 }}>@</span>
-                    <input className="form-input" type="text" placeholder="theirusername" value={inviteUsername} onChange={e => { setInviteUsername(e.target.value); setInviteError(""); setInviteSent(false); }} style={{ paddingLeft: 30 }} onKeyDown={e => e.key === "Enter" && handleInvite()} />
-                  </div>
-                  {inviteError && <p className="error-msg">{inviteError}</p>}
-                  {inviteSent && <p style={{ fontFamily: "'Bangers', cursive", fontSize: 15, color: "#51cf66", marginTop: 6, letterSpacing: "0.04em" }}>✅ Invite sent!</p>}
-                </div>
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={handleInvite}>
-                  Send Invite 📨
-                </button>
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 13, color: "#888", fontWeight: 700, margin: "0 0 8px" }}>Or share the group code:</p>
-                  <div style={{ background: "#1a1a2e", color: "#ffd93d", borderRadius: 10, padding: "10px", fontFamily: "'Bangers', cursive", fontSize: 28, letterSpacing: "0.2em", boxShadow: "4px 4px 0 #ff6b6b" }}>
-                    {selectedGroup.code}
-                  </div>
-                  <div className="link-box" style={{ marginTop: 12 }}>{inviteLink}</div>
-                  <button className="btn-outline" style={{ width: "100%", justifyContent: "center", marginTop: 12 }} onClick={copyLink}>
-                    {linkCopied ? <><IconCheck /> Copied Link!</> : <><IconCopy /> Copy Invite Link</>}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
     </>
   );

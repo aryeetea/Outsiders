@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DEFAULT_PROFILE, normalizeAppData, persistStoredProfile, profileNeedsAvailability } from "./appState";
 import OutsidersBillSplit from "./OutsidersBillSplit";
 import OutsidersCreateHangout from "./OutsidersCreateHangout";
 import OutsidersDashboard from "./OutsidersDashboard";
@@ -18,6 +19,7 @@ const DEFAULT_SCREEN = "landing";
 const APP_DATA_STORAGE_KEY = "outsiders-app-data";
 const LAST_APP_ROUTE_STORAGE_KEY = "outsiders-last-app-route";
 const PUBLIC_SCREENS = new Set(["landing", "login", "signup"]);
+const AVAILABILITY_FRIENDLY_SCREENS = new Set(["profile"]);
 
 const SCREEN_COMPONENTS = {
   "landing": OutsidersLanding,
@@ -52,21 +54,14 @@ function getRouteFromLocation() {
 }
 
 function getInitialAppData() {
-  if (typeof window === "undefined") {
-    return { groups: [], hangouts: [], trips: [] };
-  }
+  if (typeof window === "undefined") return normalizeAppData({ profile: DEFAULT_PROFILE });
 
   try {
     const saved = window.localStorage.getItem(APP_DATA_STORAGE_KEY);
-    if (!saved) return { groups: [], hangouts: [], trips: [] };
-    const parsed = JSON.parse(saved);
-    return {
-      groups: Array.isArray(parsed?.groups) ? parsed.groups : [],
-      hangouts: Array.isArray(parsed?.hangouts) ? parsed.hangouts : [],
-      trips: Array.isArray(parsed?.trips) ? parsed.trips : [],
-    };
+    if (!saved) return normalizeAppData({});
+    return normalizeAppData(JSON.parse(saved));
   } catch {
-    return { groups: [], hangouts: [], trips: [] };
+    return normalizeAppData({});
   }
 }
 
@@ -109,6 +104,7 @@ export default function App() {
 
   useEffect(() => {
     window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData));
+    persistStoredProfile(appData.profile, appData.avatar);
   }, [appData]);
 
   useEffect(() => {
@@ -175,9 +171,77 @@ export default function App() {
   };
 
   const Screen = SCREEN_COMPONENTS[route.screen];
+  const availabilityRequired = !PUBLIC_SCREENS.has(route.screen)
+    && !AVAILABILITY_FRIENDLY_SCREENS.has(route.screen)
+    && profileNeedsAvailability(appData.profile);
+
   return (
     <>
+      <style>{`
+        .availability-gate {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.58);
+          backdrop-filter: blur(10px);
+          z-index: 500;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          animation: fadeIn 220ms ease;
+        }
+        .availability-gate-card {
+          width: min(540px, 100%);
+          background: linear-gradient(145deg, #fffaf0 0%, #ffffff 60%, #f4fbff 100%);
+          border: 3px solid #1a1a2e;
+          border-radius: 28px;
+          box-shadow: 0 28px 80px rgba(26, 26, 46, 0.22);
+          padding: 28px;
+          color: #1a1a2e;
+          animation: liftIn 320ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .availability-gate-btn {
+          width: 100%;
+          border: 3px solid #1a1a2e;
+          border-radius: 16px;
+          background: linear-gradient(135deg, #ff6b6b, #ff9671);
+          color: #fff;
+          font: 900 18px 'Nunito', sans-serif;
+          padding: 14px 18px;
+          cursor: pointer;
+          box-shadow: 0 14px 30px rgba(255, 107, 107, 0.28);
+          transition: transform 160ms ease, box-shadow 160ms ease;
+        }
+        .availability-gate-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 18px 36px rgba(255, 107, 107, 0.34);
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes liftIn {
+          from { opacity: 0; transform: translateY(16px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
       <Screen onNavigate={navigate} onLogout={logout} appData={appData} setAppData={setAppData} routeParams={route.params} />
+      {availabilityRequired ? (
+        <div className="availability-gate">
+          <div className="availability-gate-card">
+            <div style={{ display: "inline-flex", padding: "6px 12px", borderRadius: 999, background: "#fff0c2", border: "2px solid #1a1a2e", fontWeight: 900, marginBottom: 14 }}>
+              Availability Required
+            </div>
+            <h2 style={{ margin: "0 0 10px", fontSize: 32, lineHeight: 1 }}>Set your weekly sheet before planning.</h2>
+            <p style={{ margin: "0 0 18px", fontSize: 16, lineHeight: 1.5, color: "#475569" }}>
+              Outsiders now requires every member to fill out availability before using crews and hangout planning. Your profile has a polished weekly grid waiting for you.
+            </p>
+            <button type="button" className="availability-gate-btn" onClick={() => navigate("profile")}>
+              Open My Availability
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

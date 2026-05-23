@@ -1,613 +1,644 @@
-import { useEffect, useRef, useState } from "react";
-import { isSupabaseConfigured, supabase } from "./supabase";
-import { DEFAULT_AVAILABILITY, WEEK_DAYS, availabilityToText, normalizeAvailability } from "./scheduling";
+import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_PROFILE } from "./appState";
+import { TIME_BLOCKS, WEEK_DAYS, availabilityToText, blocksToAvailability, formatTimeLabel, getAvailabilityBlockSet, hasAvailability } from "./scheduling";
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
+
   * { box-sizing: border-box; }
-  body { background: #f5f3ee; margin: 0; }
-  .root { font-family: 'Nunito', sans-serif; background: #f5f3ee; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
-  .root::before { content: ''; position: fixed; inset: 0; background-image: radial-gradient(circle, #1a1a2e 1px, transparent 1px); background-size: 24px 24px; opacity: 0.03; pointer-events: none; z-index: 0; }
-  .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
-  .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf9; border-bottom: 4px solid #1a1a2e; box-shadow: 0 4px 0 #1a1a2e; }
-  .logo-mark { width: 36px; height: 36px; background: #ff6b6b; border: 3px solid #1a1a2e; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 3px 3px 0 #1a1a2e; }
-  .logo-link { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; padding: 0; cursor: pointer; }
-  .layout { display: flex; flex: 1; position: relative; z-index: 1; }
-  .sidebar { width: 220px; flex-shrink: 0; background: #fffdf9; border-right: 4px solid #1a1a2e; padding: 24px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 68px; height: calc(100vh - 68px); overflow-y: auto; }
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #666; border: 2.5px solid transparent; transition: all 0.15s; }
-  .nav-item:hover { background: #f5f3ee; color: #1a1a2e; border-color: #e0dbd0; }
-  .nav-item.active { background: #fff; color: #1a1a2e; border: 2.5px solid #1a1a2e; box-shadow: 3px 3px 0 #1a1a2e; }
-  .nav-section-label { font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.1em; color: #bbb; padding: 8px 14px 4px; text-transform: uppercase; }
-  .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
-  .card { background: #fff; border: 3px solid #1a1a2e; border-radius: 16px; box-shadow: 5px 5px 0 #1a1a2e; padding: 22px 24px; }
-  .btn-primary { background: #ff6b6b; color: #fff; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 16px; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px; }
-  .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
-  .btn-secondary { background: #ffd93d; color: #1a1a2e; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 15px; padding: 9px 18px; display: inline-flex; align-items: center; gap: 8px; }
-  .btn-secondary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
-  .btn-outline { background: #fff; color: #1a1a2e; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 3px 3px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 14px; padding: 8px 16px; display: inline-flex; align-items: center; gap: 6px; }
-  .btn-outline:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 #1a1a2e; }
-  .btn-danger { background: #fff; color: #ff6b6b; border: 3px solid #ff6b6b; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.06em; border-radius: 10px; box-shadow: 3px 3px 0 #ff6b6b; font-size: 15px; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px; transition: background 0.15s; }
-  .btn-danger:hover { background: #fde8e8; }
-  .form-input { width: 100%; padding: 12px 14px; font-size: 14px; font-family: 'Nunito', sans-serif; font-weight: 700; color: #1a1a2e; background: #fffdf9; border: 3px solid #1a1a2e; border-radius: 10px; outline: none; transition: box-shadow 0.15s, border-color 0.15s; box-shadow: 3px 3px 0 #1a1a2e; resize: none; }
-  .form-input:focus { border-color: #ff6b6b; box-shadow: 3px 3px 0 #ff6b6b; }
-  .form-label { display: block; font-family: 'Bangers', cursive; font-size: 15px; letter-spacing: 0.05em; color: #1a1a2e; margin-bottom: 6px; }
-  .avatar-big { width: 100px; height: 100px; border-radius: 50%; border: 4px solid #1a1a2e; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 32px; color: #fff; flex-shrink: 0; box-shadow: 5px 5px 0 #1a1a2e; overflow: hidden; }
-  .badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 8px; font-family: 'Bangers', cursive; font-size: 13px; letter-spacing: 0.05em; border: 2px solid; }
-  .stat-box { background: #fff; border: 3px solid #1a1a2e; border-radius: 14px; padding: 16px 18px; box-shadow: 4px 4px 0 #1a1a2e; text-align: center; }
-  .tab { padding: 9px 20px; font-family: 'Bangers', cursive; font-size: 16px; letter-spacing: 0.05em; border: 3px solid transparent; border-radius: 10px; cursor: pointer; background: none; color: #888; transition: all 0.15s; }
-  .tab.active { background: #fff; color: #1a1a2e; border-color: #1a1a2e; box-shadow: 3px 3px 0 #1a1a2e; }
-  .profile-chip { display: flex; align-items: center; gap: 8px; background: #fff; border: 3px solid #1a1a2e; border-radius: 50px; padding: 4px 14px 4px 4px; box-shadow: 3px 3px 0 #1a1a2e; cursor: pointer; }
-  .notif-dot { width: 8px; height: 8px; background: #ff6b6b; border: 2px solid #1a1a2e; border-radius: 50%; position: absolute; top: -2px; right: -2px; }
-  .comic-tag { display: inline-block; background: #ffd93d; border: 2px solid #1a1a2e; border-radius: 6px; padding: 1px 10px; font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.06em; box-shadow: 2px 2px 0 #1a1a2e; transform: rotate(-2deg); }
-  .achievement { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 2px dashed #f0ebe0; }
-  .achievement:last-child { border-bottom: none; }
-  .toggle { width: 48px; height: 26px; border-radius: 99px; border: 3px solid #1a1a2e; cursor: pointer; transition: background 0.2s; position: relative; flex-shrink: 0; box-shadow: 2px 2px 0 #1a1a2e; }
-  .toggle-thumb { width: 16px; height: 16px; background: #fff; border-radius: 50%; border: 2px solid #1a1a2e; position: absolute; top: 2px; transition: left 0.2s; }
-  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  body { margin: 0; background: #f6f3eb; }
+
+  .profile-root {
+    min-height: 100vh;
+    color: #1d2238;
+    font-family: 'Space Grotesk', sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(255, 181, 138, 0.35), transparent 32%),
+      radial-gradient(circle at top right, rgba(123, 214, 255, 0.28), transparent 26%),
+      linear-gradient(180deg, #fff9ef 0%, #f7f3eb 100%);
+  }
+
+  .profile-shell {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 28px 20px 56px;
+    display: grid;
+    gap: 24px;
+  }
+
+  .topbar, .panel, .sheet-panel {
+    border: 1px solid rgba(29, 34, 56, 0.12);
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 22px 60px rgba(29, 34, 56, 0.08);
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 22px;
+  }
+
+  .brand-btn, .nav-btn, .action-btn, .ghost-btn, .slot-chip {
+    transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
+  }
+
+  .brand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #1d2238;
+  }
+
+  .logo-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #ff7a6b, #ffb36c);
+    box-shadow: 0 12px 22px rgba(255, 122, 107, 0.26);
+    display: grid;
+    place-items: center;
+  }
+
+  .nav-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .nav-btn {
+    border: 1px solid rgba(29, 34, 56, 0.12);
+    background: rgba(255, 255, 255, 0.85);
+    color: #556077;
+    padding: 10px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: 700 13px 'Space Grotesk', sans-serif;
+  }
+
+  .nav-btn.active, .nav-btn:hover {
+    background: #1d2238;
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .panel {
+    padding: 24px;
+  }
+
+  .profile-card {
+    background:
+      linear-gradient(165deg, rgba(255,255,255,0.95), rgba(255,246,234,0.92)),
+      linear-gradient(135deg, rgba(255,122,107,0.18), rgba(123,214,255,0.16));
+  }
+
+  .avatar-circle {
+    width: 86px;
+    height: 86px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #ff7a6b, #ffb36c);
+    color: white;
+    display: grid;
+    place-items: center;
+    font: 800 28px 'Sora', sans-serif;
+    box-shadow: 0 16px 34px rgba(255, 122, 107, 0.28);
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(255, 214, 153, 0.45);
+    color: #7b4e12;
+    font: 700 12px 'Space Grotesk', sans-serif;
+  }
+
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  .stat-tile {
+    padding: 14px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.84);
+    border: 1px solid rgba(29, 34, 56, 0.08);
+  }
+
+  .stat-label {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #7a8294;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .action-btn, .ghost-btn {
+    border-radius: 18px;
+    cursor: pointer;
+    font: 700 14px 'Space Grotesk', sans-serif;
+    padding: 13px 16px;
+  }
+
+  .action-btn {
+    border: none;
+    background: linear-gradient(135deg, #ff7a6b, #ff9671);
+    color: white;
+    box-shadow: 0 16px 30px rgba(255, 122, 107, 0.28);
+  }
+
+  .ghost-btn {
+    border: 1px solid rgba(29, 34, 56, 0.12);
+    background: rgba(255,255,255,0.72);
+    color: #1d2238;
+  }
+
+  .action-btn:hover, .ghost-btn:hover, .slot-chip:hover {
+    transform: translateY(-2px);
+  }
+
+  .details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .field {
+    display: grid;
+    gap: 8px;
+  }
+
+  .field label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #7a8294;
+  }
+
+  .field input, .field textarea {
+    width: 100%;
+    border: 1px solid rgba(29, 34, 56, 0.12);
+    border-radius: 18px;
+    padding: 13px 14px;
+    background: rgba(255,255,255,0.9);
+    color: #1d2238;
+    font: 500 15px 'Space Grotesk', sans-serif;
+    outline: none;
+  }
+
+  .field textarea {
+    min-height: 112px;
+    resize: vertical;
+  }
+
+  .sheet-panel {
+    padding: 24px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top right, rgba(123,214,255,0.24), transparent 25%),
+      radial-gradient(circle at top left, rgba(255,122,107,0.18), transparent 30%),
+      rgba(255,255,255,0.88);
+  }
+
+  .sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .sheet-frame {
+    border-radius: 24px;
+    border: 1px solid rgba(29, 34, 56, 0.12);
+    overflow: auto;
+    background: rgba(248, 250, 252, 0.9);
+  }
+
+  .sheet-grid {
+    display: grid;
+    grid-template-columns: 86px repeat(7, minmax(110px, 1fr));
+    min-width: 900px;
+  }
+
+  .sheet-head, .time-cell, .slot-cell {
+    border-right: 1px solid rgba(29, 34, 56, 0.08);
+    border-bottom: 1px solid rgba(29, 34, 56, 0.08);
+  }
+
+  .sheet-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(255,255,255,0.95);
+    padding: 14px 10px;
+    text-align: center;
+  }
+
+  .sheet-head strong {
+    display: block;
+    font: 700 14px 'Sora', sans-serif;
+  }
+
+  .sheet-head span {
+    font-size: 12px;
+    color: #7a8294;
+  }
+
+  .time-cell {
+    padding: 12px 10px;
+    background: rgba(255,255,255,0.9);
+    font-size: 12px;
+    font-weight: 700;
+    color: #7a8294;
+    text-align: right;
+  }
+
+  .slot-cell {
+    min-height: 40px;
+    background: rgba(255,255,255,0.56);
+    cursor: pointer;
+    position: relative;
+  }
+
+  .slot-cell::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 12px;
+    transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  }
+
+  .slot-cell:hover::after {
+    background: rgba(123, 214, 255, 0.18);
+    transform: scale(0.97);
+  }
+
+  .slot-cell.active::after {
+    background: linear-gradient(135deg, #7bd6ff, #56e0a0);
+    box-shadow: inset 0 0 0 1px rgba(12, 80, 56, 0.12), 0 10px 18px rgba(86, 224, 160, 0.18);
+  }
+
+  .slot-cell.dragging::after {
+    background: linear-gradient(135deg, #ffd58f, #ff8f7a);
+  }
+
+  .summary-row {
+    margin-top: 18px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .slot-chip {
+    border: 1px solid rgba(29, 34, 56, 0.12);
+    background: rgba(255,255,255,0.92);
+    border-radius: 999px;
+    padding: 10px 12px;
+    font: 700 13px 'Space Grotesk', sans-serif;
+    color: #3d475d;
+  }
+
+  .notice-card {
+    padding: 16px 18px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(255, 243, 205, 0.92), rgba(255,255,255,0.9));
+    border: 1px solid rgba(255, 174, 68, 0.28);
+    color: #7b4e12;
+  }
+
+  .notif-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .notif-item {
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.88);
+    border: 1px solid rgba(29, 34, 56, 0.08);
+  }
+
+  @media (max-width: 1080px) {
+    .hero-grid, .details-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .topbar {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .profile-grid {
+      grid-template-columns: 1fr;
+    }
+    .profile-shell {
+      padding: 16px 12px 40px;
+    }
+    .panel, .sheet-panel {
+      padding: 18px;
+      border-radius: 24px;
+    }
+  }
 `;
 
-const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
-const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-const IconCalendar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
-const IconUsers = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-const IconPlane = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>;
-const IconSplit = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
-const IconHeart = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
-const IconStar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
-const IconBell = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
-const IconCamera = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
-
 const NAV_ITEMS = [
-  { icon: <IconHome />, label: "Dashboard" },
-  { icon: <IconCalendar />, label: "Hangouts" },
-  { icon: <IconUsers />, label: "My Crew" },
-  { icon: <IconPlane />, label: "Trips" },
-  { icon: <IconSplit />, label: "Bill Split" },
-  { icon: <IconStar />, label: "Ratings" },
-  { icon: <IconHeart />, label: "Debrief" },
+  ["Dashboard", "dashboard"],
+  ["Hangouts", "create-hangout"],
+  ["My Crew", "friend-groups"],
+  ["Trips", "trip-planning"],
+  ["Bill Split", "bill-split"],
+  ["Ratings", "rate-outing"],
+  ["Debrief", "debrief"],
 ];
 
-const ACHIEVEMENTS = [];
-
-const NOTIFICATIONS = [
-  { key: "hangouts", label: "New hangout invites", on: false },
-  { key: "votes", label: "Voting reminders", on: false },
-  { key: "bills", label: "Bill split requests", on: false },
-  { key: "debrief", label: "Debrief session requests", on: false },
-  { key: "activity", label: "Crew activity updates", on: false },
-];
-
-const NAV_TARGETS = {
-  "Dashboard": "dashboard",
-  "Hangouts": "create-hangout",
-  "My Crew": "friend-groups",
-  "Trips": "trip-planning",
-  "Bill Split": "bill-split",
-  "Ratings": "rate-outing",
-  "Debrief": "debrief",
-};
-
-const PROFILE_STORAGE_KEY = "outsiders-profile";
-const DEFAULT_PROFILE = { name: "", username: "", bio: "", location: "", email: "", availability: DEFAULT_AVAILABILITY };
-
-function readStoredProfile() {
-  if (typeof window === "undefined") {
-    return { profile: DEFAULT_PROFILE, avatar: null };
-  }
-
-  try {
-    const saved = window.localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (!saved) {
-      return { profile: DEFAULT_PROFILE, avatar: null };
-    }
-
-    const parsed = JSON.parse(saved);
-    return {
-      profile: { ...DEFAULT_PROFILE, ...(parsed?.profile || {}) },
-      avatar: typeof parsed?.avatar === "string" ? parsed.avatar : null,
-    };
-  } catch {
-    return { profile: DEFAULT_PROFILE, avatar: null };
-  }
+function initialsFor(profile) {
+  const seed = (profile?.name || profile?.username || "You").replace(/^@/, "").trim();
+  return seed.slice(0, 2).toUpperCase() || "YO";
 }
 
-function persistProfile(profile, avatar) {
-  if (typeof window === "undefined") return;
-
-  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ profile, avatar }));
+function weekSummary(availability) {
+  const text = availabilityToText(availability);
+  return text === "No availability saved" ? "No availability saved yet." : text;
 }
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error("Could not read image."));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function resizeImage(file) {
-  const source = await fileToDataUrl(file);
-
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const maxSide = 512;
-      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
-      const width = Math.max(1, Math.round(image.width * scale));
-      const height = Math.max(1, Math.round(image.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-
-      if (!context) {
-        reject(new Error("Could not prepare image."));
-        return;
-      }
-
-      context.drawImage(image, 0, 0, width, height);
-      resolve(canvas.toDataURL("image/jpeg", 0.82));
-    };
-    image.onerror = () => reject(new Error("Could not process image."));
-    image.src = source;
-  });
-}
-
-export default function OutsidersProfile({ onNavigate }) {
-  const initialStoredProfile = readStoredProfile();
-  const [activeNav, setActiveNav] = useState("Dashboard");
-  const [activeTab, setActiveTab] = useState("Profile");
-  const [avatar, setAvatar] = useState(initialStoredProfile.avatar);
-  const [editing, setEditing] = useState(false);
+export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
+  const profile = appData?.profile || DEFAULT_PROFILE;
+  const notifications = appData?.notifications || [];
+  const [draft, setDraft] = useState(() => profile);
+  const [dragMode, setDragMode] = useState(null);
   const [saved, setSaved] = useState(false);
-  const [profile, setProfile] = useState(initialStoredProfile.profile);
-  const [editForm, setEditForm] = useState(initialStoredProfile.profile);
-  const [notifs, setNotifs] = useState(NOTIFICATIONS);
-  const [saveError, setSaveError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const fileRef = useRef();
 
   useEffect(() => {
-    persistProfile(profile, avatar);
-  }, [avatar, profile]);
+    if (!dragMode) return undefined;
+    const stopDrag = () => setDragMode(null);
+    window.addEventListener("mouseup", stopDrag);
+    return () => window.removeEventListener("mouseup", stopDrag);
+  }, [dragMode]);
 
-  useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
+  const activeBlocks = useMemo(() => getAvailabilityBlockSet(draft.availability), [draft.availability]);
+  const availabilitySummary = useMemo(() => weekSummary(draft.availability), [draft.availability]);
+  const unreadNotifications = notifications.filter((notification) => !notification.read);
+  const availabilityReady = hasAvailability(draft.availability);
 
-    let isActive = true;
+  const updateField = (key, value) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  };
 
-    async function loadCurrentUser() {
-      const { data } = await supabase.auth.getUser();
-      if (isActive) {
-        setCurrentUser(data.user || null);
-      }
-    }
-
-    loadCurrentUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user || null);
-    });
-
-    return () => {
-      isActive = false;
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isSupabaseConfigured || !currentUser?.id) return undefined;
-
-    let isActive = true;
-
-    async function loadRemoteProfile() {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name, username, email, avatar_url, availability")
-        .eq("id", currentUser.id)
-        .maybeSingle();
-
-      if (!isActive || !data) return;
-
-      setProfile((prev) => ({
-        ...prev,
-        name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
-        username: data.username || prev.username || currentUser.user_metadata?.username || "",
-        email: data.email || prev.email || currentUser.email || "",
-        availability: normalizeAvailability(data.availability || prev.availability),
-      }));
-      setEditForm((prev) => ({
-        ...prev,
-        name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
-        username: data.username || prev.username || currentUser.user_metadata?.username || "",
-        email: data.email || prev.email || currentUser.email || "",
-        availability: normalizeAvailability(data.availability || prev.availability),
-      }));
-
-      if (data.avatar_url) {
-        setAvatar((prev) => prev || data.avatar_url);
-      }
-    }
-
-    loadRemoteProfile();
-    return () => {
-      isActive = false;
-    };
-  }, [currentUser]);
-
-  async function saveProfile(nextProfile, nextAvatar = avatar) {
-    setSaveError("");
-    setIsSaving(true);
-
-    const cleanedProfile = {
-      ...nextProfile,
-      name: nextProfile.name.trim(),
-      username: nextProfile.username.trim().replace(/^@/, ""),
-      bio: nextProfile.bio.trim(),
-      location: nextProfile.location.trim(),
-      email: nextProfile.email.trim(),
-      availability: normalizeAvailability(nextProfile.availability),
-    };
-
-    setProfile(cleanedProfile);
-    setEditForm(cleanedProfile);
-    persistProfile(cleanedProfile, nextAvatar);
-
-    if (isSupabaseConfigured && currentUser?.id) {
-      const { error } = await supabase.from("profiles").upsert({
-        id: currentUser.id,
-        full_name: cleanedProfile.name,
-        username: cleanedProfile.username,
-        email: cleanedProfile.email || currentUser.email || "",
-        avatar_url: nextAvatar,
-        availability: cleanedProfile.availability,
-      });
-
-      if (error) {
-        setSaveError(error.message);
-        setIsSaving(false);
-        return false;
-      }
-    }
-
-    setEditing(false);
+  const saveProfile = () => {
+    setAppData?.((prev) => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        ...draft,
+      },
+    }));
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    setIsSaving(false);
-    return true;
-  }
-
-  const handleSave = () => saveProfile(editForm);
-  const addAvailabilitySlot = (day, target = "profile", slot = { start: "15:00", end: "20:00" }) => {
-    const setter = target === "edit" ? setEditForm : setProfile;
-    setter((prev) => {
-      const availability = normalizeAvailability(prev.availability);
-      return {
-        ...prev,
-        availability: {
-          ...availability,
-          slots: {
-            ...availability.slots,
-            [day]: [...(availability.slots[day] || []), slot],
-          },
-        },
-      };
-    });
-  };
-  const updateAvailabilitySlot = (day, index, field, value, target = "profile") => {
-    const setter = target === "edit" ? setEditForm : setProfile;
-    setter((prev) => {
-      const availability = normalizeAvailability(prev.availability);
-      return {
-        ...prev,
-        availability: {
-          ...availability,
-          slots: {
-            ...availability.slots,
-            [day]: (availability.slots[day] || []).map((slot, slotIndex) => (
-              slotIndex === index ? { ...slot, [field]: value } : slot
-            )),
-          },
-        },
-      };
-    });
-  };
-  const removeAvailabilitySlot = (day, index, target = "profile") => {
-    const setter = target === "edit" ? setEditForm : setProfile;
-    setter((prev) => {
-      const availability = normalizeAvailability(prev.availability);
-      return {
-        ...prev,
-        availability: {
-          ...availability,
-          slots: {
-            ...availability.slots,
-            [day]: (availability.slots[day] || []).filter((_, slotIndex) => slotIndex !== index),
-          },
-        },
-      };
-    });
+    window.setTimeout(() => setSaved(false), 1800);
   };
 
-  const handleAvatarChange = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setSaveError("");
-      const nextAvatar = await resizeImage(file);
-      setAvatar(nextAvatar);
-      await saveProfile(profile, nextAvatar);
-    } catch (error) {
-      setSaveError(error.message || "Could not save that image.");
-    } finally {
-      event.target.value = "";
-    }
+  const clearAvailability = () => {
+    setDraft((prev) => ({ ...prev, availability: DEFAULT_PROFILE.availability }));
   };
 
-  const toggleNotif = (key) => setNotifs(prev => prev.map(n => n.key === key ? { ...n, on: !n.on } : n));
-  const handleNav = (label) => {
-    setActiveNav(label);
-    onNavigate?.(NAV_TARGETS[label] || "profile");
+  const toggleBlock = (day, time, forcedMode = null) => {
+    const key = `${day}-${time}`;
+    const blocks = new Set(activeBlocks);
+    const shouldAdd = forcedMode ? forcedMode === "add" : !blocks.has(key);
+    if (shouldAdd) blocks.add(key);
+    else blocks.delete(key);
+    setDraft((prev) => ({ ...prev, availability: blocksToAvailability(blocks) }));
+  };
+
+  const startDrag = (day, time) => {
+    const key = `${day}-${time}`;
+    const mode = activeBlocks.has(key) ? "remove" : "add";
+    setDragMode(mode);
+    toggleBlock(day, time, mode);
   };
 
   return (
     <>
       <style>{STYLES}</style>
-      <div className="root">
-        <nav className="top-nav">
-          <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
-              <div className="logo-mark"><IconLogoMark /></div>
-              <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
+      <div className="profile-root">
+        <div className="profile-shell">
+          <div className="topbar">
+            <button type="button" className="brand-btn" onClick={() => onNavigate?.("dashboard")}>
+              <div className="logo-mark">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
+              </div>
+              <div>
+                <div style={{ font: "800 22px 'Sora', sans-serif" }}>Outsiders</div>
+                <div style={{ fontSize: 12, color: "#7a8294" }}>Profile and availability</div>
+              </div>
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <button
-                onClick={() => onNavigate?.("landing")}
-                style={{ background: "#ffd93d", color: "#1a1a2e", border: "3px solid #1a1a2e", borderRadius: 10, padding: "8px 14px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.05em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
-              >
-                Log Out
-              </button>
-              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setActiveTab("Notifications")}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip" onClick={() => setActiveTab("Achievements")}>
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
-              </div>
-            </div>
-          </div>
-        </nav>
-
-        <div className="layout">
-          <aside className="sidebar">
-            <p className="nav-section-label">Menu</p>
-            {NAV_ITEMS.map(item => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
-                {item.icon} {item.label}
-              </div>
-            ))}
-          </aside>
-
-          <main className="main">
-            <div style={{ marginBottom: 24 }}>
-              <span className="comic-tag">That's you! 👤</span>
-              <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>My Profile 👤</h1>
-            </div>
-
-            {/* Profile hero card */}
-            <div className="card" style={{ background: "#fde8f0", borderColor: "#ff6b9d", boxShadow: "5px 5px 0 #ff6b9d", marginBottom: 24 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
-                <div style={{ position: "relative" }}>
-                  <div className="avatar-big" style={{ background: "#ff6b6b" }}>
-                    {avatar ? <img src={avatar} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "?"}
-                  </div>
-                  <button onClick={() => fileRef.current.click()} style={{ position: "absolute", bottom: 0, right: 0, width: 32, height: 32, background: "#1a1a2e", border: "2px solid #fff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                    <IconCamera />
-                  </button>
-                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <h2 className="bangers" style={{ fontSize: 28, margin: "0 0 4px" }}>{profile.name || "Set up your profile"}</h2>
-                  <p style={{ fontSize: 15, fontWeight: 800, color: "#888", margin: "0 0 6px" }}>{profile.username ? `@${profile.username}` : "No username yet"}</p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: "0 0 10px" }}>{profile.bio || "Add a short bio so people know who you are."}</p>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <span className="badge" style={{ background: "#fff", color: "#ff6b9d", borderColor: "#ff6b9d" }}>📍 {profile.location || "No location yet"}</span>
-                    <span className="badge" style={{ background: "#fff", color: "#ff9a3c", borderColor: "#ff9a3c" }}>🗓 {availabilityToText(profile.availability)}</span>
-                    <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>✨ Profile in progress</span>
-                  </div>
-                </div>
-                <button className="btn-secondary" onClick={() => { setEditForm({ ...profile }); setEditing(true); }}>✏️ Edit Profile</button>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px,1fr))", gap: 14, marginBottom: 24 }}>
-              {[
-                { emoji: "🗓", label: "Hangouts", value: "0", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
-                { emoji: "✈️", label: "Trips", value: "0", color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
-                { emoji: "👥", label: "Groups", value: "0", color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
-                { emoji: "⭐", label: "Avg Rating", value: "—", color: "#ffd93d", bg: "#fffde8", border: "#ffd93d" },
-                { emoji: "💸", label: "Bills Paid", value: "0", color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
-              ].map(s => (
-                <div key={s.label} className="stat-box" style={{ background: s.bg, borderColor: s.border, boxShadow: `4px 4px 0 ${s.border}` }}>
-                  <p style={{ fontSize: 22, margin: "0 0 4px" }}>{s.emoji}</p>
-                  <p className="bangers" style={{ fontSize: 26, margin: 0, color: s.color }}>{s.value}</p>
-                  <p style={{ fontSize: 11, fontWeight: 800, color: "#888", margin: 0 }}>{s.label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Tabs */}
-            <div style={{ display: "flex", gap: 8, background: "#f5f3ee", padding: 6, borderRadius: 12, border: "3px solid #1a1a2e", width: "fit-content", boxShadow: "3px 3px 0 #1a1a2e", marginBottom: 24 }}>
-              {["Achievements", "Settings", "Notifications"].map(t => (
-                <button key={t} className={`tab ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>{t}</button>
-              ))}
-            </div>
-
-            {activeTab === "Achievements" && (
-              <div className="card">
-                <div className="section-header">
-                  <h3 className="bangers" style={{ fontSize: 22, margin: 0 }}>Achievements 🏆</h3>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#888" }}>{ACHIEVEMENTS.filter(a => a.earned).length}/{ACHIEVEMENTS.length} earned</span>
-                </div>
-                {ACHIEVEMENTS.length === 0 ? (
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>No achievements yet. They’ll show up once you start using the app.</p>
-                ) : ACHIEVEMENTS.map((a, i) => (
-                  <div key={i} className="achievement" style={{ opacity: a.earned ? 1 : 0.4 }}>
-                    <div style={{ width: 52, height: 52, background: a.earned ? a.color : "#f0ebe0", border: `3px solid ${a.earned ? a.border : "#ccc"}`, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, boxShadow: a.earned ? `4px 4px 0 ${a.border}` : "none", flexShrink: 0 }}>{a.emoji}</div>
-                    <div style={{ flex: 1 }}>
-                      <p className="bangers" style={{ fontSize: 17, margin: 0, color: "#1a1a2e" }}>{a.title}</p>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>{a.desc}</p>
-                    </div>
-                    {a.earned && <span className="badge" style={{ background: "#e8fde8", color: "#51cf66", borderColor: "#51cf66" }}>✓ Earned</span>}
-                    {!a.earned && <span className="badge" style={{ background: "#f0ebe0", color: "#aaa", borderColor: "#ccc" }}>Locked</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {activeTab === "Settings" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                <div className="card">
-                  <h3 className="bangers" style={{ fontSize: 20, margin: "0 0 20px" }}>Account Settings ⚙️</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    {[
-                      { label: "Full Name", key: "name", type: "text" },
-                      { label: "Username", key: "username", type: "text" },
-                      { label: "Email", key: "email", type: "email" },
-                      { label: "Location", key: "location", type: "text" },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label className="form-label">{f.label}</label>
-                        <input className="form-input" type={f.type} value={profile[f.key]} onChange={e => setProfile(p => ({ ...p, [f.key]: e.target.value }))} />
-                      </div>
-                    ))}
-                    <div>
-                      <label className="form-label">Bio</label>
-                      <textarea className="form-input" rows={3} value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="form-label">Weekly Availability</label>
-                      <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff9a3c" }}>
-                        {WEEK_DAYS.map((day) => {
-                          const slots = normalizeAvailability(profile.availability).slots[day] || [];
-                          return (
-                            <div key={day} style={{ background: "#fff", border: "2px solid #1a1a2e", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: slots.length ? 8 : 0 }}>
-                                <strong>{day}</strong>
-                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                  <button type="button" className="btn-outline" onClick={() => addAvailabilitySlot(day, "profile", { start: "00:00", end: "23:59" })}>All day</button>
-                                  <button type="button" className="btn-outline" onClick={() => addAvailabilitySlot(day)}>+ Time</button>
-                                </div>
-                              </div>
-                              {slots.map((slot, index) => (
-                                <div key={`${day}-${index}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center", marginTop: 8 }}>
-                                  <input className="form-input" type="time" value={slot.start} onChange={e => updateAvailabilitySlot(day, index, "start", e.target.value)} />
-                                  <input className="form-input" type="time" value={slot.end} onChange={e => updateAvailabilitySlot(day, index, "end", e.target.value)} />
-                                  <button type="button" className="btn-danger" onClick={() => removeAvailabilitySlot(day, index)}>Remove</button>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {saveError && <p style={{ fontSize: 13, fontWeight: 800, color: "#ff6b6b", margin: 0 }}>{saveError}</p>}
-                    {saved && <p className="bangers" style={{ fontSize: 16, color: "#51cf66", margin: 0, letterSpacing: "0.04em" }}>✅ Changes saved!</p>}
-                    <div style={{ display: "flex", gap: 12 }}>
-                      <button className="btn-primary" onClick={() => saveProfile(profile)} disabled={isSaving}>
-                        {isSaving ? "Saving..." : "Save Changes ✅"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="card" style={{ background: "#fde8e8", borderColor: "#ff6b6b", boxShadow: "5px 5px 0 #ff6b6b" }}>
-                  <h3 className="bangers" style={{ fontSize: 20, margin: "0 0 10px", color: "#ff6b6b" }}>Danger Zone ⚠️</h3>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: "0 0 16px" }}>These actions can't be undone. Be careful.</p>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <button className="btn-danger" onClick={() => window.alert("Password change is reserved for the real auth flow, but the button is connected now.")}>🔒 Change Password</button>
-                    <button className="btn-danger" onClick={() => {
-                      if (window.confirm("Delete account? Demo mode will stop before anything destructive happens.")) {
-                        window.alert("Demo mode is keeping this account intact.");
-                      }
-                    }}>🗑 Delete Account</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "Notifications" && (
-              <div className="card">
-                <h3 className="bangers" style={{ fontSize: 20, margin: "0 0 20px" }}>Notifications 🔔</h3>
-                {notifs.map(n => (
-                  <div key={n.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "2px dashed #f0ebe0" }}>
-                    <span style={{ fontSize: 15, fontWeight: 800 }}>{n.label}</span>
-                    <div className="toggle" style={{ background: n.on ? "#ff6b6b" : "#e0dbd0" }} onClick={() => toggleNotif(n.key)}>
-                      <div className="toggle-thumb" style={{ left: n.on ? "22px" : "2px" }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </main>
-        </div>
-
-        {/* Edit modal */}
-        {editing && (
-          <div className="modal-overlay" onClick={() => setEditing(false)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <button className="close-btn" onClick={() => setEditing(false)}>✕</button>
-              <div style={{ textAlign: "center", marginBottom: 24 }}>
-                <span className="comic-tag">Looking good! ✨</span>
-                <h2 className="bangers" style={{ fontSize: 32, margin: "8px 0 4px" }}>Edit Profile</h2>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {[{ label: "Full Name", key: "name", type: "text" }, { label: "Username", key: "username", type: "text" }, { label: "Location", key: "location", type: "text" }].map(f => (
-                  <div key={f.key}>
-                    <label className="form-label">{f.label}</label>
-                    <input className="form-input" type={f.type} value={editForm[f.key]} onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))} />
-                  </div>
-                ))}
-                <div>
-                  <label className="form-label">Bio</label>
-                  <textarea className="form-input" rows={3} value={editForm.bio} onChange={e => setEditForm(p => ({ ...p, bio: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="form-label">Weekly Availability</label>
-                  <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff9a3c" }}>
-                    {WEEK_DAYS.map((day) => {
-                      const slots = normalizeAvailability(editForm.availability).slots[day] || [];
-                      return (
-                        <div key={day} style={{ background: "#fff", border: "2px solid #1a1a2e", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: slots.length ? 8 : 0 }}>
-                            <strong>{day}</strong>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <button type="button" className="btn-outline" onClick={() => addAvailabilitySlot(day, "edit", { start: "00:00", end: "23:59" })}>All day</button>
-                              <button type="button" className="btn-outline" onClick={() => addAvailabilitySlot(day, "edit")}>+ Time</button>
-                            </div>
-                          </div>
-                          {slots.map((slot, index) => (
-                            <div key={`${day}-${index}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center", marginTop: 8 }}>
-                              <input className="form-input" type="time" value={slot.start} onChange={e => updateAvailabilitySlot(day, index, "start", e.target.value, "edit")} />
-                              <input className="form-input" type="time" value={slot.end} onChange={e => updateAvailabilitySlot(day, index, "end", e.target.value, "edit")} />
-                              <button type="button" className="btn-danger" onClick={() => removeAvailabilitySlot(day, index, "edit")}>Remove</button>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                {saveError && <p style={{ fontSize: 13, fontWeight: 800, color: "#ff6b6b", margin: 0 }}>{saveError}</p>}
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={handleSave} disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save Changes ✅"}
+            <div className="nav-row">
+              {NAV_ITEMS.map(([label, target]) => (
+                <button key={label} type="button" className={`nav-btn ${label === "Dashboard" ? "" : ""}`} onClick={() => onNavigate?.(target)}>
+                  {label}
                 </button>
-              </div>
+              ))}
             </div>
           </div>
-        )}
+
+          <div className="hero-grid">
+            <section className="panel profile-card">
+              <span className="eyebrow">{availabilityReady ? "Availability live" : "Availability missing"}</span>
+              <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 16 }}>
+                <div className="avatar-circle">{initialsFor(draft)}</div>
+                <div>
+                  <h1 style={{ margin: "0 0 6px", font: "800 34px 'Sora', sans-serif" }}>{draft.name || "Set up your profile"}</h1>
+                  <p style={{ margin: "0 0 8px", color: "#667085", fontWeight: 700 }}>
+                    {draft.username ? `@${draft.username.replace(/^@/, "")}` : "Pick a username so your crew recognizes you."}
+                  </p>
+                  <p style={{ margin: 0, color: "#475467", lineHeight: 1.6 }}>
+                    {draft.bio || "Tell the crew a little about yourself, then fill out the availability sheet so planning can work around your week."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="profile-grid">
+                <div className="stat-tile">
+                  <p className="stat-label">Weekly summary</p>
+                  <p style={{ margin: 0, fontWeight: 700, lineHeight: 1.5 }}>{availabilitySummary}</p>
+                </div>
+                <div className="stat-tile">
+                  <p className="stat-label">Notifications</p>
+                  <p style={{ margin: "0 0 4px", font: "800 28px 'Sora', sans-serif" }}>{unreadNotifications.length}</p>
+                  <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>Unread crew updates</p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+                <button type="button" className="action-btn" onClick={saveProfile}>Save Profile</button>
+                <button type="button" className="ghost-btn" onClick={() => onNavigate?.("friend-groups")}>Back To My Crew</button>
+              </div>
+              {saved ? <p style={{ margin: "14px 0 0", color: "#0f766e", fontWeight: 700 }}>Profile saved and availability updated.</p> : null}
+            </section>
+
+            <section className="panel">
+              <div className="details-grid">
+                <div className="field">
+                  <label>Full Name</label>
+                  <input value={draft.name} onChange={(event) => updateField("name", event.target.value)} placeholder="Your name" />
+                </div>
+                <div className="field">
+                  <label>Username</label>
+                  <input value={draft.username} onChange={(event) => updateField("username", event.target.value.replace(/^@/, ""))} placeholder="yourhandle" />
+                </div>
+                <div className="field">
+                  <label>Email</label>
+                  <input value={draft.email} onChange={(event) => updateField("email", event.target.value)} placeholder="you@example.com" />
+                </div>
+                <div className="field">
+                  <label>Location</label>
+                  <input value={draft.location} onChange={(event) => updateField("location", event.target.value)} placeholder="Brooklyn, NY" />
+                </div>
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  <label>Bio</label>
+                  <textarea value={draft.bio} onChange={(event) => updateField("bio", event.target.value)} placeholder="What kind of hangouts are you into?" />
+                </div>
+              </div>
+
+              {!availabilityReady ? (
+                <div className="notice-card" style={{ marginTop: 18 }}>
+                  <strong style={{ display: "block", marginBottom: 6 }}>Your weekly availability is required.</strong>
+                  <span>Tap or drag across the schedule below to mark when you are free. The rest of the app stays locked until this sheet is filled in.</span>
+                </div>
+              ) : null}
+            </section>
+          </div>
+
+          <section className="sheet-panel">
+            <div className="sheet-header">
+              <div>
+                <span className="eyebrow" style={{ background: "rgba(123, 214, 255, 0.18)", color: "#155e75" }}>Availability studio</span>
+                <h2 style={{ margin: "12px 0 8px", font: "800 32px 'Sora', sans-serif" }}>Weekly availability sheet</h2>
+                <p style={{ margin: 0, color: "#556077", maxWidth: 700, lineHeight: 1.6 }}>
+                  Mark every half-hour block when you would realistically say yes to a crew plan. The more accurate this is, the better your hangout suggestions and proposal voting will be.
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button type="button" className="ghost-btn" onClick={clearAvailability}>Clear Sheet</button>
+                <button type="button" className="action-btn" onClick={saveProfile}>Save Availability</button>
+              </div>
+            </div>
+
+            <div className="sheet-frame">
+              <div className="sheet-grid">
+                <div className="sheet-head" />
+                {WEEK_DAYS.map((day) => (
+                  <div key={day} className="sheet-head">
+                    <strong>{day}</strong>
+                    <span>{(getAvailabilityBlockSet(draft.availability).size > 0 && (draft.availability?.slots?.[day]?.length || 0) > 0) ? "Free time saved" : "Tap to mark"}</span>
+                  </div>
+                ))}
+
+                {TIME_BLOCKS.map((time) => (
+                  <FragmentRow
+                    key={time}
+                    time={time}
+                    activeBlocks={activeBlocks}
+                    dragMode={dragMode}
+                    onMouseDown={startDrag}
+                    onMouseEnter={(day) => {
+                      if (!dragMode) return;
+                      toggleBlock(day, time, dragMode);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="summary-row">
+              <div className="slot-chip">Green blocks = available</div>
+              <div className="slot-chip">Tap once for a single slot</div>
+              <div className="slot-chip">Click and drag to fill a whole stretch</div>
+              <div className="slot-chip">{availabilitySummary}</div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+              <div>
+                <h3 style={{ margin: "0 0 6px", font: "800 24px 'Sora', sans-serif" }}>Crew notifications</h3>
+                <p style={{ margin: 0, color: "#667085" }}>Proposal alerts and crew updates show up here.</p>
+              </div>
+              {unreadNotifications.length ? (
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setAppData?.((prev) => ({
+                    ...prev,
+                    notifications: prev.notifications.map((notification) => ({ ...notification, read: true })),
+                  }))}
+                >
+                  Mark all read
+                </button>
+              ) : null}
+            </div>
+            <div className="notif-list">
+              {notifications.length ? notifications.map((notification) => (
+                <div key={notification.id} className="notif-item" style={{ opacity: notification.read ? 0.68 : 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                    <strong>{notification.message}</strong>
+                    {!notification.read ? <span className="slot-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>New</span> : null}
+                  </div>
+                  <p style={{ margin: "8px 0 0", color: "#667085", fontSize: 14 }}>
+                    {notification.groupName ? `${notification.groupName} · ` : ""}{new Date(notification.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              )) : (
+                <div className="notif-item">
+                  <strong>No notifications yet.</strong>
+                  <p style={{ margin: "8px 0 0", color: "#667085" }}>When someone proposes a hangout in one of your crews, it will show up here.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
+    </>
+  );
+}
+
+function FragmentRow({ time, activeBlocks, dragMode, onMouseDown, onMouseEnter }) {
+  return (
+    <>
+      <div className="time-cell">{formatTimeLabel(time)}</div>
+      {WEEK_DAYS.map((day) => {
+        const key = `${day}-${time}`;
+        return (
+          <div
+            key={key}
+            className={`slot-cell ${activeBlocks.has(key) ? "active" : ""} ${dragMode ? "dragging" : ""}`}
+            onMouseDown={() => onMouseDown(day, time)}
+            onMouseEnter={() => onMouseEnter(day)}
+            onClick={() => {
+              if (!dragMode) onMouseDown(day, time);
+            }}
+          />
+        );
+      })}
     </>
   );
 }

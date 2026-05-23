@@ -1,374 +1,139 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
-
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
   * { box-sizing: border-box; }
-  body { background: #fffdf9; margin: 0; }
-
+  body { margin: 0; background: #f6f3eb; }
   .root {
-    font-family: 'Nunito', sans-serif;
-    background: #fffdf9;
-    color: #1a1a2e;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+    font-family: 'Space Grotesk', sans-serif;
+    color: #1d2238;
+    background:
+      radial-gradient(circle at top left, rgba(255, 122, 107, 0.16), transparent 25%),
+      radial-gradient(circle at top right, rgba(123, 214, 255, 0.22), transparent 24%),
+      linear-gradient(180deg, #fff9ef 0%, #f7f3eb 100%);
+    display: grid;
+    place-items: center;
+    padding: 24px;
   }
-
-  .root::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: radial-gradient(circle, #1a1a2e 1px, transparent 1px);
-    background-size: 20px 20px;
-    opacity: 0.04;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
-
-  .nav-bar {
-    border-bottom: 4px solid #1a1a2e;
-    background: #fffdf9;
-    box-shadow: 0 4px 0 #1a1a2e;
-    position: relative;
-    z-index: 10;
-  }
-
-  .logo-mark {
-    width: 38px; height: 38px;
-    background: #ff6b6b;
-    border: 3px solid #1a1a2e;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 3px 3px 0 #1a1a2e;
-  }
-
-  .logo-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-  }
-
   .card {
-    background: #fff;
-    border: 4px solid #1a1a2e;
-    border-radius: 20px;
-    box-shadow: 10px 10px 0 #1a1a2e;
-    padding: 40px 36px;
+    width: min(560px, 100%);
+    border-radius: 30px;
+    border: 1px solid rgba(29,34,56,0.1);
+    background: rgba(255,255,255,0.86);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 24px 56px rgba(29,34,56,0.08);
+    padding: 28px;
+  }
+  .code-input {
     width: 100%;
-    max-width: 480px;
-    margin: 0 auto;
-    position: relative;
-    z-index: 1;
-  }
-
-  .code-input-wrap {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-bottom: 8px;
-  }
-
-  .code-char {
-    width: 52px;
-    height: 64px;
+    border: 1px solid rgba(29,34,56,0.12);
+    border-radius: 22px;
+    padding: 18px;
     text-align: center;
-    font-family: 'Bangers', cursive;
-    font-size: 32px;
-    letter-spacing: 0.04em;
-    color: #1a1a2e;
-    background: #fffdf9;
-    border: 3px solid #1a1a2e;
-    border-radius: 10px;
+    letter-spacing: 0.25em;
+    font: 800 28px 'Sora', sans-serif;
+    color: #1d2238;
+    background: rgba(255,255,255,0.94);
     outline: none;
-    box-shadow: 4px 4px 0 #1a1a2e;
-    transition: border-color 0.15s, box-shadow 0.15s;
     text-transform: uppercase;
   }
-  .code-char:focus {
-    border-color: #ff6b6b;
-    box-shadow: 4px 4px 0 #ff6b6b;
-  }
-
-  .btn-primary {
-    width: 100%;
-    background: #ff6b6b;
-    color: #fff;
-    border: 3px solid #1a1a2e;
-    cursor: pointer;
-    font-family: 'Bangers', cursive;
-    letter-spacing: 0.08em;
-    border-radius: 10px;
-    box-shadow: 6px 6px 0 #1a1a2e;
-    transition: transform 0.12s, box-shadow 0.12s;
-    font-size: 22px;
-    padding: 14px;
-  }
-  .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 #1a1a2e; }
-  .btn-primary:active { transform: translate(2px,2px); box-shadow: 4px 4px 0 #1a1a2e; }
-
-  .btn-outline {
-    width: 100%;
-    background: #fff;
-    color: #1a1a2e;
-    border: 3px solid #1a1a2e;
-    cursor: pointer;
-    font-family: 'Bangers', cursive;
-    letter-spacing: 0.08em;
-    border-radius: 10px;
-    box-shadow: 5px 5px 0 #1a1a2e;
-    transition: transform 0.12s, box-shadow 0.12s;
-    font-size: 18px;
-    padding: 12px;
-  }
-  .btn-outline:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 #1a1a2e; }
-
-  .error-msg {
-    font-family: 'Bangers', cursive;
-    font-size: 15px;
-    color: #ff6b6b;
-    letter-spacing: 0.04em;
-    text-align: center;
-  }
-
-  .success-card {
-    background: #e8fde8;
-    border: 4px solid #51cf66;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 6px 6px 0 #51cf66;
-    text-align: center;
-  }
-
-  .detail-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 2px dashed #e0e0e0;
-    font-size: 14px;
-    font-weight: 700;
-    color: #444;
-  }
-  .detail-row:last-child { border-bottom: none; }
-
-  .comic-tag {
-    display: inline-block;
-    background: #ffd93d;
-    border: 3px solid #1a1a2e;
-    border-radius: 8px;
-    padding: 2px 12px;
-    font-family: 'Bangers', cursive;
-    font-size: 13px;
-    letter-spacing: 0.06em;
-    box-shadow: 3px 3px 0 #1a1a2e;
-    transform: rotate(-2deg);
-    margin-bottom: 12px;
-  }
-
-  .shape { position: absolute; pointer-events: none; }
-
-  .divider {
+  .btn {
     border: none;
-    border-top: 3px dashed #e0e0e0;
-    margin: 24px 0;
+    border-radius: 18px;
+    padding: 14px 16px;
+    cursor: pointer;
+    font: 700 14px 'Space Grotesk', sans-serif;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .primary {
+    background: linear-gradient(135deg, #ff7a6b, #ff9671);
+    color: white;
+    box-shadow: 0 18px 32px rgba(255,122,107,0.28);
+  }
+  .ghost {
+    background: rgba(255,255,255,0.9);
+    color: #1d2238;
+    border: 1px solid rgba(29,34,56,0.12);
   }
 `;
 
-const IconLogoMark = () => (
-  <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-    <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/>
-  </svg>
-);
-const IconCheck = () => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#51cf66" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12"/>
-  </svg>
-);
-
-function getInitialChars(routeParams) {
-  const incomingCode = (routeParams?.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-  return Array(6).fill("").map((_, index) => incomingCode[index] || "");
-}
-
-export default function OutsidersJoinHangout({ onNavigate, appData, setAppData, routeParams }) {
-  const [chars, setChars] = useState(() => getInitialChars(routeParams));
+export default function OutsidersJoinHangout({ onNavigate, appData, setAppData }) {
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const [joined, setJoined] = useState(null);
+  const [joinedId, setJoinedId] = useState(null);
 
-  const handleChar = (i, val) => {
-    const v = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-1);
-    const next = [...chars];
-    next[i] = v;
-    setChars(next);
-    setError("");
-    if (v && i < 5) {
-      document.getElementById(`cc-${i + 1}`)?.focus();
-    }
-  };
-
-  const handleKeyDown = (i, e) => {
-    if (e.key === "Backspace" && !chars[i] && i > 0) {
-      document.getElementById(`cc-${i - 1}`)?.focus();
-    }
-  };
-
-  const handlePaste = (e) => {
-    const paste = e.clipboardData.getData("text").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-    const next = Array(6).fill("").map((_, i) => paste[i] || "");
-    setChars(next);
-    document.getElementById(`cc-5`)?.focus();
-  };
+  const allProposals = useMemo(
+    () => (appData?.groups || []).flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupId: group.id, groupName: group.name }))),
+    [appData]
+  );
+  const joined = allProposals.find((proposal) => proposal.id === joinedId) || null;
 
   const handleJoin = () => {
-    const code = chars.join("").toUpperCase();
-    if (code.length < 6) { setError("Enter the full 6-character code!"); return; }
-    const hangout = (appData?.hangouts || []).find((item) => item?.code?.toUpperCase() === code) || null;
-    if (!hangout) { setError("Hmm, that code doesn't exist. Check it and try again!"); return; }
+    const normalized = code.trim().toUpperCase();
+    const match = allProposals.find((proposal) => proposal.code?.toUpperCase() === normalized);
+    if (!match) {
+      setError("That invite code does not match a hangout proposal.");
+      return;
+    }
     setAppData?.((prev) => ({
       ...prev,
-      hangouts: prev.hangouts.map((item) => (
-        item.id === hangout.id && !item.members?.includes("YOU")
-          ? { ...item, members: [...(item.members || []), "YOU"] }
-          : item
+      groups: prev.groups.map((group) => (
+        group.id === match.groupId
+          ? {
+              ...group,
+              hangoutProposals: group.hangoutProposals.map((proposal) => (
+                proposal.id === match.id
+                  ? {
+                      ...proposal,
+                      externalInvites: proposal.externalInvites?.includes("Guest joined via code")
+                        ? proposal.externalInvites
+                        : [...(proposal.externalInvites || []), "Guest joined via code"],
+                    }
+                  : proposal
+              )),
+            }
+          : group
       )),
     }));
-    setJoined(hangout);
-  };
-
-  const reset = () => { setChars(["", "", "", "", "", ""]); setJoined(null); setError(""); };
-
-  const formatDate = (d) => {
-    if (!d) return "";
-    const date = new Date(d + "T00:00:00");
-    return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  };
-
-  const formatTime = (t) => {
-    if (!t) return "";
-    const [h, m] = t.split(":");
-    const hr = parseInt(h);
-    return `${hr % 12 || 12}:${m} ${hr >= 12 ? "PM" : "AM"}`;
+    setJoinedId(match.id);
+    setError("");
   };
 
   return (
     <>
       <style>{STYLES}</style>
       <div className="root">
-
-        <nav className="nav-bar">
-          <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
-              <div className="logo-mark"><IconLogoMark /></div>
-              <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </button>
-            <button onClick={() => onNavigate ? onNavigate("dashboard") : reset()} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Bangers', cursive", fontSize: 16, color: "#888", letterSpacing: "0.04em" }}>
-              ← Back
-            </button>
-          </div>
-        </nav>
-
-        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 24px", position: "relative", overflow: "hidden" }}>
-
-          <div className="shape" style={{ top: 30, left: "5%", width: 52, height: 52, background: "#ffd93d", border: "3px solid #1a1a2e", borderRadius: "50%", boxShadow: "5px 5px 0 #1a1a2e" }} />
-          <div className="shape" style={{ top: 80, right: "7%", width: 42, height: 42, background: "#4ecdc4", border: "3px solid #1a1a2e", borderRadius: "10px", transform: "rotate(15deg)", boxShadow: "4px 4px 0 #1a1a2e" }} />
-          <div className="shape" style={{ bottom: 60, left: "8%", width: 36, height: 36, background: "#a29bfe", border: "3px solid #1a1a2e", borderRadius: "50%", boxShadow: "4px 4px 0 #1a1a2e" }} />
-          <div className="shape" style={{ bottom: 40, right: "5%", width: 48, height: 48, background: "#ff6b9d", border: "3px solid #1a1a2e", borderRadius: "10px", transform: "rotate(-12deg)", boxShadow: "4px 4px 0 #1a1a2e" }} />
-
+        <div className="card">
           {!joined ? (
-            <div className="card">
-              <div style={{ textAlign: "center", marginBottom: 28 }}>
-                <span className="comic-tag">Got an invite? 🎟</span>
-                <h1 className="bangers" style={{ fontSize: 38, color: "#1a1a2e", margin: "0 0 6px" }}>Join A Hangout</h1>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Enter the 6-character code your crew sent you.</p>
+            <>
+              <div style={{ display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "#fff0c2", color: "#7b4e12", fontWeight: 700 }}>Got an invite?</div>
+              <h1 style={{ margin: "14px 0 8px", font: "800 36px 'Sora', sans-serif" }}>Join a hangout proposal</h1>
+              <p style={{ margin: "0 0 18px", color: "#667085", lineHeight: 1.6 }}>Paste the 6-character proposal code to open the hangout context your crew sent you.</p>
+              <input className="code-input" value={code} onChange={(event) => { setCode(event.target.value.toUpperCase()); setError(""); }} maxLength={6} placeholder="ABC123" />
+              {error ? <p style={{ margin: "12px 0 0", color: "#b42318", fontWeight: 700 }}>{error}</p> : null}
+              <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+                <button type="button" className="btn primary" onClick={handleJoin}>Join invite</button>
+                <button type="button" className="btn ghost" onClick={() => onNavigate?.("dashboard")}>Back</button>
               </div>
-
-              {/* Code input */}
-              <div style={{ marginBottom: 24 }}>
-                <div className="code-input-wrap" onPaste={handlePaste}>
-                  {chars.map((c, i) => (
-                    <input
-                      key={i}
-                      id={`cc-${i}`}
-                      className="code-char"
-                      maxLength={1}
-                      value={c}
-                      onChange={e => handleChar(i, e.target.value)}
-                      onKeyDown={e => handleKeyDown(i, e)}
-                    />
-                  ))}
-                </div>
-                {error && <p className="error-msg">{error}</p>}
-                <p style={{ textAlign: "center", fontSize: 12, color: "#aaa", fontWeight: 700, marginTop: 8 }}>
-                  Tip: You can also paste the full code at once
-                </p>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <button className="btn-primary" onClick={handleJoin}>
-                  Join The Hangout 🚀
-                </button>
-                <button className="btn-outline" onClick={() => onNavigate?.("signup")}>
-                  I Don't Have A Code
-                </button>
-              </div>
-
-              <hr className="divider" />
-
-              <p style={{ textAlign: "center", fontSize: 13, color: "#aaa", fontWeight: 700, margin: 0 }}>
-                You need an Outsiders account to join. <br />
-                <span style={{ color: "#ff6b6b", cursor: "pointer", fontWeight: 800 }} onClick={() => onNavigate?.("signup")}>Sign up here →</span>
-              </p>
-            </div>
-
+            </>
           ) : (
-            <div className="card">
-              <div style={{ textAlign: "center", marginBottom: 20 }}>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-                  <div style={{ width: 64, height: 64, background: "#e8fde8", border: "4px solid #51cf66", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "4px 4px 0 #51cf66" }}>
-                    <IconCheck />
-                  </div>
-                </div>
-                <span className="comic-tag" style={{ background: "#e8fde8", borderColor: "#51cf66", color: "#51cf66" }}>You're in! 🎉</span>
-                <h1 className="bangers" style={{ fontSize: 36, color: "#1a1a2e", margin: "8px 0 4px" }}>{joined.name}</h1>
-                <p style={{ fontSize: 13, color: "#888", fontWeight: 700, margin: 0 }}>Hosted by {joined.host}</p>
+            <>
+              <div style={{ display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "#eefdf5", color: "#0f766e", fontWeight: 700 }}>Joined</div>
+              <h1 style={{ margin: "14px 0 8px", font: "800 36px 'Sora', sans-serif" }}>{joined.name}</h1>
+              <p style={{ margin: "0 0 10px", color: "#667085" }}>This invite belongs to {joined.groupName}. The crew can keep managing votes and outside invites in the crew page.</p>
+              <div style={{ borderRadius: 22, padding: 16, background: "#fff8ef", border: "1px solid rgba(29,34,56,0.08)" }}>
+                <strong style={{ display: "block", marginBottom: 8 }}>Proposal details</strong>
+                <div style={{ color: "#475467", lineHeight: 1.6 }}>{joined.description || "No extra notes were added to this proposal."}</div>
               </div>
-
-              {/* Details */}
-              <div style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 14, padding: "16px 20px", marginBottom: 20, boxShadow: "5px 5px 0 #1a1a2e" }}>
-                <div className="detail-row">
-                  <span style={{ fontSize: 20 }}>📅</span>
-                  <span>{formatDate(joined.date)}</span>
-                </div>
-                <div className="detail-row">
-                  <span style={{ fontSize: 20 }}>⏰</span>
-                  <span>{formatTime(joined.time)}</span>
-                </div>
-                <div className="detail-row">
-                  <span style={{ fontSize: 20 }}>📍</span>
-                  <span>{joined.location}</span>
-                </div>
-                <div className="detail-row">
-                  <span style={{ fontSize: 20 }}>✨</span>
-                  <span>{joined.vibe}</span>
-                </div>
+              <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+                <button type="button" className="btn primary" onClick={() => onNavigate?.("friend-groups")}>Open crew</button>
+                <button type="button" className="btn ghost" onClick={() => onNavigate?.("dashboard")}>Dashboard</button>
               </div>
-
-              <button className="btn-primary" onClick={() => onNavigate?.("create-hangout")} style={{ marginBottom: 12 }}>
-                View My Hangouts 🗓
-              </button>
-              <button className="btn-outline" onClick={reset}>
-                Join Another Hangout
-              </button>
-            </div>
+            </>
           )}
-        </main>
+        </div>
       </div>
     </>
   );
