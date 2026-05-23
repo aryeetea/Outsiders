@@ -2,19 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { TIME_BLOCKS, WEEK_DAYS, availabilityToText, blocksToAvailability, formatTimeLabel, getAvailabilityBlockSet, hasAvailability } from "./scheduling";
 
 const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;700;800;900&display=swap');
+
   .availability-sheet {
-    border-radius: 26px;
-    border: 1px solid rgba(29, 34, 56, 0.12);
+    border-radius: 22px;
+    border: 4px solid #1a1a2e;
     overflow: hidden;
-    background:
-      radial-gradient(circle at top right, rgba(123, 214, 255, 0.2), transparent 25%),
-      radial-gradient(circle at top left, rgba(255, 122, 107, 0.16), transparent 30%),
-      rgba(255, 255, 255, 0.9);
-    box-shadow: 0 22px 60px rgba(29, 34, 56, 0.08);
+    background: #fffdf9;
+    box-shadow: 8px 8px 0 #1a1a2e;
   }
 
   .availability-sheet.compact {
-    border-radius: 22px;
+    border-radius: 18px;
   }
 
   .availability-sheet-header {
@@ -33,18 +32,22 @@ const STYLES = `
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: rgba(255, 214, 153, 0.45);
-    color: #7b4e12;
-    font: 700 12px 'Space Grotesk', sans-serif;
+    padding: 3px 10px;
+    border-radius: 7px;
+    border: 2px solid #1a1a2e;
+    background: #ffd93d;
+    color: #1a1a2e;
+    font: 400 12px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    box-shadow: 2px 2px 0 #1a1a2e;
+    transform: rotate(-2deg);
   }
 
   .availability-frame {
-    border-top: 1px solid rgba(29, 34, 56, 0.08);
-    border-bottom: 1px solid rgba(29, 34, 56, 0.08);
+    border-top: 3px solid #1a1a2e;
+    border-bottom: 3px solid #1a1a2e;
     overflow: auto;
-    background: rgba(248, 250, 252, 0.9);
+    background: #f5f3ee;
   }
 
   .availability-grid {
@@ -56,44 +59,48 @@ const STYLES = `
   .availability-head,
   .availability-time,
   .availability-slot {
-    border-right: 1px solid rgba(29, 34, 56, 0.08);
-    border-bottom: 1px solid rgba(29, 34, 56, 0.08);
+    border-right: 2px solid rgba(26, 26, 46, 0.12);
+    border-bottom: 2px solid rgba(26, 26, 46, 0.12);
   }
 
   .availability-head {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: rgba(255, 255, 255, 0.96);
+    background: #fffdf9;
     padding: 14px 10px;
     text-align: center;
   }
 
   .availability-head strong {
     display: block;
-    font: 700 14px 'Sora', sans-serif;
-    color: #1d2238;
+    font: 400 18px 'Bangers', cursive;
+    color: #1a1a2e;
+    letter-spacing: 0.05em;
   }
 
   .availability-head span {
     font-size: 12px;
-    color: #7a8294;
+    color: #777;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
   }
 
   .availability-time {
     padding: 12px 10px;
-    background: rgba(255, 255, 255, 0.92);
+    background: #fff;
     text-align: right;
     font-size: 12px;
-    font-weight: 700;
-    color: #7a8294;
+    font-weight: 900;
+    color: #666;
+    font-family: 'Nunito', sans-serif;
   }
 
   .availability-slot {
     min-height: 40px;
     position: relative;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.56);
+    background: rgba(255, 255, 255, 0.66);
   }
 
   .availability-slot::after {
@@ -105,17 +112,17 @@ const STYLES = `
   }
 
   .availability-slot:hover::after {
-    background: rgba(123, 214, 255, 0.18);
+    background: rgba(78, 205, 196, 0.16);
     transform: scale(0.97);
   }
 
   .availability-slot.active::after {
-    background: linear-gradient(135deg, #7bd6ff, #56e0a0);
-    box-shadow: inset 0 0 0 1px rgba(12, 80, 56, 0.12), 0 10px 18px rgba(86, 224, 160, 0.18);
+    background: linear-gradient(135deg, #4ecdc4, #51cf66);
+    box-shadow: inset 0 0 0 2px rgba(26, 26, 46, 0.12), 0 4px 0 rgba(26, 26, 46, 0.12);
   }
 
   .availability-slot.dragging::after {
-    background: linear-gradient(135deg, #ffd58f, #ff8f7a);
+    background: linear-gradient(135deg, #ffd93d, #ff9a3c);
   }
 
   .availability-footer {
@@ -131,24 +138,29 @@ const STYLES = `
 
   .availability-pill,
   .availability-btn {
-    border-radius: 999px;
-    font: 700 13px 'Space Grotesk', sans-serif;
+    font: 800 13px 'Nunito', sans-serif;
   }
 
   .availability-pill {
-    border: 1px solid rgba(29, 34, 56, 0.12);
-    background: rgba(255, 255, 255, 0.92);
-    color: #3d475d;
+    border: 3px solid #1a1a2e;
+    background: #fff;
+    color: #1a1a2e;
+    border-radius: 999px;
     padding: 10px 12px;
+    box-shadow: 3px 3px 0 #1a1a2e;
   }
 
   .availability-btn {
-    border: 1px solid rgba(29, 34, 56, 0.12);
-    background: rgba(255, 255, 255, 0.9);
-    color: #1d2238;
+    border: 3px solid #1a1a2e;
+    background: #fff;
+    color: #1a1a2e;
+    border-radius: 10px;
     padding: 10px 12px;
     cursor: pointer;
     transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    font-family: 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
 
   .availability-btn:hover {
@@ -156,10 +168,9 @@ const STYLES = `
   }
 
   .availability-btn.primary {
-    border: none;
-    background: linear-gradient(135deg, #ff7a6b, #ff9671);
+    background: #ff6b6b;
     color: white;
-    box-shadow: 0 16px 30px rgba(255, 122, 107, 0.24);
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
 
   @media (max-width: 720px) {
@@ -224,8 +235,8 @@ export default function AvailabilitySheet({
         <div className="availability-sheet-header">
           <div>
             <span className="availability-kicker">{required ? "Required availability" : "Availability"}</span>
-            <h2 style={{ margin: "12px 0 8px", font: compact ? "800 26px 'Sora', sans-serif" : "800 32px 'Sora', sans-serif", color: "#1d2238" }}>{title}</h2>
-            <p style={{ margin: 0, color: "#556077", lineHeight: 1.6, maxWidth: 720 }}>{subtitle}</p>
+            <h2 style={{ margin: "12px 0 8px", font: compact ? "400 30px 'Bangers', cursive" : "400 36px 'Bangers', cursive", color: "#1a1a2e", letterSpacing: "0.04em" }}>{title}</h2>
+            <p style={{ margin: 0, color: "#555", lineHeight: 1.6, maxWidth: 720, fontFamily: "'Nunito', sans-serif", fontWeight: 800 }}>{subtitle}</p>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {showClear ? (

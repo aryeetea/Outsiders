@@ -1,20 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName } from "./appState";
 import { buildGroupInviteLink } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
-  body { margin: 0; background: #f6f3eb; }
+  body { margin: 0; background: #f5f3ee; }
   .root {
     min-height: 100vh;
-    color: #1d2238;
-    font-family: 'Space Grotesk', sans-serif;
-    background:
-      radial-gradient(circle at top left, rgba(255, 122, 107, 0.16), transparent 25%),
-      radial-gradient(circle at top right, rgba(123, 214, 255, 0.22), transparent 24%),
-      linear-gradient(180deg, #fff9ef 0%, #f7f3eb 100%);
+    color: #1a1a2e;
+    font-family: 'Nunito', sans-serif;
+    background: #f5f3ee;
+  }
+  .root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, #1a1a2e 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 0;
   }
   .shell {
     max-width: 1380px;
@@ -22,13 +29,14 @@ const STYLES = `
     padding: 24px 20px 48px;
     display: grid;
     gap: 24px;
+    position: relative;
+    z-index: 1;
   }
   .glass, .card {
-    border-radius: 28px;
-    border: 1px solid rgba(29,34,56,0.1);
-    background: rgba(255,255,255,0.82);
-    backdrop-filter: blur(18px);
-    box-shadow: 0 20px 52px rgba(29,34,56,0.08);
+    border-radius: 20px;
+    border: 4px solid #1a1a2e;
+    background: #fffdf9;
+    box-shadow: 6px 6px 0 #1a1a2e;
   }
   .glass {
     display: flex;
@@ -54,17 +62,16 @@ const STYLES = `
   .logo {
     width: 42px;
     height: 42px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #ff7a6b, #ffb36c);
+    background: #ff6b6b;
+    border: 3px solid #1a1a2e;
+    border-radius: 10px;
     display: grid;
     place-items: center;
-    box-shadow: 0 12px 24px rgba(255,122,107,0.28);
+    box-shadow: 3px 3px 0 #1a1a2e;
   }
   .hero {
     padding: 28px;
-    background:
-      radial-gradient(circle at right top, rgba(123,214,255,0.18), transparent 28%),
-      linear-gradient(135deg, #fffef9, #fff5e5 52%, #eef9ff 100%);
+    background: #fff;
   }
   .layout {
     display: grid;
@@ -78,39 +85,41 @@ const STYLES = `
   }
   .crew-card {
     padding: 16px;
-    border-radius: 22px;
-    border: 1px solid rgba(29,34,56,0.08);
-    background: rgba(255,255,255,0.9);
+    border-radius: 16px;
+    border: 3px solid #1a1a2e;
+    background: #fff;
+    box-shadow: 4px 4px 0 #1a1a2e;
     cursor: pointer;
   }
   .crew-card.active, .crew-card:hover {
     transform: translateY(-2px);
-    background: linear-gradient(135deg, rgba(114,216,255,0.18), rgba(139,240,196,0.18));
-    border-color: rgba(86,224,160,0.34);
+    background: #e8f4fd;
+    border-color: #4ecdc4;
+    box-shadow: 4px 4px 0 #4ecdc4;
   }
   .btn, .vote-btn, .tab-btn {
     border: none;
     cursor: pointer;
-    font: 700 14px 'Space Grotesk', sans-serif;
+    font: 400 15px 'Bangers', cursive;
+    letter-spacing: 0.06em;
   }
   .btn {
-    border-radius: 18px;
+    border-radius: 10px;
     padding: 13px 16px;
+    border: 3px solid #1a1a2e;
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
   .btn.primary {
-    background: linear-gradient(135deg, #ff7a6b, #ff9671);
+    background: #ff6b6b;
     color: white;
-    box-shadow: 0 18px 32px rgba(255,122,107,0.28);
   }
   .btn.secondary {
-    background: linear-gradient(135deg, #72d8ff, #8bf0c4);
-    color: #093344;
-    box-shadow: 0 18px 32px rgba(114,216,255,0.24);
+    background: #ffd93d;
+    color: #1a1a2e;
   }
   .btn.ghost {
-    background: rgba(255,255,255,0.88);
-    color: #1d2238;
-    border: 1px solid rgba(29,34,56,0.12);
+    background: #fff;
+    color: #1a1a2e;
   }
   .tab-row {
     display: flex;
@@ -119,20 +128,24 @@ const STYLES = `
   }
   .tab-btn {
     padding: 10px 14px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.84);
-    border: 1px solid rgba(29,34,56,0.1);
-    color: #667085;
+    border-radius: 10px;
+    background: #fff;
+    border: 3px solid transparent;
+    color: #666;
+    font: 800 13px 'Nunito', sans-serif;
   }
   .tab-btn.active {
-    background: #1d2238;
-    color: white;
+    background: #fff;
+    color: #1a1a2e;
+    border-color: #1a1a2e;
+    box-shadow: 3px 3px 0 #1a1a2e;
   }
   .member-row, .pending-row, .proposal-card, .roast-card, .bill-card {
-    border-radius: 22px;
-    border: 1px solid rgba(29,34,56,0.08);
-    background: rgba(255,255,255,0.9);
+    border-radius: 14px;
+    border: 3px solid #1a1a2e;
+    background: #fff;
     padding: 16px;
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
   .vote-grid, .member-list, .roast-list {
     display: grid;
@@ -141,38 +154,44 @@ const STYLES = `
   .vote-btn {
     width: 100%;
     padding: 12px 14px;
-    border-radius: 18px;
+    border-radius: 12px;
     text-align: left;
-    background: rgba(255,255,255,0.9);
-    border: 1px solid rgba(29,34,56,0.08);
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    box-shadow: 3px 3px 0 #1a1a2e;
   }
   .vote-btn.active {
-    background: linear-gradient(135deg, rgba(114,216,255,0.18), rgba(139,240,196,0.18));
-    border-color: rgba(86,224,160,0.34);
+    background: #e8fde8;
+    border-color: #51cf66;
+    box-shadow: 3px 3px 0 #51cf66;
   }
   .roast-card {
-    background: linear-gradient(135deg, rgba(255,245,230,0.96), rgba(255,255,255,0.9));
+    background: #fff4e6;
+    border-color: #ff9a3c;
+    box-shadow: 4px 4px 0 #ff9a3c;
   }
   .field {
     display: grid;
     gap: 8px;
   }
   .field label {
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 400;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #667085;
+    letter-spacing: 0.05em;
+    color: #1a1a2e;
+    font-family: 'Bangers', cursive;
   }
   .field input, .field textarea, .field select {
     width: 100%;
-    border: 1px solid rgba(29,34,56,0.12);
-    border-radius: 18px;
+    border: 3px solid #1a1a2e;
+    border-radius: 10px;
     padding: 13px 14px;
-    background: rgba(255,255,255,0.92);
-    font: 500 15px 'Space Grotesk', sans-serif;
-    color: #1d2238;
+    background: #fffdf9;
+    font: 700 15px 'Nunito', sans-serif;
+    color: #1a1a2e;
     outline: none;
+    box-shadow: 3px 3px 0 #1a1a2e;
   }
   .field textarea {
     min-height: 116px;
@@ -220,9 +239,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const [inviteUsername, setInviteUsername] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [notice, setNotice] = useState("");
-  const [roastForm, setRoastForm] = useState({ target: "", caseAgainst: "" });
-
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
+  const debriefCount = useMemo(() => selectedGroup?.cases?.length || 0, [selectedGroup]);
+  const openDebriefCount = useMemo(() => (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length, [selectedGroup]);
 
   useEffect(() => {
     if (!selectedGroup) return;
@@ -263,7 +282,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       }],
       pending: [],
       hangoutProposals: [],
-      roastBoard: [],
       billWatch: { electedMemberName: "", votes: {}, checklist: ["Track who paid", "Post the split", "Confirm balances"] },
     };
     setAppData?.((prev) => ({ ...prev, groups: [...prev.groups, nextGroup] }));
@@ -385,30 +403,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     setNotice(`${proposal.name} was finalized for the crew.`);
   };
 
-  const postRoast = () => {
-    if (!selectedGroup || !roastForm.target || !roastForm.caseAgainst.trim()) {
-      setNotice("Pick a crew member and write your playful case against them.");
-      return;
-    }
-    const roast = {
-      id: createId("roast"),
-      author: currentName,
-      target: roastForm.target,
-      caseAgainst: roastForm.caseAgainst.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: prev.groups.map((group) => (
-        group.id === selectedGroup.id
-          ? { ...group, roastBoard: [roast, ...(group.roastBoard || [])] }
-          : group
-      )),
-    }));
-    setRoastForm({ target: "", caseAgainst: "" });
-    setNotice("Roast posted to the crew board.");
-  };
-
   const castBillWatchVote = (memberName) => {
     if (!selectedGroup) return;
     setAppData?.((prev) => ({
@@ -461,10 +455,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
           <section className="glass hero">
             <div style={{ display: "grid", gap: 12 }}>
-              <div style={{ display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "#fff0c2", color: "#7b4e12", fontWeight: 700 }}>Crew HQ</div>
-              <h1 style={{ margin: 0, font: "800 40px 'Sora', sans-serif" }}>Every proposal, vote, invite, and playful callout now lives inside the crew.</h1>
-              <p style={{ margin: 0, maxWidth: 900, color: "#556077", lineHeight: 1.6 }}>
-                Crew members can propose hangouts, vote on every time and place option, manage outside invites in context, get notifications, and post a funny case against who should not be planning the next outing.
+                <div style={{ display: "inline-flex", padding: "2px 10px", borderRadius: 8, background: "#ffd93d", color: "#1a1a2e", fontFamily: "'Bangers', cursive", letterSpacing: "0.06em", border: "2px solid #1a1a2e", boxShadow: "2px 2px 0 #1a1a2e", transform: "rotate(-2deg)" }}>Crew HQ</div>
+              <h1 className="bangers" style={{ margin: 0, fontSize: 40 }}>Every proposal, vote, invite, and debrief lives inside the crew.</h1>
+              <p style={{ margin: 0, maxWidth: 900, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
+                Crew members can propose hangouts, vote on every time and place option, manage outside invites in context, get notifications, and jump into Debrief Court when the room needs to clear the air.
               </p>
             </div>
           </section>
@@ -484,7 +478,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                     <button key={group.id} type="button" className={`crew-card ${selectedGroup?.id === group.id ? "active" : ""}`} onClick={() => setSelectedGroupId(group.id)}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                         <div>
-                          <strong style={{ display: "block", fontSize: 18 }}>{group.emoji} {group.name}</strong>
+                          <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.emoji} {group.name}</strong>
                           <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} proposals</span>
                         </div>
                         <div style={{ width: 14, height: 14, borderRadius: 999, background: GROUP_COLORS[index % GROUP_COLORS.length] }} />
@@ -526,7 +520,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   <div className="card">
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
                       <div>
-                        <h2 style={{ margin: "0 0 8px", font: "800 30px 'Sora', sans-serif" }}>{selectedGroup.emoji} {selectedGroup.name}</h2>
+                        <h2 className="bangers" style={{ margin: "0 0 8px", fontSize: 30 }}>{selectedGroup.emoji} {selectedGroup.name}</h2>
                         <p style={{ margin: 0, color: "#667085" }}>{selectedGroup.members.length} members · crew code {selectedGroup.code}</p>
                       </div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -535,7 +529,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       </div>
                     </div>
                     <div className="tab-row" style={{ marginTop: 16 }}>
-                      {["Proposals", "Members", "Invites", "Roast Board", "Bill Watch"].map((tab) => (
+                      {["Proposals", "Members", "Invites", "Debrief", "Bill Watch"].map((tab) => (
                         <button key={tab} type="button" className={`tab-btn ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
                           {tab}
                         </button>
@@ -547,7 +541,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                     <div className="card">
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
                         <div>
-                          <h3 style={{ margin: "0 0 6px", font: "800 24px 'Sora', sans-serif" }}>Hangout proposals</h3>
+                          <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Hangout proposals</h3>
                           <p style={{ margin: 0, color: "#667085" }}>Every crew member can see and vote on each proposal below.</p>
                         </div>
                         <button type="button" className="btn primary" onClick={() => onNavigate?.("create-hangout")}>Propose a hangout</button>
@@ -618,7 +612,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                   {activeTab === "Members" ? (
                     <div className="card">
-                      <h3 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Crew members</h3>
+                      <h3 className="bangers" style={{ margin: "0 0 14px", fontSize: 24 }}>Crew members</h3>
                       <div className="member-list">
                         {selectedGroup.members.map((member) => (
                           <div key={`${member.name}-${member.username || ""}`} className="member-row">
@@ -640,7 +634,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                   {activeTab === "Invites" ? (
                     <div className="card">
-                      <h3 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Crew invites</h3>
+                      <h3 className="bangers" style={{ margin: "0 0 14px", fontSize: 24 }}>Crew invites</h3>
                       <div className="field">
                         <label>Invite username</label>
                         <input value={inviteUsername} onChange={(event) => setInviteUsername(event.target.value)} placeholder="theirusername" />
@@ -659,48 +653,41 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                     </div>
                   ) : null}
 
-                  {activeTab === "Roast Board" ? (
+                  {activeTab === "Debrief" ? (
                     <div className="card">
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
                         <div>
-                          <h3 style={{ margin: "0 0 6px", font: "800 24px 'Sora', sans-serif" }}>Make a Case Against 🔥</h3>
-                          <p style={{ margin: 0, color: "#667085" }}>A lighthearted board for nominating who should absolutely not plan the next hangout.</p>
+                          <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Debrief Court ❤️</h3>
+                          <p style={{ margin: 0, color: "#667085", fontWeight: 800 }}>This crew already has a full comic-style debrief system. Use it when a hangout needs honesty, repair, or a peace maker.</p>
+                        </div>
+                        <button type="button" className="btn primary" onClick={() => onNavigate?.("debrief")}>Open Debrief</button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 18 }}>
+                        <div className="roast-card">
+                          <p className="bangers" style={{ fontSize: 16, margin: "0 0 6px" }}>Total cases</p>
+                          <p style={{ fontSize: 32, fontWeight: 900, color: "#ff9a3c", margin: 0 }}>{debriefCount}</p>
+                        </div>
+                        <div className="roast-card" style={{ background: "#fde8f0", borderColor: "#ff6b9d", boxShadow: "4px 4px 0 #ff6b9d" }}>
+                          <p className="bangers" style={{ fontSize: 16, margin: "0 0 6px" }}>Open cases</p>
+                          <p style={{ fontSize: 32, fontWeight: 900, color: "#ff6b9d", margin: 0 }}>{openDebriefCount}</p>
+                        </div>
+                        <div className="roast-card" style={{ background: "#e8f4fd", borderColor: "#4ecdc4", boxShadow: "4px 4px 0 #4ecdc4" }}>
+                          <p className="bangers" style={{ fontSize: 16, margin: "0 0 6px" }}>Peace maker</p>
+                          <p style={{ fontSize: 18, fontWeight: 900, color: "#4ecdc4", margin: 0 }}>{selectedGroup.peaceMaker?.electedMemberName || "No one yet"}</p>
                         </div>
                       </div>
-                      <div className="field">
-                        <label>Who are we calling out?</label>
-                        <select value={roastForm.target} onChange={(event) => setRoastForm((prev) => ({ ...prev, target: event.target.value }))}>
-                          <option value="">Choose a crew member</option>
-                          {selectedGroup.members.filter((member) => member.name !== currentName).map((member) => (
-                            <option key={member.name} value={member.name}>{member.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="field" style={{ marginTop: 14 }}>
-                        <label>Your playful argument</label>
-                        <textarea value={roastForm.caseAgainst} onChange={(event) => setRoastForm((prev) => ({ ...prev, caseAgainst: event.target.value }))} placeholder="Example: They said 'let's just wing it' and then disappeared for three hours. Respectfully, no." />
-                      </div>
-                      <button type="button" className="btn primary" style={{ marginTop: 14 }} onClick={postRoast}>Post to roast board</button>
-                      <div className="roast-list" style={{ marginTop: 18 }}>
-                        {selectedGroup.roastBoard?.length ? selectedGroup.roastBoard.map((entry) => (
-                          <div key={entry.id} className="roast-card">
-                            <strong>{entry.target} should not plan the next one.</strong>
-                            <p style={{ margin: "10px 0 10px", color: "#475467", lineHeight: 1.6 }}>{entry.caseAgainst}</p>
-                            <span style={{ color: "#667085", fontWeight: 700 }}>Posted by {entry.author}</span>
-                          </div>
-                        )) : (
-                          <div className="roast-card">
-                            <strong>No one has been called out yet.</strong>
-                            <p style={{ margin: "8px 0 0", color: "#667085" }}>Keep it funny, keep it crew-safe, and make your case.</p>
-                          </div>
-                        )}
+                      <div className="roast-card">
+                        <strong style={{ display: "block", marginBottom: 8 }}>Why Debrief instead</strong>
+                        <p style={{ margin: 0, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
+                          Debrief Court already gives your crew anonymous case filing, answers, apologies, clap-backs, and a voted peace-maker bench. It fits the comic personality of the site better than a separate roast board, so this crew page now points back to that system instead.
+                        </p>
                       </div>
                     </div>
                   ) : null}
 
                   {activeTab === "Bill Watch" ? (
                     <div className="card">
-                      <h3 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Bill Watch</h3>
+                      <h3 className="bangers" style={{ margin: "0 0 14px", fontSize: 24 }}>Bill Watch</h3>
                       <p style={{ margin: "0 0 16px", color: "#667085" }}>Existing crew money-role voting still works here too.</p>
                       <div className="vote-grid">
                         {selectedGroup.members.map((member) => {

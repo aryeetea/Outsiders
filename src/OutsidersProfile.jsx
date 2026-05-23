@@ -4,19 +4,27 @@ import { DEFAULT_PROFILE } from "./appState";
 import { availabilityToText, hasAvailability } from "./scheduling";
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
 
   * { box-sizing: border-box; }
-  body { margin: 0; background: #f6f3eb; }
+  body { margin: 0; background: #f5f3ee; }
 
   .profile-root {
     min-height: 100vh;
-    color: #1d2238;
-    font-family: 'Space Grotesk', sans-serif;
-    background:
-      radial-gradient(circle at top left, rgba(255, 181, 138, 0.35), transparent 32%),
-      radial-gradient(circle at top right, rgba(123, 214, 255, 0.28), transparent 26%),
-      linear-gradient(180deg, #fff9ef 0%, #f7f3eb 100%);
+    color: #1a1a2e;
+    font-family: 'Nunito', sans-serif;
+    background: #f5f3ee;
+  }
+
+  .profile-root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, #1a1a2e 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 0;
   }
 
   .profile-shell {
@@ -25,14 +33,15 @@ const STYLES = `
     padding: 28px 20px 56px;
     display: grid;
     gap: 24px;
+    position: relative;
+    z-index: 1;
   }
 
   .topbar, .panel, .sheet-panel {
-    border: 1px solid rgba(29, 34, 56, 0.12);
-    border-radius: 28px;
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(18px);
-    box-shadow: 0 22px 60px rgba(29, 34, 56, 0.08);
+    border: 4px solid #1a1a2e;
+    border-radius: 20px;
+    background: #fffdf9;
+    box-shadow: 6px 6px 0 #1a1a2e;
   }
 
   .topbar {
@@ -60,11 +69,13 @@ const STYLES = `
   .logo-mark {
     width: 42px;
     height: 42px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #ff7a6b, #ffb36c);
-    box-shadow: 0 12px 22px rgba(255, 122, 107, 0.26);
-    display: grid;
-    place-items: center;
+    background: #ff6b6b;
+    border: 3px solid #1a1a2e;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 3px 3px 0 #1a1a2e;
   }
 
   .nav-row {
@@ -74,19 +85,22 @@ const STYLES = `
   }
 
   .nav-btn {
-    border: 1px solid rgba(29, 34, 56, 0.12);
-    background: rgba(255, 255, 255, 0.85);
-    color: #556077;
+    border: 3px solid #1a1a2e;
+    background: #fff;
+    color: #666;
     padding: 10px 14px;
-    border-radius: 999px;
+    border-radius: 10px;
     cursor: pointer;
-    font: 700 13px 'Space Grotesk', sans-serif;
+    font: 800 13px 'Nunito', sans-serif;
+    box-shadow: 3px 3px 0 #1a1a2e;
   }
 
   .nav-btn.active, .nav-btn:hover {
-    background: #1d2238;
-    color: white;
+    background: #fff;
+    color: #1a1a2e;
     transform: translateY(-1px);
+    border-color: #ff6b6b;
+    box-shadow: 3px 3px 0 #ff6b6b;
   }
 
   .hero-grid {
@@ -100,32 +114,36 @@ const STYLES = `
   }
 
   .profile-card {
-    background:
-      linear-gradient(165deg, rgba(255,255,255,0.95), rgba(255,246,234,0.92)),
-      linear-gradient(135deg, rgba(255,122,107,0.18), rgba(123,214,255,0.16));
+    background: #fde8f0;
+    border-color: #ff6b9d;
+    box-shadow: 6px 6px 0 #ff6b9d;
   }
 
   .avatar-circle {
     width: 86px;
     height: 86px;
-    border-radius: 28px;
-    background: linear-gradient(135deg, #ff7a6b, #ffb36c);
+    border-radius: 24px;
+    background: #ff6b6b;
+    border: 4px solid #1a1a2e;
     color: white;
     display: grid;
     place-items: center;
-    font: 800 28px 'Sora', sans-serif;
-    box-shadow: 0 16px 34px rgba(255, 122, 107, 0.28);
+    font: 900 28px 'Nunito', sans-serif;
+    box-shadow: 5px 5px 0 #1a1a2e;
   }
 
   .eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: rgba(255, 214, 153, 0.45);
-    color: #7b4e12;
-    font: 700 12px 'Space Grotesk', sans-serif;
+    padding: 2px 10px;
+    border-radius: 8px;
+    border: 2px solid #1a1a2e;
+    background: #ffd93d;
+    color: #1a1a2e;
+    font: 400 12px 'Bangers', cursive;
+    box-shadow: 2px 2px 0 #1a1a2e;
+    transform: rotate(-2deg);
   }
 
   .profile-grid {
@@ -137,38 +155,41 @@ const STYLES = `
 
   .stat-tile {
     padding: 14px;
-    border-radius: 20px;
-    background: rgba(255,255,255,0.84);
-    border: 1px solid rgba(29, 34, 56, 0.08);
+    border-radius: 16px;
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
 
   .stat-label {
     margin: 0 0 6px;
     font-size: 12px;
     font-weight: 700;
-    color: #7a8294;
+    color: #888;
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }
 
   .action-btn, .ghost-btn {
-    border-radius: 18px;
+    border-radius: 10px;
     cursor: pointer;
-    font: 700 14px 'Space Grotesk', sans-serif;
+    font: 400 15px 'Bangers', cursive;
+    letter-spacing: 0.06em;
     padding: 13px 16px;
   }
 
   .action-btn {
-    border: none;
-    background: linear-gradient(135deg, #ff7a6b, #ff9671);
+    border: 3px solid #1a1a2e;
+    background: #ff6b6b;
     color: white;
-    box-shadow: 0 16px 30px rgba(255, 122, 107, 0.28);
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
 
   .ghost-btn {
-    border: 1px solid rgba(29, 34, 56, 0.12);
-    background: rgba(255,255,255,0.72);
-    color: #1d2238;
+    border: 3px solid #1a1a2e;
+    background: #fff;
+    color: #1a1a2e;
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
 
   .action-btn:hover, .ghost-btn:hover, .slot-chip:hover {
@@ -196,13 +217,14 @@ const STYLES = `
 
   .field input, .field textarea {
     width: 100%;
-    border: 1px solid rgba(29, 34, 56, 0.12);
-    border-radius: 18px;
+    border: 3px solid #1a1a2e;
+    border-radius: 10px;
     padding: 13px 14px;
-    background: rgba(255,255,255,0.9);
-    color: #1d2238;
-    font: 500 15px 'Space Grotesk', sans-serif;
+    background: #fffdf9;
+    color: #1a1a2e;
+    font: 700 15px 'Nunito', sans-serif;
     outline: none;
+    box-shadow: 3px 3px 0 #1a1a2e;
   }
 
   .field textarea {
@@ -212,9 +234,10 @@ const STYLES = `
 
   .notice-card {
     padding: 16px 18px;
-    border-radius: 22px;
-    background: linear-gradient(135deg, rgba(255, 243, 205, 0.92), rgba(255,255,255,0.9));
-    border: 1px solid rgba(255, 174, 68, 0.28);
+    border-radius: 16px;
+    background: #fff4e6;
+    border: 3px solid #ff9a3c;
+    box-shadow: 4px 4px 0 #ff9a3c;
     color: #7b4e12;
   }
 
@@ -225,9 +248,10 @@ const STYLES = `
 
   .notif-item {
     padding: 14px 16px;
-    border-radius: 18px;
-    background: rgba(255,255,255,0.88);
-    border: 1px solid rgba(29, 34, 56, 0.08);
+    border-radius: 14px;
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
 
   @media (max-width: 1080px) {
@@ -294,6 +318,20 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
         ...prev.profile,
         ...draft,
       },
+      groups: (prev.groups || []).map((group) => ({
+        ...group,
+        members: (group.members || []).map((member) => (
+          member.name === prev.profile?.name || member.username === (prev.profile?.username ? `@${prev.profile.username}` : "")
+            ? {
+                ...member,
+                name: draft.name || member.name,
+                username: draft.username ? `@${draft.username.replace(/^@/, "")}` : member.username,
+                initials: initialsFor(draft),
+                availability: draft.availability,
+              }
+            : member
+        )),
+      })),
     }));
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
@@ -325,11 +363,11 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
 
           <div className="hero-grid">
             <section className="panel profile-card">
-              <span className="eyebrow">{availabilityReady ? "Availability live" : "Availability missing"}</span>
+            <span className="eyebrow">{availabilityReady ? "Availability live" : "Availability missing"}</span>
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 16 }}>
                 <div className="avatar-circle">{initialsFor(draft)}</div>
                 <div>
-                  <h1 style={{ margin: "0 0 6px", font: "800 34px 'Sora', sans-serif" }}>{draft.name || "Set up your profile"}</h1>
+                  <h1 className="bangers" style={{ margin: "0 0 6px", fontSize: 34 }}>{draft.name || "Set up your profile"}</h1>
                   <p style={{ margin: "0 0 8px", color: "#667085", fontWeight: 700 }}>
                     {draft.username ? `@${draft.username.replace(/^@/, "")}` : "Pick a username so your crew recognizes you."}
                   </p>
@@ -423,7 +461,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
               {notifications.length ? notifications.map((notification) => (
                 <div key={notification.id} className="notif-item" style={{ opacity: notification.read ? 0.68 : 1 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-                    <strong>{notification.message}</strong>
+                  <strong>{notification.message}</strong>
                     {!notification.read ? <span className="slot-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>New</span> : null}
                   </div>
                   <p style={{ margin: "8px 0 0", color: "#667085", fontSize: 14 }}>
