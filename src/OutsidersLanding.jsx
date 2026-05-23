@@ -301,12 +301,12 @@ const IconLogoMark = () => (
 );
 
 const FEATURES = [
-  { icon: <IconCalendar />, title: "Plan & Schedule Hangouts", body: "Stop letting 'we should hang' die in the chat. Pick a date, lock it in, and actually show up.", tag: "Planning" },
-  { icon: <IconVote />, title: "Vote On Places & Times", body: "No more 'idk you pick.' Everyone gets a say, the group decides, and you all show up somewhere nobody hates.", tag: "Voting" },
-  { icon: <IconPlane />, title: "Travel Together", body: "Weekend trip or across the world — Outsiders keeps your crew organized so the only thing you worry about is the vibe.", tag: "Travel" },
-  { icon: <IconSplit />, title: "Split The Bill", body: "Nobody should lose a friend over who paid for dinner. Split it clean, keep it fair, move on.", tag: "Finance" },
-  { icon: <IconStar />, title: "Rate The Outing", body: "Was it a 10 or a disaster? Rate the night and let the data decide where you're going next time.", tag: "Reviews" },
-  { icon: <IconHeart />, title: "Conflict Resolution & Debrief", body: "Because some conversations need more than a voice note. Work through the mess before it becomes distance.", tag: "Debrief" },
+  { icon: <IconCalendar />, title: "Plan & Schedule Hangouts", body: "See your crew's availability, compare the best overlaps, and still keep planning even if everyone has not answered yet.", tag: "Planning" },
+  { icon: <IconVote />, title: "Vote On Places & Times", body: "Let the group weigh in on what works best, then move forward with a plan that feels chosen instead of dumped on one person.", tag: "Voting" },
+  { icon: <IconPlane />, title: "Travel Together", body: "Weekend trip or big getaway, keep the itinerary, crew details, and shared plans in one place so the vibe stays intact.", tag: "Travel" },
+  { icon: <IconSplit />, title: "Split The Bill", body: "Track expenses, see balances, and make the crew's voted Bill Watch person the clear record keeper for the money side.", tag: "Finance" },
+  { icon: <IconStar />, title: "Rate The Outing", body: "Rate the outing or trip after it happens so the group can learn what actually hit, what flopped, and what to run back.", tag: "Reviews" },
+  { icon: <IconHeart />, title: "Conflict Resolution & Debrief", body: "File anonymous cases, bring in the group's peace maker when needed, and work through tension before it turns into distance.", tag: "Debrief" },
 ];
 
 function useFadeUp(delay = 0) {
