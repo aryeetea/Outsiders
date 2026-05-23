@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createOpenAIResponse, DEFAULT_OPENAI_MODEL } from "./openaiResponses";
 
 const STORAGE_KEY = "outsiders-ai-api-key";
@@ -390,32 +390,23 @@ function getGreeting(screen) {
 
 export default function OutsidersAI({ screen, appData }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [apiKey, setApiKey] = useState(() => getInitialApiKey());
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [previousResponseId, setPreviousResponseId] = useState("");
-
-  useEffect(() => {
-    if (!apiKey) {
-      localStorage.removeItem(STORAGE_KEY);
-      return;
-    }
-
-    localStorage.setItem(STORAGE_KEY, apiKey);
-  }, [apiKey]);
+  const apiKey = getInitialApiKey().trim();
 
   const appContext = useMemo(() => buildAppContext(screen, appData), [screen, appData]);
   const quickActions = useMemo(() => getQuickActions(screen), [screen]);
   const activeScreenLabel = SCREEN_LABELS[screen] || "Current screen";
-  const canSend = draft.trim() && apiKey.trim() && !isLoading;
+  const canSend = draft.trim() && apiKey && !isLoading;
 
   async function submitPrompt(promptText) {
     const trimmed = promptText.trim();
     if (!trimmed) return;
-    if (!apiKey.trim()) {
-      setError("Add an OpenAI API key to start using Outsiders AI.");
+    if (!apiKey) {
+      setError("Outsiders AI is not configured right now.");
       return;
     }
 
@@ -427,7 +418,7 @@ export default function OutsidersAI({ screen, appData }) {
 
     try {
       const result = await createOpenAIResponse({
-        apiKey: apiKey.trim(),
+        apiKey,
         model: DEFAULT_OPENAI_MODEL,
         instructions: getSystemInstructions(screen),
         previousResponseId,
@@ -453,7 +444,7 @@ export default function OutsidersAI({ screen, appData }) {
     }
   }
 
-  function clearConversation() {
+function clearConversation() {
     setMessages([]);
     setPreviousResponseId("");
     setError("");
@@ -531,14 +522,6 @@ export default function OutsidersAI({ screen, appData }) {
             </div>
 
             <div className="outsiders-ai-footer">
-              <input
-                className="outsiders-ai-input"
-                type="password"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder="Paste your OpenAI API key"
-              />
-
               {error ? (
                 <p style={{ margin: 0, color: "#ff3b30", fontWeight: 900, fontSize: 12 }}>
                   {error}
