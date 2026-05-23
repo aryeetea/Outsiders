@@ -22,28 +22,29 @@ const SCREEN_LABELS = {
 
 const QUICK_ACTIONS = {
   default: [
+    "Recommend places I would probably like based on my app history.",
     "What should I work on next in this app?",
-    "Summarize what matters most right now.",
     "Give me a short plan using the data on this page.",
   ],
   dashboard: [
     "What should my crew focus on next?",
     "Summarize my proposals, trips, and notifications.",
-    "Turn this dashboard into a next-steps checklist.",
+    "Recommend a few places my crew would probably love.",
   ],
   "friend-groups": [
+    "Recommend places for this crew based on what we seem to like.",
     "Help me write a message to rally the crew.",
     "Which proposals need attention first?",
     "Draft a fun invite or follow-up note for this crew.",
   ],
   "create-hangout": [
+    "Recommend real places for this hangout based on the vibe I want.",
     "Brainstorm 5 hangout ideas that fit this crew.",
     "Write a better proposal description for me.",
-    "Suggest a catchy title and vibe for this hangout.",
   ],
   "trip-planning": [
     "Help me plan a trip itinerary from this page.",
-    "Suggest a packing checklist and budget advice.",
+    "Suggest real places to eat, stay, or explore for this trip.",
     "Turn this trip into a day-by-day plan.",
   ],
   debrief: [
@@ -101,6 +102,43 @@ function summarizeProposal(proposal = {}) {
   };
 }
 
+function average(values = []) {
+  if (!values.length) return 0;
+  return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+}
+
+function buildFavoritePlaces(appData = {}) {
+  const hangouts = Array.isArray(appData.hangouts) ? appData.hangouts : [];
+  const trips = Array.isArray(appData.trips) ? appData.trips : [];
+
+  const placeCandidates = [
+    ...hangouts
+      .filter((item) => item?.location)
+      .map((item) => ({
+        name: item.name || "Hangout",
+        place: item.location,
+        type: "hangout",
+        overall: average((item.ratings || []).map((rating) => Number(rating.overall) || 0)),
+        locationScore: average((item.ratings || []).map((rating) => Number(rating.categories?.location) || 0).filter(Boolean)),
+        ratingsCount: (item.ratings || []).length,
+      })),
+    ...trips
+      .filter((item) => item?.destination)
+      .map((item) => ({
+        name: item.name || "Trip",
+        place: item.destination,
+        type: "trip",
+        overall: average((item.ratings || []).map((rating) => Number(rating.overall) || 0)),
+        locationScore: average((item.ratings || []).map((rating) => Number(rating.categories?.location || rating.categories?.stay || rating.categories?.activities) || 0).filter(Boolean)),
+        ratingsCount: (item.ratings || []).length,
+      })),
+  ];
+
+  return placeCandidates
+    .sort((a, b) => ((b.locationScore || b.overall) - (a.locationScore || a.overall)) || (b.ratingsCount - a.ratingsCount))
+    .slice(0, 6);
+}
+
 function buildContext(route, appData) {
   const profile = appData?.profile || {};
   const groups = appData?.groups || [];
@@ -117,6 +155,7 @@ function buildContext(route, appData) {
     budget: trip.budget,
     spent: trip.spent,
   }));
+  const favoritePlaces = buildFavoritePlaces(appData);
 
   return {
     screen: SCREEN_LABELS[route?.screen] || "App",
@@ -144,8 +183,9 @@ function buildContext(route, appData) {
     })),
     proposals: proposals.slice(0, 6).map(summarizeProposal),
     trips,
+    favoritePlaces,
     notifications,
-    note: "Outsiders already has a deterministic Hangout Assistant for overlap timing. That assistant still owns availability-based scheduling suggestions.",
+    note: "Outsiders already has a deterministic Hangout Assistant for overlap timing. That assistant still owns availability-based scheduling suggestions. This bona fide assistant should focus on friendly planning help, place ideas, writing, and recommendations grounded in app history.",
   };
 }
 
@@ -208,7 +248,7 @@ export default function OutsidersAssistant({ route, appData }) {
       }
 
       setPreviousResponseId(payload.responseId || null);
-      setMessages((current) => [...current, { role: "assistant", content: payload.text }]);
+      setMessages((current) => [...current, { role: "assistant", content: payload.text, sources: payload.sources || [] }]);
     } catch (err) {
       setError(err.message || "The assistant could not answer right now.");
       setMessages((current) => current.filter((message, index) => !(index === current.length - 1 && message.role === "user" && message.content === prompt)));
@@ -317,6 +357,21 @@ export default function OutsidersAssistant({ route, appData }) {
           white-space: pre-wrap;
           line-height: 1.55;
         }
+        .oa-sources {
+          margin-top: 10px;
+          display: grid;
+          gap: 6px;
+        }
+        .oa-source-link {
+          color: #155e75;
+          font-size: 12px;
+          font-weight: 800;
+          text-decoration: none;
+          overflow-wrap: anywhere;
+        }
+        .oa-source-link:hover {
+          text-decoration: underline;
+        }
         .oa-bubble.user {
           background: #ffe7a8;
         }
@@ -404,7 +459,7 @@ export default function OutsidersAssistant({ route, appData }) {
                 <div>
                   <div className="bangers" style={{ fontSize: 28, color: "#17151f" }}>Outsiders AI</div>
                   <div style={{ fontSize: 13, color: "#667085", fontWeight: 800 }}>
-                    {SCREEN_LABELS[route?.screen] || "App"} helper for ideas, writing, planning, and calm messaging
+                    {SCREEN_LABELS[route?.screen] || "App"} helper for place ideas, writing, planning, and calm messaging
                   </div>
                 </div>
                 <button type="button" className="oa-btn" onClick={() => setIsOpen(false)}>Close</button>
@@ -426,13 +481,22 @@ export default function OutsidersAssistant({ route, appData }) {
             <div className="oa-messages">
               {!messages.length ? (
                 <div className="oa-bubble assistant">
-                  I can help across the whole app: brainstorm hangouts, rewrite proposals, draft debrief responses, summarize trips, tighten reviews, and turn what is on this screen into clear next steps.
+                  I can help across the whole app: recommend places based on your vibe and app history, brainstorm hangouts, rewrite proposals, draft debrief responses, summarize trips, and turn what is on this screen into clear next steps.
                   {"\n\n"}
                   The existing Hangout Assistant still handles availability overlap and time recommendations.
                 </div>
               ) : messages.map((message, index) => (
                 <div key={`${message.role}-${index}`} className={`oa-bubble ${message.role}`}>
                   {message.content}
+                  {message.role === "assistant" && Array.isArray(message.sources) && message.sources.length ? (
+                    <div className="oa-sources">
+                      {message.sources.map((source) => (
+                        <a key={source.url} className="oa-source-link" href={source.url} target="_blank" rel="noreferrer">
+                          Source: {source.title || source.url}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ))}
               {isLoading ? <div className="oa-bubble assistant">Thinking through your crew context...</div> : null}
@@ -444,7 +508,7 @@ export default function OutsidersAssistant({ route, appData }) {
                 className="oa-input"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="Ask for help with this page, your crew, a trip, a review, a message, or a plan..."
+                placeholder="Ask for place recommendations, hangout ideas, proposal help, trip plans, reviews, or a message draft..."
               />
               <div className="oa-actions">
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -456,7 +520,7 @@ export default function OutsidersAssistant({ route, appData }) {
                   </button>
                 </div>
                 <div className="oa-note">
-                  Uses live app context. It will not replace the timing assistant that already powers schedule overlap suggestions.
+                  Uses live app context and can draw on web-backed place research. It will not replace the timing assistant that already powers schedule overlap suggestions.
                 </div>
               </div>
             </div>
