@@ -181,8 +181,7 @@ export default function App() {
         .availability-gate {
           position: fixed;
           inset: 0;
-          background: rgba(15, 23, 42, 0.58);
-          backdrop-filter: blur(10px);
+          background: rgba(23, 21, 31, 0.52);
           z-index: 500;
           display: flex;
           align-items: center;
@@ -192,29 +191,43 @@ export default function App() {
         }
         .availability-gate-card {
           width: min(540px, 100%);
-          background: linear-gradient(145deg, #fffaf0 0%, #ffffff 60%, #f4fbff 100%);
-          border: 3px solid #1a1a2e;
-          border-radius: 28px;
-          box-shadow: 0 28px 80px rgba(26, 26, 46, 0.22);
+          background: linear-gradient(180deg, #fff9df 0%, #ffffff 54%, #fff7e8 100%);
+          border: 4px solid #1a1a2e;
+          border-radius: 24px;
+          box-shadow: 8px 8px 0 #1a1a2e;
           padding: 28px;
           color: #1a1a2e;
           animation: liftIn 320ms cubic-bezier(0.22, 1, 0.36, 1);
+          position: relative;
+          overflow: hidden;
+        }
+        .availability-gate-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(circle, rgba(26,26,46,0.12) 1px, transparent 1.2px);
+          background-size: 20px 20px;
+          opacity: 0.5;
+          pointer-events: none;
         }
         .availability-gate-btn {
           width: 100%;
           border: 3px solid #1a1a2e;
-          border-radius: 16px;
-          background: linear-gradient(135deg, #ff6b6b, #ff9671);
+          border-radius: 12px;
+          background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
           color: #fff;
-          font: 900 18px 'Nunito', sans-serif;
+          font: 400 18px 'Bangers', cursive;
+          letter-spacing: 0.06em;
           padding: 14px 18px;
           cursor: pointer;
-          box-shadow: 0 14px 30px rgba(255, 107, 107, 0.28);
+          box-shadow: 4px 4px 0 #1a1a2e;
           transition: transform 160ms ease, box-shadow 160ms ease;
+          position: relative;
+          z-index: 1;
         }
         .availability-gate-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 18px 36px rgba(255, 107, 107, 0.34);
+          transform: translate(-1px, -2px);
+          box-shadow: 5px 5px 0 #1a1a2e;
         }
         @keyframes fadeIn {
           from { opacity: 0; }
@@ -229,10 +242,10 @@ export default function App() {
       {availabilityRequired ? (
         <div className="availability-gate">
           <div className="availability-gate-card">
-            <div style={{ display: "inline-flex", padding: "6px 12px", borderRadius: 999, background: "#fff0c2", border: "2px solid #1a1a2e", fontWeight: 900, marginBottom: 14 }}>
+            <div style={{ display: "inline-flex", padding: "6px 12px", borderRadius: 10, background: "#ffd93d", border: "2px solid #1a1a2e", font: "400 15px 'Bangers', cursive", letterSpacing: "0.07em", boxShadow: "3px 3px 0 #1a1a2e", marginBottom: 14, transform: "rotate(-2deg)", position: "relative", zIndex: 1 }}>
               Availability Required
             </div>
-            <h2 style={{ margin: "0 0 10px", fontSize: 32, lineHeight: 1 }}>Set your weekly sheet before planning.</h2>
+            <h2 style={{ margin: "0 0 10px", font: "400 36px 'Bangers', cursive", lineHeight: 1, letterSpacing: "0.04em", position: "relative", zIndex: 1 }}>Set your weekly sheet before planning.</h2>
             <p style={{ margin: "0 0 18px", fontSize: 16, lineHeight: 1.5, color: "#475569" }}>
               Outsiders now requires every member to fill out availability before using crews and hangout planning. Your profile has a polished weekly grid waiting for you.
             </p>

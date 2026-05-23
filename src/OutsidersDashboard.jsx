@@ -1,15 +1,26 @@
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
-  body { margin: 0; background: #f6f3eb; }
+  body { margin: 0; background: #f7f1dd; }
   .dash-root {
     min-height: 100vh;
-    font-family: 'Space Grotesk', sans-serif;
-    color: #1d2238;
+    font-family: 'Nunito', sans-serif;
+    color: #17151f;
     background:
-      radial-gradient(circle at top left, rgba(255, 122, 107, 0.18), transparent 25%),
-      radial-gradient(circle at top right, rgba(123, 214, 255, 0.2), transparent 22%),
-      linear-gradient(180deg, #fff9ef 0%, #f7f3eb 100%);
+      radial-gradient(circle at top left, rgba(255, 217, 61, 0.48), transparent 28%),
+      radial-gradient(circle at top right, rgba(110, 215, 255, 0.22), transparent 26%),
+      linear-gradient(180deg, #fff7cc 0%, #fffef6 40%, #f5efe0 100%);
+    position: relative;
+  }
+  .dash-root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(23, 21, 31, 0.14) 1.1px, transparent 1.3px);
+    background-size: 22px 22px;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
   }
   .dash-shell {
     max-width: 1320px;
@@ -17,15 +28,25 @@ const STYLES = `
     padding: 24px 20px 48px;
     display: grid;
     gap: 24px;
+    position: relative;
+    z-index: 1;
   }
   .glass, .card {
-    border: 1px solid rgba(29,34,56,0.1);
-    background: rgba(255,255,255,0.8);
-    backdrop-filter: blur(18px);
-    box-shadow: 0 20px 52px rgba(29,34,56,0.08);
+    border: 4px solid #17151f;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,250,240,0.98));
+    box-shadow: 8px 8px 0 #17151f;
+    position: relative;
+    overflow: hidden;
+  }
+  .glass::before, .card::before, .proposal-card::before, .note-card::before, .quick-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255,255,255,0.65), transparent 28%);
+    pointer-events: none;
   }
   .glass {
-    border-radius: 28px;
+    border-radius: 22px;
     padding: 18px 22px;
     display: flex;
     justify-content: space-between;
@@ -43,35 +64,43 @@ const STYLES = `
     border: none;
     background: none;
     cursor: pointer;
-    color: #1d2238;
+    color: #17151f;
+    position: relative;
+    z-index: 1;
   }
   .logo {
-    width: 42px;
-    height: 42px;
+    width: 46px;
+    height: 46px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #ff7a6b, #ffb36c);
+    background: linear-gradient(135deg, #ff6b6b, #ff9a3c);
+    border: 3px solid #17151f;
     display: grid;
     place-items: center;
-    box-shadow: 0 12px 24px rgba(255,122,107,0.28);
+    box-shadow: 4px 4px 0 #17151f;
+    transform: rotate(-7deg);
   }
   .chip-btn {
-    border: 1px solid rgba(29,34,56,0.12);
-    background: rgba(255,255,255,0.88);
-    color: #475467;
+    border: 3px solid #17151f;
+    background: linear-gradient(180deg, #ffffff, #fff3c8);
+    color: #17151f;
     padding: 10px 14px;
     border-radius: 999px;
     cursor: pointer;
-    font: 700 13px 'Space Grotesk', sans-serif;
+    font: 400 14px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    box-shadow: 3px 3px 0 #17151f;
+    position: relative;
+    z-index: 1;
   }
   .chip-btn:hover, .quick-btn:hover, .cta-btn:hover {
-    transform: translateY(-2px);
+    transform: translate(-1px, -2px);
   }
   .hero {
-    border-radius: 34px;
-    padding: 28px;
+    border-radius: 24px;
+    padding: 30px;
     background:
-      radial-gradient(circle at right top, rgba(123,214,255,0.18), transparent 28%),
-      linear-gradient(135deg, #fffef9, #fff5e5 52%, #eef9ff 100%);
+      radial-gradient(circle at right top, rgba(110,215,255,0.2), transparent 26%),
+      linear-gradient(135deg, #ffef7d 0%, #fff8ca 38%, #ffffff 100%);
   }
   .hero-grid {
     display: grid;
@@ -85,22 +114,24 @@ const STYLES = `
     align-content: start;
   }
   .cta-btn, .quick-btn {
-    border: none;
-    border-radius: 22px;
+    border: 3px solid #17151f;
+    border-radius: 18px;
     padding: 14px 16px;
     cursor: pointer;
-    font: 700 15px 'Space Grotesk', sans-serif;
+    font: 400 15px 'Bangers', cursive;
+    letter-spacing: 0.05em;
     text-align: left;
+    box-shadow: 4px 4px 0 #17151f;
+    position: relative;
+    z-index: 1;
   }
   .cta-btn.primary {
-    background: linear-gradient(135deg, #ff7a6b, #ff9671);
+    background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
     color: white;
-    box-shadow: 0 18px 32px rgba(255,122,107,0.28);
   }
   .cta-btn.secondary {
     background: linear-gradient(135deg, #72d8ff, #8bf0c4);
     color: #093344;
-    box-shadow: 0 18px 32px rgba(114,216,255,0.24);
   }
   .stats-grid, .content-grid, .quick-grid {
     display: grid;
@@ -116,22 +147,56 @@ const STYLES = `
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .card {
-    border-radius: 28px;
+    border-radius: 22px;
     padding: 22px;
   }
   .proposal-card, .note-card {
-    border-radius: 22px;
+    border-radius: 18px;
     padding: 16px;
-    background: rgba(255,255,255,0.88);
-    border: 1px solid rgba(29,34,56,0.08);
+    background: linear-gradient(180deg, #fffef9, #fff8ea);
+    border: 3px solid #17151f;
+    box-shadow: 5px 5px 0 #17151f;
+    position: relative;
+    overflow: hidden;
   }
   .proposal-card {
     animation: fadeSlide 300ms ease both;
   }
   .quick-btn {
-    background: rgba(255,255,255,0.88);
-    border: 1px solid rgba(29,34,56,0.08);
+    background: linear-gradient(180deg, #ffffff, #fff5de);
     min-height: 112px;
+  }
+  .bangers {
+    font-family: 'Bangers', cursive;
+    letter-spacing: 0.04em;
+  }
+  .comic-kicker {
+    display: inline-flex;
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: #ffd93d;
+    color: #17151f;
+    font: 400 15px 'Bangers', cursive;
+    letter-spacing: 0.07em;
+    border: 2px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    transform: rotate(-2deg);
+  }
+  .stat-number {
+    font: 400 34px 'Bangers', cursive;
+    letter-spacing: 0.05em;
+  }
+  .section-title {
+    margin: 0 0 6px;
+    font: 400 26px 'Bangers', cursive;
+    letter-spacing: 0.05em;
+  }
+  .status-chip {
+    border-radius: 999px;
+    padding: 8px 12px;
+    border: 3px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    font-weight: 900;
   }
   @keyframes fadeSlide {
     from { opacity: 0; transform: translateY(10px); }
@@ -184,7 +249,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
               </div>
               <div>
-                <div style={{ font: "800 22px 'Sora', sans-serif" }}>Outsiders</div>
+                <div className="bangers" style={{ fontSize: 24 }}>Outsiders</div>
                 <div style={{ fontSize: 12, color: "#7a8294" }}>Command center</div>
               </div>
             </button>
@@ -199,8 +264,8 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
           <section className="glass hero">
             <div className="hero-grid">
               <div>
-                <div style={{ display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "#fff0c2", color: "#7b4e12", fontWeight: 700 }}>Welcome back</div>
-                <h1 style={{ margin: "14px 0 10px", font: "800 42px 'Sora', sans-serif", lineHeight: 1.06 }}>Plan the next move for {displayName} and the crew.</h1>
+                <div className="comic-kicker">Welcome Back</div>
+                <h1 className="bangers" style={{ margin: "14px 0 10px", fontSize: 46, lineHeight: 1 }}>Plan the next move for {displayName} and the crew.</h1>
                 <p style={{ margin: 0, maxWidth: 720, color: "#556077", fontSize: 16, lineHeight: 1.6 }}>
                   Proposal voting, availability-aware planning, crew invites, notifications, and the roast board all now live inside your crew spaces where they belong.
                 </p>
@@ -221,7 +286,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
             ].map(([label, value, color]) => (
               <div key={label} className="card">
                 <div style={{ width: 16, height: 16, borderRadius: 999, background: color, marginBottom: 14 }} />
-                <div style={{ font: "800 34px 'Sora', sans-serif" }}>{value}</div>
+                <div className="stat-number">{value}</div>
                 <div style={{ color: "#667085", fontWeight: 700 }}>{label}</div>
               </div>
             ))}
@@ -231,7 +296,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
             <div className="card">
               <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
                 <div>
-                  <h2 style={{ margin: "0 0 6px", font: "800 26px 'Sora', sans-serif" }}>Crew proposals</h2>
+                  <h2 className="section-title">Crew Proposals</h2>
                   <p style={{ margin: 0, color: "#667085" }}>Every active proposal across your crews.</p>
                 </div>
                 <button type="button" className="chip-btn" onClick={() => onNavigate?.("friend-groups")}>Manage in crew</button>
@@ -244,10 +309,10 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                     <div key={proposal.id} className="proposal-card">
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
                         <div>
-                          <strong style={{ display: "block", fontSize: 18 }}>{proposal.name}</strong>
+                          <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{proposal.name}</strong>
                           <span style={{ color: "#667085", fontWeight: 700 }}>{proposal.groupName} · proposed by {proposal.proposerName}</span>
                         </div>
-                        <span style={{ borderRadius: 999, padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700", fontWeight: 700 }}>
+                        <span className="status-chip" style={{ background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>
                           {proposal.status}
                         </span>
                       </div>
@@ -269,11 +334,11 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
 
             <div style={{ display: "grid", gap: 16 }}>
               <div className="card">
-                <h2 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Quick actions</h2>
+                <h2 className="section-title" style={{ marginBottom: 14 }}>Quick Actions</h2>
                 <div className="quick-grid">
                   {QUICK_ACTIONS.map(([label, target, description]) => (
                     <button key={label} type="button" className="quick-btn" onClick={() => onNavigate?.(target)}>
-                      <strong style={{ display: "block", marginBottom: 6 }}>{label}</strong>
+                      <strong className="bangers" style={{ display: "block", marginBottom: 6, fontSize: 18 }}>{label}</strong>
                       <span style={{ color: "#667085", lineHeight: 1.5 }}>{description}</span>
                     </button>
                   ))}
@@ -281,7 +346,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
               </div>
 
               <div className="card">
-                <h2 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Notifications</h2>
+                <h2 className="section-title" style={{ marginBottom: 14 }}>Notifications</h2>
                 <div style={{ display: "grid", gap: 10 }}>
                   {notifications.length ? notifications.slice(0, 5).map((notification) => (
                     <div key={notification.id} className="note-card" style={{ opacity: notification.read ? 0.7 : 1 }}>

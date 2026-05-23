@@ -4,17 +4,28 @@ import { buildHangoutInviteLink } from "./siteConfig";
 import { availabilityToText, formatTimeLabel, recommendHangoutTimes } from "./scheduling";
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
-  body { margin: 0; background: #f6f3eb; }
+  body { margin: 0; background: #f7f1dd; }
   .root {
     min-height: 100vh;
-    color: #1d2238;
-    font-family: 'Space Grotesk', sans-serif;
+    color: #17151f;
+    font-family: 'Nunito', sans-serif;
     background:
-      radial-gradient(circle at top left, rgba(255, 122, 107, 0.16), transparent 26%),
-      radial-gradient(circle at top right, rgba(123, 214, 255, 0.22), transparent 24%),
-      linear-gradient(180deg, #fff9ef 0%, #f7f3eb 100%);
+      radial-gradient(circle at top left, rgba(255, 217, 61, 0.46), transparent 28%),
+      radial-gradient(circle at top right, rgba(110, 215, 255, 0.24), transparent 24%),
+      linear-gradient(180deg, #fff7cc 0%, #fffef6 40%, #f5efe0 100%);
+    position: relative;
+  }
+  .root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(23, 21, 31, 0.14) 1.1px, transparent 1.3px);
+    background-size: 22px 22px;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
   }
   .shell {
     max-width: 1320px;
@@ -22,13 +33,23 @@ const STYLES = `
     padding: 24px 20px 48px;
     display: grid;
     gap: 24px;
+    position: relative;
+    z-index: 1;
   }
   .glass, .card {
-    border-radius: 28px;
-    border: 1px solid rgba(29,34,56,0.1);
-    background: rgba(255,255,255,0.82);
-    backdrop-filter: blur(18px);
-    box-shadow: 0 20px 52px rgba(29,34,56,0.08);
+    border-radius: 22px;
+    border: 4px solid #17151f;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,250,240,0.98));
+    box-shadow: 8px 8px 0 #17151f;
+    position: relative;
+    overflow: hidden;
+  }
+  .glass::before, .card::before, .crew-member::before, .recommendation::before, .pill-list::before, .summary-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255,255,255,0.64), transparent 28%);
+    pointer-events: none;
   }
   .glass {
     display: flex;
@@ -49,16 +70,20 @@ const STYLES = `
     background: none;
     border: none;
     cursor: pointer;
-    color: #1d2238;
+    color: #17151f;
+    position: relative;
+    z-index: 1;
   }
   .logo {
-    width: 42px;
-    height: 42px;
+    width: 48px;
+    height: 48px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #ff7a6b, #ffb36c);
+    background: linear-gradient(135deg, #ff6b6b, #ff9a3c);
+    border: 3px solid #17151f;
     display: grid;
     place-items: center;
-    box-shadow: 0 12px 24px rgba(255,122,107,0.28);
+    box-shadow: 4px 4px 0 #17151f;
+    transform: rotate(-7deg);
   }
   .layout {
     display: grid;
@@ -73,77 +98,91 @@ const STYLES = `
   .field {
     display: grid;
     gap: 8px;
+    position: relative;
+    z-index: 1;
   }
   .field.full {
     grid-column: 1 / -1;
   }
   .field label {
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 400;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #667085;
+    letter-spacing: 0.06em;
+    color: #17151f;
+    font-family: 'Bangers', cursive;
   }
   .field input, .field select, .field textarea {
     width: 100%;
-    border: 1px solid rgba(29,34,56,0.12);
-    border-radius: 18px;
+    border: 3px solid #17151f;
+    border-radius: 12px;
     padding: 13px 14px;
-    background: rgba(255,255,255,0.92);
-    font: 500 15px 'Space Grotesk', sans-serif;
-    color: #1d2238;
+    background: linear-gradient(180deg, #fffef8, #fff7e4);
+    font: 700 15px 'Nunito', sans-serif;
+    color: #17151f;
     outline: none;
+    box-shadow: 3px 3px 0 #17151f;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: #ff6b6b;
+    box-shadow: 4px 4px 0 #ff6b6b;
   }
   .field textarea {
     min-height: 112px;
     resize: vertical;
   }
   .btn, .mini-btn {
-    border: none;
+    border: 3px solid #17151f;
     cursor: pointer;
-    font: 700 14px 'Space Grotesk', sans-serif;
+    font: 400 14px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    box-shadow: 4px 4px 0 #17151f;
+    position: relative;
+    z-index: 1;
   }
   .btn {
-    border-radius: 18px;
+    border-radius: 12px;
     padding: 13px 16px;
   }
   .btn.primary {
-    background: linear-gradient(135deg, #ff7a6b, #ff9671);
+    background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
     color: white;
-    box-shadow: 0 18px 32px rgba(255,122,107,0.28);
   }
   .btn.secondary {
-    background: linear-gradient(135deg, #72d8ff, #8bf0c4);
-    color: #093344;
-    box-shadow: 0 18px 32px rgba(114,216,255,0.24);
+    background: linear-gradient(135deg, #ffd93d, #ffb347);
+    color: #17151f;
   }
   .btn.ghost, .mini-btn {
-    background: rgba(255,255,255,0.88);
-    color: #1d2238;
-    border: 1px solid rgba(29,34,56,0.12);
+    background: linear-gradient(180deg, #ffffff, #fff3c8);
+    color: #17151f;
   }
-  .btn:hover, .option-btn:hover, .mini-btn:hover { transform: translateY(-2px); }
+  .btn:hover, .option-btn:hover, .mini-btn:hover, .crew-member:hover { transform: translate(-1px, -2px); }
   .crew-member, .recommendation, .pill-list, .invite-item {
-    border-radius: 20px;
-    border: 1px solid rgba(29,34,56,0.08);
-    background: rgba(255,255,255,0.9);
+    border-radius: 18px;
+    border: 3px solid #17151f;
+    background: linear-gradient(180deg, #fffef9, #fff8ea);
+    box-shadow: 5px 5px 0 #17151f;
+    position: relative;
+    overflow: hidden;
   }
   .crew-member {
     padding: 14px;
     cursor: pointer;
   }
   .crew-member.active {
-    background: linear-gradient(135deg, rgba(114,216,255,0.18), rgba(139,240,196,0.18));
-    border-color: rgba(86,224,160,0.34);
+    background: linear-gradient(180deg, #eefcff, #ebfff4);
+    border-color: #00a8cc;
+    box-shadow: 6px 6px 0 #00a8cc;
   }
   .option-btn {
     width: 100%;
-    border: 1px solid rgba(29,34,56,0.08);
-    border-radius: 18px;
-    background: rgba(255,255,255,0.9);
+    border: 3px solid #17151f;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffffff, #fff5de);
     padding: 14px;
     text-align: left;
     cursor: pointer;
+    box-shadow: 3px 3px 0 #17151f;
   }
   .pill-list {
     padding: 14px;
@@ -160,10 +199,13 @@ const STYLES = `
     gap: 8px;
     padding: 10px 12px;
     border-radius: 999px;
-    border: 1px solid rgba(29,34,56,0.12);
-    background: rgba(255,255,255,0.92);
+    border: 3px solid #17151f;
+    background: linear-gradient(180deg, #ffffff, #fff3c8);
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 900;
+    box-shadow: 3px 3px 0 #17151f;
+    position: relative;
+    z-index: 1;
   }
   .mini-btn {
     padding: 8px 10px;
@@ -175,13 +217,46 @@ const STYLES = `
     align-content: start;
   }
   .summary-box {
-    border-radius: 22px;
+    border-radius: 18px;
     padding: 16px;
-    background: linear-gradient(135deg, #fff6e4, #ffffff);
-    border: 1px solid rgba(255, 174, 68, 0.2);
+    background: linear-gradient(180deg, #fff7de, #fffef9);
+    border: 3px solid #17151f;
+    box-shadow: 5px 5px 0 #17151f;
+    position: relative;
+    overflow: hidden;
   }
   .recommendation {
     padding: 16px;
+  }
+  .bangers {
+    font-family: 'Bangers', cursive;
+    letter-spacing: 0.04em;
+  }
+  .comic-kicker {
+    display: inline-flex;
+    width: fit-content;
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: #ffd93d;
+    color: #17151f;
+    font: 400 15px 'Bangers', cursive;
+    letter-spacing: 0.07em;
+    border: 2px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    transform: rotate(-2deg);
+  }
+  .section-title {
+    margin: 0 0 14px;
+    font: 400 24px 'Bangers', cursive;
+    letter-spacing: 0.05em;
+  }
+  .status-chip {
+    display: inline-flex;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 3px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    font-weight: 900;
   }
   @media (max-width: 1080px) {
     .layout, .form-grid {
@@ -364,7 +439,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
               </div>
               <div>
-                <div style={{ font: "800 22px 'Sora', sans-serif" }}>Create a hangout proposal</div>
+                <div className="bangers" style={{ fontSize: 24 }}>Create A Hangout Proposal</div>
                 <div style={{ fontSize: 12, color: "#7a8294" }}>Crew-scoped planning and voting</div>
               </div>
             </button>
@@ -380,8 +455,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
               <section style={{ display: "grid", gap: 18 }}>
                 <div className="card">
                   <div style={{ marginBottom: 18 }}>
-                    <div style={{ display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "#fff0c2", color: "#7b4e12", fontWeight: 700 }}>Proposal composer</div>
-                    <h1 style={{ margin: "14px 0 8px", font: "800 38px 'Sora', sans-serif" }}>Pitch the next hangout.</h1>
+                    <div className="comic-kicker">Proposal Composer</div>
+                    <h1 className="bangers" style={{ margin: "14px 0 8px", fontSize: 42 }}>Pitch the next hangout.</h1>
                     <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
                       Any crew member can propose a hangout now. Add multiple time and place options so everyone can vote inside the crew.
                     </p>
@@ -419,7 +494,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 <div className="card">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
                     <div>
-                      <h2 style={{ margin: "0 0 6px", font: "800 24px 'Sora', sans-serif" }}>Pick the crew members involved</h2>
+                      <h2 className="section-title" style={{ marginBottom: 6 }}>Pick The Crew Members Involved</h2>
                       <p style={{ margin: 0, color: "#667085" }}>Recommendations use the availability saved on each member profile.</p>
                     </div>
                   </div>
@@ -442,7 +517,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 </div>
 
                 <div className="card">
-                  <h2 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Time options</h2>
+                  <h2 className="section-title">Time Options</h2>
                   <div className="form-grid" style={{ marginBottom: 16 }}>
                     <div className="field">
                       <label>Date</label>
@@ -470,7 +545,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 </div>
 
                 <div className="card">
-                  <h2 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Place options and external invites</h2>
+                  <h2 className="section-title">Place Options And External Invites</h2>
                   <div className="form-grid">
                     <div className="field">
                       <label>Location idea</label>
@@ -512,7 +587,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
               <aside className="sidebar-stack">
                 <div className="card">
-                  <h2 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Availability recommendations</h2>
+                  <h2 className="section-title">Availability Recommendations</h2>
                   <div style={{ display: "grid", gap: 12 }}>
                     {recommendations.length ? recommendations.map((rec, index) => (
                       <div key={`${rec.day}-${rec.start}`} className="recommendation">
@@ -531,7 +606,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 </div>
 
                 <div className="card">
-                  <h2 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Proposal summary</h2>
+                  <h2 className="section-title">Proposal Summary</h2>
                   <div className="summary-box">
                     <p style={{ margin: "0 0 10px", fontWeight: 700 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
                     <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length} time options · {locationOptions.length} place options · {externalInvites.length} external invite{externalInvites.length === 1 ? "" : "s"}</p>
@@ -546,12 +621,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
             </div>
           ) : (
             <div className="card" style={{ maxWidth: 760, margin: "0 auto" }}>
-              <div style={{ display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "#eefdf5", color: "#0f766e", fontWeight: 700 }}>Proposal posted</div>
-              <h1 style={{ margin: "14px 0 8px", font: "800 38px 'Sora', sans-serif" }}>{createdProposal.name}</h1>
+              <div className="status-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>Proposal Posted</div>
+              <h1 className="bangers" style={{ margin: "14px 0 8px", fontSize: 42 }}>{createdProposal.name}</h1>
               <p style={{ margin: "0 0 16px", color: "#667085" }}>The crew can now vote on the proposal inside {createdProposal.groupName}. Notifications have been added for the rest of the crew.</p>
               <div className="summary-box">
                 <strong style={{ display: "block", marginBottom: 8 }}>Invite code</strong>
-                <div style={{ font: "800 38px 'Sora', sans-serif", letterSpacing: "0.18em" }}>{createdProposal.code}</div>
+                <div className="bangers" style={{ fontSize: 42, letterSpacing: "0.18em" }}>{createdProposal.code}</div>
                 <p style={{ margin: "10px 0 0", color: "#667085" }}>{createdProposal.link}</p>
               </div>
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>

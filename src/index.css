@@ -1,9 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 :root {
-  --out-ink: #1a1a2e;
+  --out-ink: #17151f;
   --out-paper: #fffdf9;
-  --out-page: #f5f3ee;
+  --out-page: #f7f1dd;
   --out-red: #ff6b6b;
   --out-yellow: #ffd93d;
   --out-teal: #4ecdc4;
@@ -33,7 +34,10 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: var(--out-page);
+  background:
+    radial-gradient(circle at top left, rgba(255, 217, 61, 0.34), transparent 28%),
+    radial-gradient(circle at 86% 8%, rgba(110, 215, 255, 0.18), transparent 24%),
+    linear-gradient(180deg, #fff7cc 0%, #fffef6 40%, #f5efe0 100%);
   overflow-x: hidden;
 }
 
@@ -53,7 +57,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--out-teal);
+  outline: 3px solid var(--out-red);
   outline-offset: 3px;
 }
 
@@ -65,6 +69,17 @@ svg {
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+#root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(23, 21, 31, 0.1) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .root,
@@ -94,6 +109,11 @@ svg {
 
 .top-nav {
   backdrop-filter: saturate(1.1);
+}
+
+.bangers {
+  font-family: "Bangers", cursive;
+  letter-spacing: 0.04em;
 }
 
 ::selection {

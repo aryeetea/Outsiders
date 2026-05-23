@@ -6,37 +6,65 @@ import { availabilityToText, hasAvailability } from "./scheduling";
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
-  body { margin: 0; background: #f5f3ee; }
+  body { margin: 0; background: #f7f1dd; }
   .root {
     min-height: 100vh;
-    color: #1a1a2e;
+    color: #17151f;
     font-family: 'Nunito', sans-serif;
-    background: #f5f3ee;
+    background:
+      radial-gradient(circle at top left, rgba(255, 217, 61, 0.5), transparent 28%),
+      radial-gradient(circle at 85% 12%, rgba(110, 215, 255, 0.35), transparent 24%),
+      linear-gradient(180deg, #fff6c7 0%, #fffdf6 38%, #f5efe0 100%);
   }
   .root::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image: radial-gradient(circle, #1a1a2e 1px, transparent 1px);
-    background-size: 24px 24px;
-    opacity: 0.03;
+    background-image:
+      radial-gradient(circle, rgba(23, 21, 31, 0.14) 1.2px, transparent 1.4px),
+      linear-gradient(135deg, transparent 0 49.2%, rgba(23, 21, 31, 0.035) 49.2% 50.8%, transparent 50.8% 100%);
+    background-size: 22px 22px, 140px 140px;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .root::after {
+    content: 'POW! BAM! SNAP!';
+    position: fixed;
+    right: -18px;
+    top: 68px;
+    font: 400 clamp(28px, 4vw, 54px) 'Bangers', cursive;
+    letter-spacing: 0.12em;
+    color: rgba(255, 107, 107, 0.18);
+    transform: rotate(-8deg);
     pointer-events: none;
     z-index: 0;
   }
   .shell {
     max-width: 1380px;
     margin: 0 auto;
-    padding: 24px 20px 48px;
+    padding: 28px 20px 54px;
     display: grid;
-    gap: 24px;
+    gap: 26px;
     position: relative;
     z-index: 1;
   }
   .glass, .card {
-    border-radius: 20px;
-    border: 4px solid #1a1a2e;
-    background: #fffdf9;
-    box-shadow: 6px 6px 0 #1a1a2e;
+    border-radius: 22px;
+    border: 4px solid #17151f;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,250,240,0.98));
+    box-shadow: 8px 8px 0 #17151f;
+    position: relative;
+    overflow: hidden;
+  }
+  .glass::before, .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at top right, rgba(255,255,255,0.7), transparent 30%),
+      linear-gradient(135deg, rgba(255,255,255,0.2), transparent 48%);
+    pointer-events: none;
   }
   .glass {
     display: flex;
@@ -57,21 +85,26 @@ const STYLES = `
     border: none;
     background: none;
     cursor: pointer;
-    color: #1d2238;
+    color: #17151f;
+    position: relative;
+    z-index: 1;
   }
   .logo {
-    width: 42px;
-    height: 42px;
-    background: #ff6b6b;
-    border: 3px solid #1a1a2e;
-    border-radius: 10px;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #ff6b6b, #ff9a3c);
+    border: 3px solid #17151f;
+    border-radius: 14px;
     display: grid;
     place-items: center;
-    box-shadow: 3px 3px 0 #1a1a2e;
+    box-shadow: 4px 4px 0 #17151f;
+    transform: rotate(-7deg);
   }
   .hero {
-    padding: 28px;
-    background: #fff;
+    padding: 32px;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(255,255,255,0.84), transparent 18%),
+      linear-gradient(135deg, #ffef7d 0%, #fff9cf 32%, #ffffff 100%);
   }
   .layout {
     display: grid;
@@ -86,16 +119,24 @@ const STYLES = `
   .crew-card {
     padding: 16px;
     border-radius: 16px;
-    border: 3px solid #1a1a2e;
-    background: #fff;
-    box-shadow: 4px 4px 0 #1a1a2e;
+    border: 3px solid #17151f;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,245,230,0.94)),
+      radial-gradient(circle at top right, rgba(255, 217, 61, 0.16), transparent 24%);
+    box-shadow: 5px 5px 0 #17151f;
     cursor: pointer;
+    position: relative;
+    text-align: left;
   }
   .crew-card.active, .crew-card:hover {
-    transform: translateY(-2px);
-    background: #e8f4fd;
-    border-color: #4ecdc4;
-    box-shadow: 4px 4px 0 #4ecdc4;
+    transform: translate(-2px, -3px) rotate(-0.7deg);
+    background: linear-gradient(180deg, #ffffff, #eafaff);
+    border-color: #00a8cc;
+    box-shadow: 7px 7px 0 #00a8cc;
+  }
+  .bangers {
+    font-family: 'Bangers', cursive;
+    letter-spacing: 0.04em;
   }
   .btn, .vote-btn, .tab-btn {
     border: none;
@@ -104,22 +145,27 @@ const STYLES = `
     letter-spacing: 0.06em;
   }
   .btn {
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 13px 16px;
-    border: 3px solid #1a1a2e;
-    box-shadow: 4px 4px 0 #1a1a2e;
+    border: 3px solid #17151f;
+    box-shadow: 4px 4px 0 #17151f;
+    position: relative;
+    z-index: 1;
+  }
+  .btn:hover, .vote-btn:hover, .tab-btn:hover {
+    transform: translate(-1px, -2px);
   }
   .btn.primary {
-    background: #ff6b6b;
+    background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
     color: white;
   }
   .btn.secondary {
-    background: #ffd93d;
-    color: #1a1a2e;
+    background: linear-gradient(135deg, #ffd93d, #ffb347);
+    color: #17151f;
   }
   .btn.ghost {
-    background: #fff;
-    color: #1a1a2e;
+    background: linear-gradient(180deg, #ffffff, #fff3c8);
+    color: #17151f;
   }
   .tab-row {
     display: flex;
@@ -128,24 +174,38 @@ const STYLES = `
   }
   .tab-btn {
     padding: 10px 14px;
-    border-radius: 10px;
-    background: #fff;
+    border-radius: 999px;
+    background: #fff8df;
     border: 3px solid transparent;
-    color: #666;
+    color: #6b647a;
     font: 800 13px 'Nunito', sans-serif;
+    text-transform: uppercase;
   }
   .tab-btn.active {
-    background: #fff;
-    color: #1a1a2e;
-    border-color: #1a1a2e;
-    box-shadow: 3px 3px 0 #1a1a2e;
+    background: #17151f;
+    color: #fff8dc;
+    border-color: #17151f;
+    box-shadow: 4px 4px 0 #ff6b6b;
   }
   .member-row, .pending-row, .proposal-card, .roast-card, .bill-card {
     border-radius: 14px;
-    border: 3px solid #1a1a2e;
-    background: #fff;
+    border: 3px solid #17151f;
+    background: linear-gradient(180deg, #fffef9, #fff8ea);
     padding: 16px;
-    box-shadow: 4px 4px 0 #1a1a2e;
+    box-shadow: 5px 5px 0 #17151f;
+    position: relative;
+    overflow: hidden;
+  }
+  .proposal-card::after, .member-row::after, .pending-row::after, .bill-card::after {
+    content: '';
+    position: absolute;
+    right: -18px;
+    top: -20px;
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,217,61,0.34) 0%, rgba(255,217,61,0.12) 44%, transparent 46%);
+    pointer-events: none;
   }
   .vote-grid, .member-list, .roast-list {
     display: grid;
@@ -156,46 +216,98 @@ const STYLES = `
     padding: 12px 14px;
     border-radius: 12px;
     text-align: left;
-    background: #fff;
-    border: 3px solid #1a1a2e;
-    box-shadow: 3px 3px 0 #1a1a2e;
+    background: linear-gradient(180deg, #ffffff, #fff5de);
+    border: 3px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    position: relative;
+    z-index: 1;
   }
   .vote-btn.active {
-    background: #e8fde8;
+    background: linear-gradient(180deg, #f3ffe7, #e8fde8);
     border-color: #51cf66;
-    box-shadow: 3px 3px 0 #51cf66;
+    box-shadow: 4px 4px 0 #51cf66;
   }
   .roast-card {
-    background: #fff4e6;
+    background: linear-gradient(180deg, #fff2df, #fff7ee);
     border-color: #ff9a3c;
-    box-shadow: 4px 4px 0 #ff9a3c;
+    box-shadow: 5px 5px 0 #ff9a3c;
   }
   .field {
     display: grid;
     gap: 8px;
+    position: relative;
+    z-index: 1;
   }
   .field label {
     font-size: 14px;
     font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #1a1a2e;
+    color: #17151f;
     font-family: 'Bangers', cursive;
   }
   .field input, .field textarea, .field select {
     width: 100%;
-    border: 3px solid #1a1a2e;
-    border-radius: 10px;
+    border: 3px solid #17151f;
+    border-radius: 12px;
     padding: 13px 14px;
-    background: #fffdf9;
+    background: linear-gradient(180deg, #fffef8, #fff7e4);
     font: 700 15px 'Nunito', sans-serif;
-    color: #1a1a2e;
+    color: #17151f;
     outline: none;
-    box-shadow: 3px 3px 0 #1a1a2e;
+    box-shadow: 3px 3px 0 #17151f;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: #ff6b6b;
+    box-shadow: 4px 4px 0 #ff6b6b;
   }
   .field textarea {
     min-height: 116px;
     resize: vertical;
+  }
+  .comic-kicker {
+    display: inline-flex;
+    width: fit-content;
+    padding: 4px 12px;
+    border-radius: 10px;
+    background: #ffd93d;
+    color: #17151f;
+    font-family: 'Bangers', cursive;
+    letter-spacing: 0.07em;
+    border: 2px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    transform: rotate(-2deg);
+    position: relative;
+    z-index: 1;
+  }
+  .hero-title {
+    max-width: 860px;
+    line-height: 0.98;
+    text-wrap: balance;
+    text-shadow: 2px 2px 0 rgba(255,255,255,0.7);
+  }
+  .panel-title {
+    margin: 0 0 14px;
+    font: 400 24px 'Bangers', cursive;
+    letter-spacing: 0.05em;
+    color: #17151f;
+  }
+  .stat-chip {
+    border-radius: 999px;
+    padding: 10px 12px;
+    border: 3px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    font-weight: 900;
+    background: #fff;
+  }
+  .section-grid {
+    display: grid;
+    gap: 14px;
+  }
+  @media (max-width: 860px) {
+    .proposal-columns {
+      grid-template-columns: 1fr !important;
+    }
   }
   @media (max-width: 1080px) {
     .layout {
@@ -205,6 +317,7 @@ const STYLES = `
   @media (max-width: 720px) {
     .shell { padding: 16px 12px 36px; }
     .glass, .hero, .card { padding: 18px; border-radius: 24px; }
+    .root::after { display: none; }
   }
 `;
 
@@ -455,8 +568,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
           <section className="glass hero">
             <div style={{ display: "grid", gap: 12 }}>
-                <div style={{ display: "inline-flex", padding: "2px 10px", borderRadius: 8, background: "#ffd93d", color: "#1a1a2e", fontFamily: "'Bangers', cursive", letterSpacing: "0.06em", border: "2px solid #1a1a2e", boxShadow: "2px 2px 0 #1a1a2e", transform: "rotate(-2deg)" }}>Crew HQ</div>
-              <h1 className="bangers" style={{ margin: 0, fontSize: 40 }}>Every proposal, vote, invite, and debrief lives inside the crew.</h1>
+              <div className="comic-kicker">Crew HQ</div>
+              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>Every proposal, vote, invite, and debrief lives inside the crew.</h1>
               <p style={{ margin: 0, maxWidth: 900, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
                 Crew members can propose hangouts, vote on every time and place option, manage outside invites in context, get notifications, and jump into Debrief Court when the room needs to clear the air.
               </p>
@@ -472,7 +585,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
           <div className="layout">
             <aside className="sidebar-stack">
               <div className="card">
-                <h2 style={{ margin: "0 0 14px", font: "800 24px 'Sora', sans-serif" }}>Your crews</h2>
+                <h2 className="panel-title">Your Crews</h2>
                 <div style={{ display: "grid", gap: 12 }}>
                   {groups.map((group, index) => (
                     <button key={group.id} type="button" className={`crew-card ${selectedGroup?.id === group.id ? "active" : ""}`} onClick={() => setSelectedGroupId(group.id)}>
@@ -490,7 +603,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
               </div>
 
               <div className="card">
-                <h3 style={{ margin: "0 0 12px", font: "800 20px 'Sora', sans-serif" }}>Create a crew</h3>
+                <h3 className="panel-title" style={{ fontSize: 22 }}>Create A Crew</h3>
                 <div className="field">
                   <label>crew name</label>
                   <input value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} placeholder="Downtown Day Ones" />
@@ -505,7 +618,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
               </div>
 
               <div className="card">
-                <h3 style={{ margin: "0 0 12px", font: "800 20px 'Sora', sans-serif" }}>Join by code</h3>
+                <h3 className="panel-title" style={{ fontSize: 22 }}>Join By Code</h3>
                 <div className="field">
                   <label>crew code</label>
                   <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="ABC123" />
@@ -524,8 +637,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                         <p style={{ margin: 0, color: "#667085" }}>{selectedGroup.members.length} members · crew code {selectedGroup.code}</p>
                       </div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        <span style={{ borderRadius: 999, padding: "10px 12px", background: "#eefdf5", color: "#0f766e", fontWeight: 700 }}>{selectedGroup.hangoutProposals?.length || 0} active proposals</span>
-                        <span style={{ borderRadius: 999, padding: "10px 12px", background: "#fff5e6", color: "#9a6700", fontWeight: 700 }}>{selectedGroup.pending?.length || 0} pending invites</span>
+                        <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active proposals</span>
+                        <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.pending?.length || 0} pending invites</span>
                       </div>
                     </div>
                     <div className="tab-row" style={{ marginTop: 16 }}>
@@ -554,15 +667,15 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                             <div key={proposal.id} className="proposal-card">
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginBottom: 12 }}>
                                 <div>
-                                  <strong style={{ display: "block", fontSize: 20 }}>{proposal.name}</strong>
+                                  <strong className="bangers" style={{ display: "block", fontSize: 22 }}>{proposal.name}</strong>
                                   <span style={{ color: "#667085", fontWeight: 700 }}>Proposed by {proposal.proposerName}</span>
                                 </div>
-                                <span style={{ borderRadius: 999, padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700", fontWeight: 700 }}>{proposal.status}</span>
+                                <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
                               </div>
                               <p style={{ margin: "0 0 12px", color: "#475467" }}>{proposal.description || "No extra description added."}</p>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                              <div className="proposal-columns" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                                 <div>
-                                  <strong style={{ display: "block", marginBottom: 8 }}>Vote the best time</strong>
+                                  <strong className="bangers" style={{ display: "block", marginBottom: 8, fontSize: 16 }}>Vote The Best Time</strong>
                                   <div className="vote-grid">
                                     {proposal.timeOptions.map((option) => (
                                       <button key={option.id} type="button" className={`vote-btn ${proposal.votes?.time?.[currentUserKey] === option.id ? "active" : ""}`} onClick={() => castProposalVote(proposal.id, "time", option.id)}>
@@ -575,7 +688,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                   </div>
                                 </div>
                                 <div>
-                                  <strong style={{ display: "block", marginBottom: 8 }}>Vote the best place</strong>
+                                  <strong className="bangers" style={{ display: "block", marginBottom: 8, fontSize: 16 }}>Vote The Best Place</strong>
                                   <div className="vote-grid">
                                     {proposal.locationOptions.map((option) => (
                                       <button key={option.id} type="button" className={`vote-btn ${proposal.votes?.location?.[currentUserKey] === option.id ? "active" : ""}`} onClick={() => castProposalVote(proposal.id, "location", option.id)}>
@@ -594,7 +707,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                   Top place: {topLocation?.label || "No votes yet"}
                                 </div>
                                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                  <span style={{ borderRadius: 999, padding: "10px 12px", background: "#eef8ff", color: "#155e75", fontWeight: 700 }}>{proposal.externalInvites?.length || 0} outside invite{proposal.externalInvites?.length === 1 ? "" : "s"}</span>
+                                  <span className="stat-chip" style={{ background: "#eef8ff", color: "#155e75" }}>{proposal.externalInvites?.length || 0} outside invite{proposal.externalInvites?.length === 1 ? "" : "s"}</span>
                                   {proposal.status !== "finalized" ? <button type="button" className="btn secondary" onClick={() => finalizeProposal(proposal)}>Finalize leading pick</button> : null}
                                 </div>
                               </div>
