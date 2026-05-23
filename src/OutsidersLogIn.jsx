@@ -46,6 +46,16 @@ const STYLES = `
     box-shadow: 3px 3px 0 #1a1a2e;
   }
 
+  .logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
   .card {
     background: #fff;
     border: 4px solid #1a1a2e;
@@ -234,10 +244,10 @@ export default function OutsidersLogIn({ onNavigate }) {
         {/* Nav */}
         <nav className="nav-bar">
           <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("landing")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <span style={{ fontWeight: 800, fontSize: 14, color: "#888" }}>
               No account? <a className="link" style={{ fontSize: 15 }} onClick={() => onNavigate?.("signup")}>Sign up</a>
             </span>

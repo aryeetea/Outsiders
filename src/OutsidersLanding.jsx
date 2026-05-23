@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&family=Caveat:wght@600;700&display=swap');
@@ -51,6 +51,16 @@ const STYLES = `
     align-items: center;
     justify-content: center;
     box-shadow: 3px 3px 0 #1a1a2e;
+  }
+
+  .logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   /* ── Buttons ── */
@@ -333,17 +343,10 @@ function FeatureCard({ icon, title, body, tag, delay, index }) {
 }
 
 export default function OutsidersLanding({ onNavigate }) {
-  const [scrolled, setScrolled] = useState(false);
   const heroRef = useFadeUp(100);
   const subRef = useFadeUp(220);
   const ctaRef = useFadeUp(340);
   const featuresRef = useRef(null);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   return (
     <>
@@ -353,10 +356,10 @@ export default function OutsidersLanding({ onNavigate }) {
         {/* ── Nav ── */}
         <nav className="nav-bar">
           <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("landing")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e", letterSpacing: "0.04em" }}>Outsiders</span>
-            </div>
+            </button>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button className="btn-ghost" style={{ padding: "8px 18px", fontSize: 16 }} onClick={() => onNavigate?.("login")}>Log In</button>
               <button className="btn-primary" style={{ padding: "8px 22px", fontSize: 16 }} onClick={() => onNavigate?.("signup")}>Sign Up</button>

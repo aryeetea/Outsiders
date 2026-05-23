@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -9,6 +10,7 @@ const STYLES = `
   .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
   .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf9; border-bottom: 4px solid #1a1a2e; box-shadow: 0 4px 0 #1a1a2e; }
   .logo-mark { width: 36px; height: 36px; background: #ff6b6b; border: 3px solid #1a1a2e; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 3px 3px 0 #1a1a2e; }
+  .logo-link { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; padding: 0; cursor: pointer; }
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
   .sidebar { width: 220px; flex-shrink: 0; background: #fffdf9; border-right: 4px solid #1a1a2e; padding: 24px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 68px; height: calc(100vh - 68px); overflow-y: auto; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #666; border: 2.5px solid transparent; transition: all 0.15s; }
@@ -84,22 +86,210 @@ const NAV_TARGETS = {
   "Debrief": "debrief",
 };
 
+const PROFILE_STORAGE_KEY = "outsiders-profile";
+const DEFAULT_PROFILE = { name: "", username: "", bio: "", location: "", email: "" };
+
+function readStoredProfile() {
+  if (typeof window === "undefined") {
+    return { profile: DEFAULT_PROFILE, avatar: null };
+  }
+
+  try {
+    const saved = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (!saved) {
+      return { profile: DEFAULT_PROFILE, avatar: null };
+    }
+
+    const parsed = JSON.parse(saved);
+    return {
+      profile: { ...DEFAULT_PROFILE, ...(parsed?.profile || {}) },
+      avatar: typeof parsed?.avatar === "string" ? parsed.avatar : null,
+    };
+  } catch {
+    return { profile: DEFAULT_PROFILE, avatar: null };
+  }
+}
+
+function persistProfile(profile, avatar) {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ profile, avatar }));
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resizeImage(file) {
+  const source = await fileToDataUrl(file);
+
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const maxSide = 512;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        reject(new Error("Could not prepare image."));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    image.onerror = () => reject(new Error("Could not process image."));
+    image.src = source;
+  });
+}
+
 export default function OutsidersProfile({ onNavigate }) {
+  const initialStoredProfile = readStoredProfile();
   const [activeNav, setActiveNav] = useState("Dashboard");
   const [activeTab, setActiveTab] = useState("Profile");
-  const [avatar, setAvatar] = useState(null);
+  const [avatar, setAvatar] = useState(initialStoredProfile.avatar);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [profile, setProfile] = useState({ name: "", username: "", bio: "", location: "", email: "" });
-  const [editForm, setEditForm] = useState({ ...profile });
+  const [profile, setProfile] = useState(initialStoredProfile.profile);
+  const [editForm, setEditForm] = useState(initialStoredProfile.profile);
   const [notifs, setNotifs] = useState(NOTIFICATIONS);
+  const [saveError, setSaveError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const fileRef = useRef();
 
-  const handleSave = () => {
-    setProfile(editForm);
+  useEffect(() => {
+    persistProfile(profile, avatar);
+  }, [avatar, profile]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+
+    let isActive = true;
+
+    async function loadCurrentUser() {
+      const { data } = await supabase.auth.getUser();
+      if (isActive) {
+        setCurrentUser(data.user || null);
+      }
+    }
+
+    loadCurrentUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user || null);
+    });
+
+    return () => {
+      isActive = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !currentUser?.id) return undefined;
+
+    let isActive = true;
+
+    async function loadRemoteProfile() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, username, email, avatar_url")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+
+      if (!isActive || !data) return;
+
+      setProfile((prev) => ({
+        ...prev,
+        name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
+        username: data.username || prev.username || currentUser.user_metadata?.username || "",
+        email: data.email || prev.email || currentUser.email || "",
+      }));
+      setEditForm((prev) => ({
+        ...prev,
+        name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
+        username: data.username || prev.username || currentUser.user_metadata?.username || "",
+        email: data.email || prev.email || currentUser.email || "",
+      }));
+
+      if (data.avatar_url) {
+        setAvatar((prev) => prev || data.avatar_url);
+      }
+    }
+
+    loadRemoteProfile();
+    return () => {
+      isActive = false;
+    };
+  }, [currentUser]);
+
+  async function saveProfile(nextProfile, nextAvatar = avatar) {
+    setSaveError("");
+    setIsSaving(true);
+
+    const cleanedProfile = {
+      ...nextProfile,
+      name: nextProfile.name.trim(),
+      username: nextProfile.username.trim().replace(/^@/, ""),
+      bio: nextProfile.bio.trim(),
+      location: nextProfile.location.trim(),
+      email: nextProfile.email.trim(),
+    };
+
+    setProfile(cleanedProfile);
+    setEditForm(cleanedProfile);
+    persistProfile(cleanedProfile, nextAvatar);
+
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { error } = await supabase.from("profiles").upsert({
+        id: currentUser.id,
+        full_name: cleanedProfile.name,
+        username: cleanedProfile.username,
+        email: cleanedProfile.email || currentUser.email || "",
+        avatar_url: nextAvatar,
+      });
+
+      if (error) {
+        setSaveError(error.message);
+        setIsSaving(false);
+        return false;
+      }
+    }
+
     setEditing(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    setIsSaving(false);
+    return true;
+  }
+
+  const handleSave = () => saveProfile(editForm);
+
+  const handleAvatarChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSaveError("");
+      const nextAvatar = await resizeImage(file);
+      setAvatar(nextAvatar);
+      await saveProfile(profile, nextAvatar);
+    } catch (error) {
+      setSaveError(error.message || "Could not save that image.");
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const toggleNotif = (key) => setNotifs(prev => prev.map(n => n.key === key ? { ...n, on: !n.on } : n));
@@ -114,10 +304,10 @@ export default function OutsidersProfile({ onNavigate }) {
       <div className="root">
         <nav className="top-nav">
           <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <button
                 onClick={() => onNavigate?.("landing")}
@@ -160,7 +350,7 @@ export default function OutsidersProfile({ onNavigate }) {
                   <button onClick={() => fileRef.current.click()} style={{ position: "absolute", bottom: 0, right: 0, width: 32, height: 32, background: "#1a1a2e", border: "2px solid #fff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <IconCamera />
                   </button>
-                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) setAvatar(URL.createObjectURL(f)); }} />
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <h2 className="bangers" style={{ fontSize: 28, margin: "0 0 4px" }}>{profile.name || "Set up your profile"}</h2>
@@ -241,9 +431,12 @@ export default function OutsidersProfile({ onNavigate }) {
                       <label className="form-label">Bio</label>
                       <textarea className="form-input" rows={3} value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} />
                     </div>
+                    {saveError && <p style={{ fontSize: 13, fontWeight: 800, color: "#ff6b6b", margin: 0 }}>{saveError}</p>}
                     {saved && <p className="bangers" style={{ fontSize: 16, color: "#51cf66", margin: 0, letterSpacing: "0.04em" }}>✅ Changes saved!</p>}
                     <div style={{ display: "flex", gap: 12 }}>
-                      <button className="btn-primary" onClick={handleSave}>Save Changes ✅</button>
+                      <button className="btn-primary" onClick={() => saveProfile(profile)} disabled={isSaving}>
+                        {isSaving ? "Saving..." : "Save Changes ✅"}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -298,7 +491,10 @@ export default function OutsidersProfile({ onNavigate }) {
                   <label className="form-label">Bio</label>
                   <textarea className="form-input" rows={3} value={editForm.bio} onChange={e => setEditForm(p => ({ ...p, bio: e.target.value }))} />
                 </div>
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={handleSave}>Save Changes ✅</button>
+                {saveError && <p style={{ fontSize: 13, fontWeight: 800, color: "#ff6b6b", margin: 0 }}>{saveError}</p>}
+                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Save Changes ✅"}
+                </button>
               </div>
             </div>
           </div>

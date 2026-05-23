@@ -45,6 +45,16 @@ const STYLES = `
     box-shadow: 3px 3px 0 #1a1a2e;
   }
 
+  .logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
   .card {
     background: #fff;
     border: 4px solid #1a1a2e;
@@ -171,9 +181,6 @@ const STYLES = `
   }
 `;
 
-// Mock hangout database for demo
-const MOCK_HANGOUTS = {};
-
 const IconLogoMark = () => (
   <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
     <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/>
@@ -185,8 +192,13 @@ const IconCheck = () => (
   </svg>
 );
 
-export default function OutsidersJoinHangout({ onNavigate }) {
-  const [chars, setChars] = useState(["", "", "", "", "", ""]);
+function getInitialChars(routeParams) {
+  const incomingCode = (routeParams?.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  return Array(6).fill("").map((_, index) => incomingCode[index] || "");
+}
+
+export default function OutsidersJoinHangout({ onNavigate, appData, setAppData, routeParams }) {
+  const [chars, setChars] = useState(() => getInitialChars(routeParams));
   const [error, setError] = useState("");
   const [joined, setJoined] = useState(null);
 
@@ -215,10 +227,18 @@ export default function OutsidersJoinHangout({ onNavigate }) {
   };
 
   const handleJoin = () => {
-    const code = chars.join("");
+    const code = chars.join("").toUpperCase();
     if (code.length < 6) { setError("Enter the full 6-character code!"); return; }
-    const hangout = MOCK_HANGOUTS[code] || null;
+    const hangout = (appData?.hangouts || []).find((item) => item?.code?.toUpperCase() === code) || null;
     if (!hangout) { setError("Hmm, that code doesn't exist. Check it and try again!"); return; }
+    setAppData?.((prev) => ({
+      ...prev,
+      hangouts: prev.hangouts.map((item) => (
+        item.id === hangout.id && !item.members?.includes("YOU")
+          ? { ...item, members: [...(item.members || []), "YOU"] }
+          : item
+      )),
+    }));
     setJoined(hangout);
   };
 
@@ -244,10 +264,10 @@ export default function OutsidersJoinHangout({ onNavigate }) {
 
         <nav className="nav-bar">
           <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <button onClick={() => onNavigate ? onNavigate("dashboard") : reset()} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Bangers', cursive", fontSize: 16, color: "#888", letterSpacing: "0.04em" }}>
               ← Back
             </button>

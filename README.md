@@ -23,6 +23,25 @@ Create a local `.env` file with your Supabase project credentials:
 ```bash
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SITE_URL=https://outsiders-alpha.vercel.app
 ```
 
-Run the SQL in `supabase-schema.sql` from the Supabase SQL editor to create the `profiles` table used by signup.
+Run the SQL in `supabase-schema.sql` from the Supabase SQL editor to create the `profiles` and `groups` tables used by signup, shared crew invites, anonymous debrief cases, and the crew bill-watch roster.
+
+## AI Copilot
+
+The app now includes a site-wide `Outsiders AI` panel that appears on every screen.
+
+- It uses the OpenAI Responses API.
+- It automatically sends the current screen name plus shared `appData` as context.
+- It is designed for copywriting, product ideas, summaries, planning help, and friendlier UX suggestions across the whole app.
+
+### Local setup
+
+1. Copy `.env.example` to `.env`.
+2. Set `VITE_OPENAI_MODEL` if you want a model other than `gpt-5-mini`.
+3. Either paste an OpenAI API key into the in-app AI panel or set `VITE_OPENAI_API_KEY` for local testing.
+
+### Important note
+
+This implementation calls OpenAI directly from the browser, which is okay for local prototyping but not for production. For a real deployment, move the OpenAI request into your own backend or serverless function so the API key stays private.

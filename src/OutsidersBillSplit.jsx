@@ -9,6 +9,7 @@ const STYLES = `
   .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
   .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf9; border-bottom: 4px solid #1a1a2e; box-shadow: 0 4px 0 #1a1a2e; }
   .logo-mark { width: 36px; height: 36px; background: #ff6b6b; border: 3px solid #1a1a2e; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 3px 3px 0 #1a1a2e; }
+  .logo-link { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; padding: 0; cursor: pointer; }
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
   .sidebar { width: 220px; flex-shrink: 0; background: #fffdf9; border-right: 4px solid #1a1a2e; padding: 24px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 68px; height: calc(100vh - 68px); overflow-y: auto; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #666; border: 2.5px solid transparent; transition: all 0.15s; }
@@ -143,10 +144,10 @@ export default function OutsidersBillSplit({ onNavigate }) {
       <div className="root">
         <nav className="top-nav">
           <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <button
                 onClick={() => onNavigate?.("landing")}

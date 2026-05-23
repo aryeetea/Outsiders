@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -9,6 +10,7 @@ const STYLES = `
   .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
   .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf9; border-bottom: 4px solid #1a1a2e; box-shadow: 0 4px 0 #1a1a2e; }
   .logo-mark { width: 36px; height: 36px; background: #ff6b6b; border: 3px solid #1a1a2e; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 3px 3px 0 #1a1a2e; }
+  .logo-link { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; padding: 0; cursor: pointer; }
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
   .sidebar { width: 220px; flex-shrink: 0; background: #fffdf9; border-right: 4px solid #1a1a2e; padding: 24px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 68px; height: calc(100vh - 68px); overflow-y: auto; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #666; border: 2.5px solid transparent; transition: all 0.15s; }
@@ -28,149 +30,351 @@ const STYLES = `
   .form-input::placeholder { color: #bbb; font-weight: 600; }
   .form-label { display: block; font-family: 'Bangers', cursive; font-size: 15px; letter-spacing: 0.05em; color: #1a1a2e; margin-bottom: 6px; }
   .avatar { width: 38px; height: 38px; border-radius: 50%; border: 2.5px solid #1a1a2e; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; color: #fff; flex-shrink: 0; box-shadow: 2px 2px 0 #1a1a2e; }
-  .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.05em; border: 2px solid; }
-  .step-bubble { width: 36px; height: 36px; border-radius: 50%; border: 3px solid #1a1a2e; display: flex; align-items: center; justify-content: center; font-family: 'Bangers', cursive; font-size: 18px; flex-shrink: 0; box-shadow: 3px 3px 0 #1a1a2e; }
-  .message-bubble { border: 3px solid #1a1a2e; border-radius: 16px; padding: 14px 18px; margin-bottom: 12px; position: relative; }
-  .message-bubble.them { background: #fff; border-radius: 4px 16px 16px 16px; box-shadow: 4px 4px 0 #1a1a2e; }
-  .message-bubble.me { background: #fde8f0; border-color: #ff6b9d; border-radius: 16px 4px 16px 16px; box-shadow: 4px 4px 0 #ff6b9d; }
-  .message-bubble.system { background: #fff4e6; border-color: #ff9a3c; border-radius: 12px; box-shadow: 3px 3px 0 #ff9a3c; text-align: center; }
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 8px; font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.05em; border: 2px solid; }
+  .case-card { background: #fff; border: 3px solid #1a1a2e; border-radius: 14px; padding: 18px 20px; box-shadow: 5px 5px 0 #1a1a2e; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+  .case-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 #1a1a2e; }
+  .case-note { border: 3px solid #1a1a2e; border-radius: 14px; padding: 14px 16px; box-shadow: 4px 4px 0 #1a1a2e; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .modal { background: #fff; border: 4px solid #1a1a2e; border-radius: 20px; box-shadow: 10px 10px 0 #1a1a2e; padding: 36px 32px; width: 100%; max-width: 560px; position: relative; max-height: 90vh; overflow-y: auto; }
+  .close-btn { position: absolute; top: 16px; right: 16px; background: #f5f3ee; border: 2px solid #1a1a2e; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; box-shadow: 2px 2px 0 #1a1a2e; }
   .profile-chip { display: flex; align-items: center; gap: 8px; background: #fff; border: 3px solid #1a1a2e; border-radius: 50px; padding: 4px 14px 4px 4px; box-shadow: 3px 3px 0 #1a1a2e; cursor: pointer; }
   .notif-dot { width: 8px; height: 8px; background: #ff6b6b; border: 2px solid #1a1a2e; border-radius: 50%; position: absolute; top: -2px; right: -2px; }
   .comic-tag { display: inline-block; background: #ffd93d; border: 2px solid #1a1a2e; border-radius: 6px; padding: 1px 10px; font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.06em; box-shadow: 2px 2px 0 #1a1a2e; transform: rotate(-2deg); }
-  .session-card { background: #fff; border: 3px solid #1a1a2e; border-radius: 14px; padding: 18px 20px; box-shadow: 5px 5px 0 #1a1a2e; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
-  .session-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 #1a1a2e; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; }
-  .modal { background: #fff; border: 4px solid #1a1a2e; border-radius: 20px; box-shadow: 10px 10px 0 #1a1a2e; padding: 36px 32px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
-  .close-btn { position: absolute; top: 16px; right: 16px; background: #f5f3ee; border: 2px solid #1a1a2e; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; box-shadow: 2px 2px 0 #1a1a2e; }
-  .progress-step { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; border: 2px solid #e0dbd0; margin-bottom: 10px; }
-  .progress-step.done { background: #e8fde8; border-color: #51cf66; }
-  .progress-step.active { background: #fde8f0; border-color: #ff6b9d; box-shadow: 3px 3px 0 #ff6b9d; }
 `;
 
-const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
-const STANDALONE_MEMBERS = [
-  { initials: "YOU", name: "You" },
-  { initials: "TM1", name: "Teammate 1" },
-  { initials: "TM2", name: "Teammate 2" },
-  { initials: "TM3", name: "Teammate 3" },
-];
-
-const DEBRIEF_STEPS = [
-  { emoji: "🤝", label: "Set the tone", desc: "Everyone agrees to listen without judgment." },
-  { emoji: "💬", label: "Share your side", desc: "Each person shares how they felt — no interrupting." },
-  { emoji: "👂", label: "Reflect back", desc: "Repeat what you heard. Show you understand." },
-  { emoji: "🔍", label: "Find the root", desc: "What actually caused this? Go deeper." },
-  { emoji: "💡", label: "Agree on a fix", desc: "What can everyone do differently going forward?" },
-  { emoji: "🤜🤛", label: "Close it out", desc: "Shake on it. You're still crew." },
-];
-
-const INITIAL_SESSIONS = [];
-
-const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
-const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-const IconCalendar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
-const IconUsers = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-const IconPlane = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>;
-const IconSplit = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
-const IconHeart = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
-const IconStar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
-const IconBell = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
-const IconPlus = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
-const IconSend = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>;
-
 const NAV_ITEMS = [
-  { icon: <IconHome />, label: "Dashboard" },
-  { icon: <IconCalendar />, label: "Hangouts" },
-  { icon: <IconUsers />, label: "My Crew" },
-  { icon: <IconPlane />, label: "Trips" },
-  { icon: <IconSplit />, label: "Bill Split" },
-  { icon: <IconStar />, label: "Ratings" },
-  { icon: <IconHeart />, label: "Debrief" },
+  { icon: "🏠", label: "Dashboard" },
+  { icon: "🗓", label: "Hangouts" },
+  { icon: "👥", label: "My Crew" },
+  { icon: "✈️", label: "Trips" },
+  { icon: "💸", label: "Bill Split" },
+  { icon: "⭐", label: "Ratings" },
+  { icon: "❤️", label: "Debrief" },
 ];
 
 const NAV_TARGETS = {
-  "Dashboard": "dashboard",
-  "Hangouts": "create-hangout",
+  Dashboard: "dashboard",
+  Hangouts: "create-hangout",
   "My Crew": "friend-groups",
-  "Trips": "trip-planning",
+  Trips: "trip-planning",
   "Bill Split": "bill-split",
-  "Ratings": "rate-outing",
-  "Debrief": "debrief",
+  Ratings: "rate-outing",
+  Debrief: "debrief",
 };
 
-export default function OutsidersDebrief({ onNavigate, appData }) {
+function getInitials(name) {
+  const cleaned = (name || "").replace(/^@/, "").trim();
+  if (!cleaned) return "??";
+  return cleaned.slice(0, 2).toUpperCase();
+}
+
+function getNextId(items, prefix) {
+  const nextNumber = (items || []).reduce((highest, item) => {
+    const numeric = Number(String(item.id || "").replace(`${prefix}-`, ""));
+    return Number.isFinite(numeric) ? Math.max(highest, numeric) : highest;
+  }, 0) + 1;
+
+  return `${prefix}-${nextNumber}`;
+}
+
+function isCurrentMember(member, currentUserId, currentUsername, currentDisplayName) {
+  if (!member) return false;
+  if (currentUserId && member.userId === currentUserId) return true;
+  if (currentUsername && member.username === `@${currentUsername}`) return true;
+  return member.name === currentDisplayName;
+}
+
+function getStatusTone(status) {
+  if (status === "Resolved") return { bg: "#e8fde8", color: "#51cf66", border: "#51cf66" };
+  return { bg: "#fde8f0", color: "#ff6b9d", border: "#ff6b9d" };
+}
+
+function getResponseTone(kind) {
+  if (kind === "apology") return { bg: "#e8fde8", border: "#51cf66", shadow: "#51cf66", label: "Apology" };
+  if (kind === "clapback") return { bg: "#fff4e6", border: "#ff9a3c", shadow: "#ff9a3c", label: "Clap Back" };
+  return { bg: "#e8f4fd", border: "#4ecdc4", shadow: "#4ecdc4", label: "Response" };
+}
+
+const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
+const IconBell = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
+
+export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
   const [activeNav, setActiveNav] = useState("Debrief");
-  const [sessions, setSessions] = useState(INITIAL_SESSIONS);
-  const [selectedSession, setSelectedSession] = useState(null);
-  const [message, setMessage] = useState("");
   const [showNewModal, setShowNewModal] = useState(false);
-  const [newForm, setNewForm] = useState({ title: "", sourceType: "standalone", contextId: "", with: "1" });
+  const [activeGroupId, setActiveGroupId] = useState("");
+  const [selectedCaseId, setSelectedCaseId] = useState("");
+  const [responseDraft, setResponseDraft] = useState("");
+  const [responseType, setResponseType] = useState("response");
+  const [notice, setNotice] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [newCaseForm, setNewCaseForm] = useState({
+    groupId: "",
+    scope: "personal",
+    targetMemberName: "",
+    mediatorName: "",
+    title: "",
+    details: "",
+  });
+
+  const groups = useMemo(() => appData?.groups || [], [appData]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+
+    let active = true;
+
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser();
+      if (active) setCurrentUser(data.user || null);
+    }
+
+    loadUser();
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user || null);
+      if (!session?.user) {
+        setCurrentProfile(null);
+      }
+    });
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !currentUser?.id) return undefined;
+
+    let active = true;
+
+    async function loadProfile() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("username, full_name")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+
+      if (active) {
+        setCurrentProfile(data || null);
+      }
+    }
+
+    loadProfile();
+    return () => {
+      active = false;
+    };
+  }, [currentUser]);
+
+  const currentDisplayName = currentProfile?.full_name || currentUser?.user_metadata?.full_name || "You";
+  const currentUsername = currentProfile?.username || currentUser?.user_metadata?.username || "";
+
+  const selectedGroup = useMemo(() => {
+    return groups.find((group) => String(group.id) === String(activeGroupId)) || groups[0] || null;
+  }, [activeGroupId, groups]);
+
+  const groupMembers = useMemo(() => {
+    return selectedGroup?.members || [];
+  }, [selectedGroup]);
+
+  const currentMember = useMemo(() => {
+    return groupMembers.find((member) => isCurrentMember(member, currentUser?.id, currentUsername, currentDisplayName)) || null;
+  }, [currentDisplayName, currentUser, currentUsername, groupMembers]);
+
+  const currentVoteKey = currentUser?.id || (currentUsername ? `username:${currentUsername}` : `name:${currentDisplayName}`);
+  const peaceMakerBench = selectedGroup?.peaceMaker || { electedMemberName: "", votes: {}, oath: "" };
+  const peaceMakerVoteEntries = Object.entries(peaceMakerBench.votes || {});
+  const peaceMakerLeader = selectedGroup?.members?.reduce((best, member) => {
+    const memberVotes = peaceMakerVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
+    if (!best || memberVotes > best.votes) {
+      return { name: member.name, votes: memberVotes };
+    }
+    return best;
+  }, null);
+
+  const cases = useMemo(() => selectedGroup?.cases || [], [selectedGroup]);
+  const visibleCases = useMemo(() => cases.filter((caseItem) => {
+    if (caseItem.visibility === "group") return true;
+    return (
+      caseItem.targetUserId === currentUser?.id ||
+      (currentUsername && caseItem.targetUsername === `@${currentUsername}`) ||
+      caseItem.targetName === currentDisplayName
+    );
+  }), [cases, currentDisplayName, currentUser, currentUsername]);
+  const selectedCase = visibleCases.find((caseItem) => caseItem.id === selectedCaseId) || visibleCases[0] || null;
+
+  const targetedCases = useMemo(() => {
+    if (!selectedGroup) return [];
+    return cases.filter((caseItem) => (
+      caseItem.visibility === "personal" && (
+        caseItem.targetUserId === currentUser?.id ||
+        (currentUsername && caseItem.targetUsername === `@${currentUsername}`) ||
+        caseItem.targetName === currentDisplayName
+      )
+    ));
+  }, [cases, currentDisplayName, currentUser, currentUsername, selectedGroup]);
+
+  const draftMemberOptions = useMemo(() => {
+    const chosenGroup = groups.find((group) => String(group.id) === String(newCaseForm.groupId)) || selectedGroup;
+    return (chosenGroup?.members || []).filter((member) => !isCurrentMember(member, currentUser?.id, currentUsername, currentDisplayName));
+  }, [currentDisplayName, currentUser, currentUsername, groups, newCaseForm.groupId, selectedGroup]);
+
+  const mediatorOptions = useMemo(() => {
+    const chosenGroup = groups.find((group) => String(group.id) === String(newCaseForm.groupId)) || selectedGroup;
+    return (chosenGroup?.members || []).filter((member) => (
+      member.name !== newCaseForm.targetMemberName &&
+      !isCurrentMember(member, currentUser?.id, currentUsername, currentDisplayName)
+    ));
+  }, [currentDisplayName, currentUser, currentUsername, groups, newCaseForm.groupId, newCaseForm.targetMemberName, selectedGroup]);
+
   const handleNav = (label) => {
     setActiveNav(label);
     onNavigate?.(NAV_TARGETS[label] || "debrief");
   };
-  const groups = appData?.groups || [];
-  const hangouts = appData?.hangouts || [];
-  const sourceOptions = {
-    "standalone": [],
-    "group": groups,
-    "hangout": hangouts,
-  };
-  const activeContext = newForm.sourceType === "standalone"
-    ? null
-    : sourceOptions[newForm.sourceType].find((item) => String(item.id) === String(newForm.contextId)) || null;
-  const participantOptions = newForm.sourceType === "standalone"
-    ? STANDALONE_MEMBERS.slice(1).map((member, index) => ({ ...member, value: String(index + 1) }))
-    : ((activeContext?.members || [])
-        .filter((member) => member !== "YOU")
-        .map((member, index) => ({ initials: member, name: member, value: String(index + 1) })));
 
-  const sendMessage = () => {
-    if (!message.trim()) return;
-    const newMsg = { from: 0, text: message };
-    const updated = { ...selectedSession, messages: [...selectedSession.messages, newMsg] };
-    setSessions(prev => prev.map(s => s.id === updated.id ? updated : s));
-    setSelectedSession(updated);
-    setMessage("");
-  };
+  async function persistGroupPatch(groupId, uiPatch, dbPatch = uiPatch) {
+    const nextGroups = groups.map((group) => (
+      String(group.id) === String(groupId) ? { ...group, ...uiPatch } : group
+    ));
 
-  const advanceStep = () => {
-    if (selectedSession.step >= 6) return;
-    const nextStep = selectedSession.step + 1;
-    const stepInfo = DEBRIEF_STEPS[nextStep - 1];
-    const sysMsg = { from: "system", text: `✅ Step ${nextStep}: ${stepInfo.label} — ${stepInfo.desc}` };
-    const isResolved = nextStep === 6;
-    const updated = { ...selectedSession, step: nextStep, status: isResolved ? "Resolved" : "In Progress", messages: [...selectedSession.messages, sysMsg] };
-    setSessions(prev => prev.map(s => s.id === updated.id ? updated : s));
-    setSelectedSession(updated);
-  };
+    setAppData?.((prev) => ({ ...prev, groups: nextGroups }));
 
-  const createSession = () => {
-    if (!newForm.title.trim()) return;
-    if (newForm.sourceType !== "standalone" && !activeContext) return;
-    if (participantOptions.length === 0) return;
-    const selectedParticipant = participantOptions.find((member) => member.value === String(newForm.with)) || participantOptions[0];
-    const sourceLabel = newForm.sourceType === "standalone"
-      ? "Standalone"
-      : `${newForm.sourceType === "group" ? "Group" : "Hangout"}: ${activeContext.name}`;
-    const newSession = {
-      id: Date.now(),
-      title: newForm.title,
-      between: [{ initials: "YOU", name: "You" }, { initials: selectedParticipant.initials, name: selectedParticipant.name }],
-      sourceLabel,
-      status: "In Progress",
-      step: 1,
-      bg: "#fde8f0", border: "#ff6b9d",
-      messages: [
-        { from: "system", text: `🤝 Debrief session started between You and ${selectedParticipant.name}. Context: ${sourceLabel}. Ground rules: listen, don't attack, be honest.` },
-        { from: "system", text: `📌 Step 1: Set the tone — everyone agrees to listen without judgment.` },
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { error } = await supabase
+        .from("groups")
+        .update(dbPatch)
+        .eq("id", groupId);
+
+      if (error) {
+        setNotice(error.message);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  async function persistCases(groupId, nextCases) {
+    return persistGroupPatch(groupId, { cases: nextCases });
+  }
+
+  async function persistPeaceMaker(groupId, nextPeaceMaker) {
+    return persistGroupPatch(groupId, { peaceMaker: nextPeaceMaker }, { peace_maker: nextPeaceMaker });
+  }
+
+  async function createCase() {
+    const groupId = newCaseForm.groupId || selectedGroup?.id;
+    const targetGroup = groups.find((group) => String(group.id) === String(groupId));
+    const targetMember = newCaseForm.scope === "group"
+      ? null
+      : (targetGroup?.members || []).find((member) => member.name === newCaseForm.targetMemberName);
+
+    if (!targetGroup) {
+      setNotice("Pick a crew first.");
+      return;
+    }
+
+    if (newCaseForm.scope === "personal" && !targetMember) {
+      setNotice("Pick who this case is about.");
+      return;
+    }
+
+    if (!newCaseForm.title.trim() || !newCaseForm.details.trim()) {
+      setNotice("Add both a case title and the full story.");
+      return;
+    }
+
+    const nextCase = {
+      id: getNextId(targetGroup.cases || [], "case"),
+      title: newCaseForm.title.trim(),
+      body: newCaseForm.details.trim(),
+      visibility: newCaseForm.scope,
+      targetName: newCaseForm.scope === "group" ? "Whole group" : targetMember.name,
+      targetInitials: newCaseForm.scope === "group" ? "GR" : (targetMember.initials || getInitials(targetMember.name)),
+      targetUsername: newCaseForm.scope === "group" ? "" : (targetMember.username || ""),
+      targetUserId: newCaseForm.scope === "group" ? null : (targetMember.userId || null),
+      mediatorName: newCaseForm.scope === "group"
+        ? (targetGroup.peaceMaker?.electedMemberName || "")
+        : (newCaseForm.mediatorName || ""),
+      status: "Open",
+      createdLabel: "Just filed",
+      sourceLabel: targetGroup.name,
+      anonymous: true,
+      updates: [
+        {
+          id: "update-1",
+          kind: "case",
+          authorLabel: "Anonymous case",
+          body: newCaseForm.details.trim(),
+        },
       ],
     };
-    setSessions(prev => [...prev, newSession]);
-    setSelectedSession(newSession);
+
+    const nextCases = [nextCase, ...(targetGroup.cases || [])];
+    const saved = await persistCases(targetGroup.id, nextCases);
+    if (!saved) return;
+
+    setActiveGroupId(String(targetGroup.id));
+    setSelectedCaseId(nextCase.id);
     setShowNewModal(false);
-    setNewForm({ title: "", sourceType: "standalone", contextId: "", with: "1" });
-  };
+    setNewCaseForm({ groupId: String(targetGroup.id), scope: "personal", targetMemberName: "", mediatorName: "", title: "", details: "" });
+    setNotice(newCaseForm.scope === "group" ? "Anonymous group-wide case filed." : `Anonymous personal case filed against ${targetMember.name}.`);
+  }
+
+  async function voteForPeaceMaker(memberName) {
+    if (!selectedGroup) return;
+    const nextPeaceMaker = {
+      ...peaceMakerBench,
+      electedMemberName: memberName,
+      votes: {
+        ...(peaceMakerBench.votes || {}),
+        [currentVoteKey]: memberName,
+      },
+      oath: peaceMakerBench.oath || "Hear both sides, cool the temperature, and push the room toward something fair.",
+    };
+
+    const saved = await persistPeaceMaker(selectedGroup.id, nextPeaceMaker);
+    if (!saved) return;
+    setNotice(`${memberName} got your peace-maker vote.`);
+  }
+
+  async function sendResponse() {
+    if (!selectedGroup || !selectedCase || !responseDraft.trim()) return;
+
+    const nextUpdate = {
+      id: getNextId(selectedCase.updates || [], "update"),
+      kind: responseType,
+      authorLabel: responseType === "apology" ? currentDisplayName : currentMember?.name || currentDisplayName,
+      body: responseDraft.trim(),
+    };
+
+    const nextCases = cases.map((caseItem) => (
+      caseItem.id === selectedCase.id
+        ? { ...caseItem, updates: [...(caseItem.updates || []), nextUpdate] }
+        : caseItem
+    ));
+
+    const saved = await persistCases(selectedGroup.id, nextCases);
+    if (!saved) return;
+
+    setResponseDraft("");
+    setResponseType("response");
+    setNotice(responseType === "apology" ? "Apology posted." : "Response posted.");
+  }
+
+  async function toggleCaseStatus() {
+    if (!selectedGroup || !selectedCase) return;
+
+    const nextStatus = selectedCase.status === "Resolved" ? "Open" : "Resolved";
+    const nextCases = cases.map((caseItem) => (
+      caseItem.id === selectedCase.id ? { ...caseItem, status: nextStatus } : caseItem
+    ));
+
+    const saved = await persistCases(selectedGroup.id, nextCases);
+    if (!saved) return;
+
+    setNotice(nextStatus === "Resolved" ? "Case closed for now." : "Case reopened.");
+  }
 
   return (
     <>
@@ -178,10 +382,10 @@ export default function OutsidersDebrief({ onNavigate, appData }) {
       <div className="root">
         <nav className="top-nav">
           <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <button
                 onClick={() => onNavigate?.("landing")}
@@ -191,8 +395,8 @@ export default function OutsidersDebrief({ onNavigate, appData }) {
               </button>
               <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
               <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
+                <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 11 }}>{getInitials(currentDisplayName)}</div>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>{currentDisplayName}</span>
               </div>
             </div>
           </div>
@@ -201,205 +405,290 @@ export default function OutsidersDebrief({ onNavigate, appData }) {
         <div className="layout">
           <aside className="sidebar">
             <p className="nav-section-label">Menu</p>
-            {NAV_ITEMS.map(item => (
+            {NAV_ITEMS.map((item) => (
               <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
-                {item.icon} {item.label}
+                <span>{item.icon}</span> {item.label}
               </div>
             ))}
           </aside>
 
           <main className="main">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
               <div>
-                <span className="comic-tag">Let's talk it out 💬</span>
-                <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>Conflict Debrief 🤝</h1>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Some conversations need more than a voice note. Work through it here.</p>
+                <span className="comic-tag">Anonymous court room ⚖️</span>
+                <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>Debrief Court</h1>
+                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>File a case anonymously, bring the room into session, and let the named person answer, clap back, or apologize.</p>
               </div>
-              <button className="btn-primary" onClick={() => setShowNewModal(true)}><IconPlus /> New Session</button>
+              <button className="btn-primary" onClick={() => setShowNewModal(true)}>+ File A Case</button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 24 }}>
+            {notice ? (
+              <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "12px 16px", boxShadow: "4px 4px 0 #ff9a3c", marginBottom: 20 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#7a4d00" }}>{notice}</p>
+              </div>
+            ) : null}
 
-              {/* Session list */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <p className="bangers" style={{ fontSize: 13, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Sessions</p>
+            {groups.length === 0 ? (
+              <div className="card" style={{ textAlign: "center" }}>
+                <p style={{ fontSize: 38, margin: "0 0 10px" }}>🧱</p>
+                <p className="bangers" style={{ fontSize: 24, margin: "0 0 8px" }}>No crew, no red room yet</p>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: "0 0 16px" }}>Create or join a friend group first, then members can file anonymous cases here.</p>
+                <button className="btn-secondary" onClick={() => onNavigate?.("friend-groups")}>Go To My Crew</button>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div className="card">
+                    <p className="bangers" style={{ fontSize: 14, margin: "0 0 10px", color: "#888", letterSpacing: "0.08em", textTransform: "uppercase" }}>Choose crew</p>
+                    <select className="form-input" value={selectedGroup?.id || ""} onChange={(event) => { setActiveGroupId(event.target.value); setSelectedCaseId(""); }} style={{ padding: "10px 14px" }}>
+                      {groups.map((group) => (
+                        <option key={group.id} value={group.id}>{group.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* How it works */}
-                <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 14, padding: "14px 16px", boxShadow: "4px 4px 0 #4ecdc4" }}>
-                  <p className="bangers" style={{ fontSize: 14, margin: "0 0 8px", color: "#1a1a2e" }}>How it works 🧭</p>
-                  {DEBRIEF_STEPS.map((s, i) => (
-                    <p key={i} style={{ fontSize: 12, fontWeight: 700, color: "#555", margin: "0 0 4px" }}>{s.emoji} {s.label}</p>
-                  ))}
+                  <div className="card" style={{ background: "#fde8f0", borderColor: "#ff6b9d", boxShadow: "5px 5px 0 #ff6b9d" }}>
+                    <p className="bangers" style={{ fontSize: 16, margin: "0 0 8px" }}>Against You</p>
+                    <p style={{ fontSize: 34, margin: "0 0 4px", fontWeight: 900, color: "#ff6b9d" }}>{targetedCases.length}</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>Cases in this room naming you directly.</p>
+                  </div>
+
+                  <div className="card" style={{ background: "#fff4e6", borderColor: "#ff9a3c", boxShadow: "5px 5px 0 #ff9a3c" }}>
+                    <p className="bangers" style={{ fontSize: 16, margin: "0 0 8px" }}>Room Rules</p>
+                    {[
+                      "Cases are filed anonymously.",
+                      "Speak on behavior, not identity.",
+                      "Clap backs stay specific.",
+                      "Apologies should name the harm and the fix.",
+                    ].map((rule) => (
+                      <p key={rule} style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 6px" }}>{rule}</p>
+                    ))}
+                  </div>
+
+                  <div className="card" style={{ background: "#e8f4fd", borderColor: "#4ecdc4", boxShadow: "5px 5px 0 #4ecdc4" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                      <p className="bangers" style={{ fontSize: 16, margin: 0 }}>Peace-Maker Bench ⚖️</p>
+                      <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>
+                        {peaceMakerLeader?.name ? `${peaceMakerLeader.name} leading` : "No vote yet"}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 10px" }}>
+                      The crew can vote for one trusted peace maker to step in on group cases. One-on-one cases can optionally name a separate mediator.
+                    </p>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: "#1a1a2e", margin: "0 0 12px" }}>
+                      {peaceMakerBench.oath || "Hear both sides, cool the temperature, and push the room toward something fair."}
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {groupMembers.map((member, index) => {
+                        const voteCount = peaceMakerVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
+                        const isMyVote = peaceMakerBench.votes?.[currentVoteKey] === member.name;
+                        return (
+                          <div key={member.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "#fff", border: "2px solid #1a1a2e", borderRadius: 12, padding: "10px 12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <div className="avatar" style={{ width: 30, height: 30, background: ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"][index % 6], fontSize: 10 }}>{member.initials}</div>
+                              <div>
+                                <p style={{ fontSize: 13, fontWeight: 900, margin: 0 }}>{member.name}</p>
+                                <p style={{ fontSize: 11, fontWeight: 800, color: "#777", margin: 0 }}>{voteCount} vote{voteCount === 1 ? "" : "s"} {isMyVote ? "· your pick" : ""}</p>
+                              </div>
+                            </div>
+                            <button className="btn-outline" style={{ fontSize: 12, padding: "6px 10px" }} onClick={() => voteForPeaceMaker(member.name)}>
+                              {isMyVote ? "Change Vote" : "Vote"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {visibleCases.length === 0 ? (
+                      <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "18px", textAlign: "center" }}>
+                        <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>No visible cases</p>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>You’ll see group-wide cases plus any personal cases aimed at you.</p>
+                      </div>
+                    ) : visibleCases.map((caseItem) => {
+                      const tone = getStatusTone(caseItem.status);
+                      const isAgainstMe = caseItem.targetUserId === currentUser?.id || (currentUsername && caseItem.targetUsername === `@${currentUsername}`) || caseItem.targetName === currentDisplayName;
+                      return (
+                        <div
+                          key={caseItem.id}
+                          className="case-card"
+                          style={{
+                            background: selectedCase?.id === caseItem.id ? tone.bg : "#fff",
+                            borderColor: selectedCase?.id === caseItem.id ? tone.border : "#1a1a2e",
+                            boxShadow: `5px 5px 0 ${selectedCase?.id === caseItem.id ? tone.border : "#1a1a2e"}`,
+                          }}
+                          onClick={() => setSelectedCaseId(caseItem.id)}
+                        >
+                          <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                            <p className="bangers" style={{ fontSize: 16, margin: 0 }}>{caseItem.title}</p>
+                            <span className="badge" style={{ background: tone.bg, color: tone.color, borderColor: tone.border }}>{caseItem.status}</span>
+                          </div>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: "#777", margin: "0 0 8px" }}>
+                            {caseItem.visibility === "group" ? "Whole-crew case" : `Against ${caseItem.targetName}`}
+                          </p>
+                          {isAgainstMe ? <span className="badge" style={{ background: "#fff", color: "#ff6b6b", borderColor: "#ff6b6b" }}>You were named</span> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {sessions.length === 0 && (
-                  <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "16px", textAlign: "center" }}>
-                    <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>No debrief sessions yet</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Start one when your crew needs a structured conversation.</p>
-                  </div>
-                )}
-                {sessions.map(s => (
-                  <div key={s.id} className="session-card" style={{ background: selectedSession?.id === s.id ? s.bg : "#fff", borderColor: selectedSession?.id === s.id ? s.border : "#1a1a2e", boxShadow: `5px 5px 0 ${selectedSession?.id === s.id ? s.border : "#1a1a2e"}` }} onClick={() => setSelectedSession(s)}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                      <p className="bangers" style={{ fontSize: 16, margin: 0, color: "#1a1a2e" }}>{s.title}</p>
-                      <span className="badge" style={{ background: s.status === "Resolved" ? "#e8fde8" : "#fde8f0", color: s.status === "Resolved" ? "#51cf66" : "#ff6b9d", borderColor: s.status === "Resolved" ? "#51cf66" : "#ff6b9d" }}>{s.status}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {s.between.map((member, i) => (
-                        <div key={i} className="avatar" style={{ width: 28, height: 28, background: AVATAR_COLORS[i], fontSize: 10 }}>{member.initials}</div>
-                      ))}
-                      <span style={{ fontSize: 12, fontWeight: 800, color: "#888" }}>{s.between[0].name} & {s.between[1].name}</span>
-                    </div>
-                    <div style={{ marginTop: 10 }}>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        {DEBRIEF_STEPS.map((_, i) => (
-                          <div key={i} style={{ flex: 1, height: 6, borderRadius: 99, background: i < s.step ? s.border : "#e0dbd0", border: "1px solid #1a1a2e" }} />
-                        ))}
-                      </div>
-                      <p style={{ fontSize: 11, fontWeight: 800, color: "#888", margin: "4px 0 0" }}>Step {s.step}/6 — {DEBRIEF_STEPS[Math.min(s.step-1, 5)].label}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Session detail */}
-              {selectedSession && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-                  {/* Header */}
-                  <div className="card" style={{ background: selectedSession.bg, borderColor: selectedSession.border, boxShadow: `5px 5px 0 ${selectedSession.border}` }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-                      <div>
-                        <h2 className="bangers" style={{ fontSize: 24, margin: "0 0 8px" }}>{selectedSession.title}</h2>
-                        <p style={{ fontSize: 12, fontWeight: 800, color: "#888", margin: "0 0 10px" }}>{selectedSession.sourceLabel}</p>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          {selectedSession.between.map((member, i) => (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <div className="avatar" style={{ width: 32, height: 32, background: AVATAR_COLORS[i], fontSize: 11 }}>{member.initials}</div>
-                              <span style={{ fontSize: 13, fontWeight: 800 }}>{member.name}</span>
-                              {i === 0 && <span style={{ fontSize: 16 }}>↔️</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <span className="badge" style={{ background: selectedSession.status === "Resolved" ? "#e8fde8" : "#fff", color: selectedSession.status === "Resolved" ? "#51cf66" : "#ff6b9d", borderColor: selectedSession.status === "Resolved" ? "#51cf66" : "#ff6b9d", fontSize: 14 }}>{selectedSession.status}</span>
-                    </div>
-                  </div>
-
-                  {/* Progress steps */}
-                  <div className="card">
-                    <p className="bangers" style={{ fontSize: 18, margin: "0 0 14px" }}>Progress 🧭</p>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                      {DEBRIEF_STEPS.map((s, i) => (
-                        <div key={i} className={`progress-step ${i < selectedSession.step ? "done" : i === selectedSession.step ? "active" : ""}`}>
-                          <div className="step-bubble" style={{ background: i < selectedSession.step ? "#51cf66" : i === selectedSession.step ? "#ff6b9d" : "#fff", borderColor: i < selectedSession.step ? "#51cf66" : i === selectedSession.step ? "#ff6b9d" : "#ccc", color: i < selectedSession.step ? "#fff" : "#1a1a2e" }}>{s.emoji}</div>
-                          <div>
-                            <p className="bangers" style={{ fontSize: 13, margin: 0, color: "#1a1a2e" }}>{s.label}</p>
-                            <p style={{ fontSize: 11, fontWeight: 700, color: "#888", margin: 0 }}>{s.desc}</p>
+                {selectedGroup && selectedCase ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    <div className="card" style={{ background: "#fffdf9" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <div>
+                          <span className="comic-tag">Filed anonymously</span>
+                          <h2 className="bangers" style={{ fontSize: 26, margin: "10px 0 6px" }}>{selectedCase.title}</h2>
+                          <p style={{ fontSize: 13, fontWeight: 800, color: "#888", margin: "0 0 10px" }}>
+                            {selectedCase.visibility === "group" ? "Whole group issue" : `Against ${selectedCase.targetName}`} · {selectedCase.sourceLabel}
+                          </p>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 10px" }}>
+                            Peace maker: {selectedCase.mediatorName || (selectedCase.visibility === "group" ? "Use the elected peace maker if needed" : "None assigned")}
+                          </p>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div className="avatar" style={{ background: "#1a1a2e" }}>AN</div>
+                            <span style={{ fontSize: 13, fontWeight: 800 }}>Anonymous filer</span>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: "#aaa" }}>{selectedCase.createdLabel}</span>
                           </div>
                         </div>
-                      ))}
+                        <button className="btn-outline" onClick={toggleCaseStatus}>
+                          {selectedCase.status === "Resolved" ? "Reopen" : "Mark Resolved"}
+                        </button>
+                      </div>
                     </div>
-                    {selectedSession.status !== "Resolved" && (
-                      <button className="btn-secondary" style={{ marginTop: 16 }} onClick={advanceStep}>
-                        ✅ Mark Step {selectedSession.step} Complete →
-                      </button>
-                    )}
-                  </div>
 
-                  {/* Messages */}
-                  <div className="card">
-                    <p className="bangers" style={{ fontSize: 18, margin: "0 0 16px" }}>💬 The Conversation</p>
-                    <div style={{ minHeight: 200, marginBottom: 16 }}>
-                      {selectedSession.messages.map((msg, i) => (
-                        <div key={i} className={`message-bubble ${msg.from === "system" ? "system" : msg.from === 0 ? "me" : "them"}`}>
-                          {msg.from !== "system" && msg.from !== 0 && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                              <div className="avatar" style={{ width: 24, height: 24, background: AVATAR_COLORS[1], fontSize: 9 }}>{selectedSession.between[1].initials}</div>
-                              <span style={{ fontSize: 12, fontWeight: 800, color: "#888" }}>{selectedSession.between[1].name}</span>
+                    <div className="card">
+                      <div className="case-note" style={{ background: "#fff4e6", borderColor: "#ff9a3c", boxShadow: "4px 4px 0 #ff9a3c", marginBottom: 16 }}>
+                        <p className="bangers" style={{ fontSize: 14, margin: "0 0 6px", color: "#ff9a3c" }}>The Case</p>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, lineHeight: 1.6 }}>{selectedCase.body}</p>
+                      </div>
+
+                      <p className="bangers" style={{ fontSize: 18, margin: "0 0 14px" }}>Thread</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {(selectedCase.updates || []).map((update) => {
+                          const tone = getResponseTone(update.kind);
+                          return (
+                            <div key={update.id} className="case-note" style={{ background: tone.bg, borderColor: tone.border, boxShadow: `4px 4px 0 ${tone.shadow}` }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+                                <span className="badge" style={{ background: "#fff", color: tone.border, borderColor: tone.border }}>{tone.label}</span>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: "#666" }}>{update.authorLabel}</span>
+                              </div>
+                              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, lineHeight: 1.6 }}>{update.body}</p>
                             </div>
-                          )}
-                          {msg.from === "system"
-                            ? <p className="bangers" style={{ fontSize: 14, margin: 0, color: "#ff9a3c", letterSpacing: "0.04em" }}>{msg.text}</p>
-                            : <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "#1a1a2e" }}>{msg.text}</p>
-                          }
-                        </div>
-                      ))}
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    {selectedSession.status !== "Resolved" && (
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <input className="form-input" type="text" placeholder="Say something..." value={message} onChange={e => setMessage(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMessage()} style={{ flex: 1 }} />
-                        <button className="btn-primary" onClick={sendMessage} style={{ flexShrink: 0 }}><IconSend /> Send</button>
+                    <div className="card">
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+                        <p className="bangers" style={{ fontSize: 18, margin: 0 }}>Address The Court</p>
+                        <select className="form-input" value={responseType} onChange={(event) => setResponseType(event.target.value)} style={{ width: 180, padding: "10px 14px" }}>
+                          <option value="response">Make a response</option>
+                          <option value="clapback">Make a clap back</option>
+                          <option value="apology">Own it and apologize</option>
+                        </select>
                       </div>
-                    )}
-
-                    {selectedSession.status === "Resolved" && (
-                      <div style={{ background: "#e8fde8", border: "3px solid #51cf66", borderRadius: 12, padding: "14px 18px", textAlign: "center", boxShadow: "4px 4px 0 #51cf66" }}>
-                        <p className="bangers" style={{ fontSize: 20, margin: 0, color: "#51cf66" }}>🤜🤛 Session closed — you're good!</p>
+                      <textarea
+                        className="form-input"
+                        rows={5}
+                        placeholder="Say your piece clearly. If you caused harm, name it and explain the fix."
+                        value={responseDraft}
+                        onChange={(event) => setResponseDraft(event.target.value)}
+                      />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 12 }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: "#777" }}>
+                          {selectedCase.visibility === "group"
+                            ? "Everyone in the crew can read this thread. The original filer stays anonymous."
+                            : "Only the person named can see this private case. The original filer still stays anonymous."}
+                        </span>
+                        <button className="btn-primary" onClick={sendResponse}>Post Reply</button>
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="card" style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 38, margin: "0 0 10px" }}>🕳️</p>
+                  <p className="bangers" style={{ fontSize: 22, margin: "0 0 8px" }}>Pick a case room</p>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: 0 }}>Select a visible case on the left to read it, clap back, or apologize.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </main>
         </div>
 
-        {showNewModal && (
+        {showNewModal ? (
           <div className="modal-overlay" onClick={() => setShowNewModal(false)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal" onClick={(event) => event.stopPropagation()}>
               <button className="close-btn" onClick={() => setShowNewModal(false)}>✕</button>
               <div style={{ textAlign: "center", marginBottom: 24 }}>
-                <span className="comic-tag">Let's fix this 🤝</span>
-                <h2 className="bangers" style={{ fontSize: 32, margin: "8px 0 4px" }}>Start A Debrief</h2>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>A safe space to work through the beef.</p>
+                <span className="comic-tag">Anonymous filing 🕶️</span>
+                <h2 className="bangers" style={{ fontSize: 32, margin: "8px 0 4px" }}>Open A Case</h2>
+                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Pick the crew, decide whether this is personal or for the whole room, then file your case.</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div>
-                  <label className="form-label">What's this about?</label>
-                  <input className="form-input" type="text" placeholder="What needs to be worked through?" value={newForm.title} onChange={e => setNewForm(p => ({ ...p, title: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="form-label">Start from</label>
-                  <select className="form-input" value={newForm.sourceType} onChange={e => setNewForm(p => ({ ...p, sourceType: e.target.value, contextId: "", with: "1" }))} style={{ padding: "10px 14px" }}>
-                    <option value="standalone">Debrief section only</option>
-                    <option value="group">Connected to a group</option>
-                    <option value="hangout">Connected to a hangout</option>
+                  <label className="form-label">Which crew?</label>
+                  <select className="form-input" value={newCaseForm.groupId || selectedGroup?.id || ""} onChange={(event) => setNewCaseForm((current) => ({ ...current, groupId: event.target.value, targetMemberName: "" }))} style={{ padding: "10px 14px" }}>
+                    {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
                   </select>
                 </div>
-                {newForm.sourceType !== "standalone" && (
+                <div>
+                  <label className="form-label">Is this personal or about the whole group?</label>
+                  <select className="form-input" value={newCaseForm.scope} onChange={(event) => setNewCaseForm((current) => ({ ...current, scope: event.target.value, targetMemberName: "" }))} style={{ padding: "10px 14px" }}>
+                    <option value="personal">Specific person</option>
+                    <option value="group">Whole group</option>
+                  </select>
+                </div>
+                {newCaseForm.scope === "personal" ? (
                   <div>
-                    <label className="form-label">{newForm.sourceType === "group" ? "Choose group" : "Choose hangout"}</label>
-                    <select className="form-input" value={newForm.contextId} onChange={e => setNewForm(p => ({ ...p, contextId: e.target.value, with: "1" }))} style={{ padding: "10px 14px" }}>
-                      <option value="">{newForm.sourceType === "group" ? "Select a group" : "Select a hangout"}</option>
-                      {sourceOptions[newForm.sourceType].map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    <label className="form-label">Who is this against?</label>
+                    <select className="form-input" value={newCaseForm.targetMemberName} onChange={(event) => setNewCaseForm((current) => ({ ...current, targetMemberName: event.target.value }))} style={{ padding: "10px 14px" }}>
+                      <option value="">Pick a group member</option>
+                      {draftMemberOptions.map((member) => <option key={member.name} value={member.name}>{member.name}</option>)}
                     </select>
+                  </div>
+                ) : null}
+                {newCaseForm.scope === "personal" ? (
+                  <div>
+                    <label className="form-label">Optional peace maker</label>
+                    <select className="form-input" value={newCaseForm.mediatorName} onChange={(event) => setNewCaseForm((current) => ({ ...current, mediatorName: event.target.value }))} style={{ padding: "10px 14px" }}>
+                      <option value="">No peace maker for now</option>
+                      {mediatorOptions.map((member) => <option key={member.name} value={member.name}>{member.name}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 12, padding: "12px 14px", boxShadow: "3px 3px 0 #4ecdc4" }}>
+                    <p className="bangers" style={{ fontSize: 14, margin: "0 0 4px" }}>Group peace maker</p>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: "#555", margin: 0 }}>
+                      {peaceMakerBench.electedMemberName ? `${peaceMakerBench.electedMemberName} is currently the voted peace maker for this crew.` : "No peace maker has been voted in yet."}
+                    </p>
                   </div>
                 )}
                 <div>
-                  <label className="form-label">Who's involved?</label>
-                  {participantOptions.length === 0 ? (
-                    <div style={{ background: "#fffdf9", border: "3px dashed #ccc", borderRadius: 12, padding: "14px 16px", fontSize: 13, fontWeight: 700, color: "#888" }}>
-                      {newForm.sourceType === "standalone" ? "Add someone to debrief with." : `No linked people found in this ${newForm.sourceType} yet.`}
-                    </div>
-                  ) : (
-                    <select className="form-input" value={newForm.with} onChange={e => setNewForm(p => ({ ...p, with: e.target.value }))} style={{ padding: "10px 14px" }}>
-                      {participantOptions.map((member) => <option key={member.value} value={member.value}>{member.name}</option>)}
-                    </select>
-                  )}
+                  <label className="form-label">Case title</label>
+                  <input className="form-input" type="text" placeholder="Late-night shade in the group chat" value={newCaseForm.title} onChange={(event) => setNewCaseForm((current) => ({ ...current, title: event.target.value }))} />
                 </div>
-                <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px", boxShadow: "3px 3px 0 #ff9a3c" }}>
-                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px", color: "#1a1a2e" }}>Ground rules 📋</p>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>Debrief stands on its own, but it can also stay linked to a group or hangout for context. No attacks. No interrupting. Just honest conversation with the goal of fixing things.</p>
+                <div>
+                  <label className="form-label">Make your case</label>
+                  <textarea className="form-input" rows={6} placeholder="Explain what happened, why it landed badly, and what needs to change." value={newCaseForm.details} onChange={(event) => setNewCaseForm((current) => ({ ...current, details: event.target.value }))} />
                 </div>
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px", marginTop: 4, opacity: participantOptions.length === 0 ? 0.5 : 1 }} onClick={createSession}>
-                  Start Session 🤝
+                <div style={{ background: "#fde8f0", border: "3px solid #ff6b9d", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff6b9d" }}>
+                  <p className="bangers" style={{ fontSize: 14, margin: "0 0 6px" }}>How this room works</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>
+                    Your name stays hidden on the case. Personal cases are private to the person named and can optionally include a peace maker. Group cases are visible to everyone in the crew and can rely on the voted peace-maker bench.
+                  </p>
+                </div>
+                <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={createCase}>
+                  File Anonymous Case
                 </button>
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </>
   );

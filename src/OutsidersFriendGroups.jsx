@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createOpenAIResponse, DEFAULT_OPENAI_MODEL } from "./openaiResponses";
+import { buildGroupInviteLink } from "./siteConfig";
+import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -42,6 +45,16 @@ const STYLES = `
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 3px 3px 0 #1a1a2e;
+  }
+
+  .logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
@@ -344,7 +357,59 @@ const NAV_TARGETS = {
   "Debrief": "debrief",
 };
 
-export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
+function getInitials(name) {
+  const cleaned = (name || "").replace(/^@/, "").trim();
+  if (!cleaned) return "YU";
+  return cleaned.slice(0, 2).toUpperCase();
+}
+
+function normalizeMember(member, fallbackName = "You") {
+  const name = member?.name || fallbackName;
+  return {
+    initials: member?.initials || getInitials(name),
+    name,
+    role: member?.role || "Member",
+    username: member?.username || "",
+    userId: member?.userId || null,
+  };
+}
+
+function mapDbGroupToUi(row) {
+  const colorIndex = Number.isInteger(row?.color_index) ? row.color_index : 0;
+  return {
+    id: row.id,
+    name: row.name,
+    emoji: row.emoji || "👥",
+    members: Array.isArray(row.members) ? row.members.map((member) => normalizeMember(member)) : [],
+    pending: Array.isArray(row.pending) ? row.pending : [],
+    color: GROUP_COLORS[colorIndex % GROUP_COLORS.length],
+    colorIndex,
+    code: row.code,
+    cases: Array.isArray(row.cases) ? row.cases : [],
+    billWatch: row.bill_watch || null,
+    peaceMaker: row.peace_maker || null,
+    ownerId: row.owner_id || null,
+    ownerUsername: row.owner_username || "",
+  };
+}
+
+function mapUiGroupToDb(group) {
+  return {
+    name: group.name,
+    emoji: group.emoji,
+    members: group.members,
+    pending: group.pending,
+    color_index: group.colorIndex || 0,
+    code: group.code,
+    cases: group.cases || [],
+    bill_watch: group.billWatch || null,
+    peace_maker: group.peaceMaker || null,
+    owner_id: group.ownerId || null,
+    owner_username: group.ownerUsername || "",
+  };
+}
+
+export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams }) {
   const [groups, setGroups] = useState(appData?.groups?.length ? appData.groups : INITIAL_GROUPS);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [activeTab, setActiveTab] = useState("Members");
@@ -359,52 +424,446 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const [linkCopied, setLinkCopied] = useState(false);
   const [createError, setCreateError] = useState("");
   const [activeNav, setActiveNav] = useState("My Crew");
+  const [vibeProfiles, setVibeProfiles] = useState({});
+  const [vibeLoading, setVibeLoading] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsNotice, setGroupsNotice] = useState("");
   const handleNav = (label) => {
     setActiveNav(label);
     onNavigate?.(NAV_TARGETS[label] || "friend-groups");
   };
 
-  const handleCreateGroup = () => {
+  useEffect(() => {
+    setAppData?.((prev) => ({ ...prev, groups }));
+  }, [groups, setAppData]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+
+    let isActive = true;
+
+    async function loadAuthState() {
+      const { data } = await supabase.auth.getUser();
+      if (!isActive) return;
+      setCurrentUser(data.user || null);
+    }
+
+    loadAuthState();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user || null);
+    });
+
+    return () => {
+      isActive = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !currentUser?.id) {
+      setCurrentProfile(null);
+      return;
+    }
+
+    let isActive = true;
+
+    async function loadProfile() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("username, full_name")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+
+      if (isActive) {
+        setCurrentProfile(data || null);
+      }
+    }
+
+    loadProfile();
+    return () => {
+      isActive = false;
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !currentUser?.id) return undefined;
+
+    let isActive = true;
+
+    async function loadGroups() {
+      setGroupsLoading(true);
+      const { data, error } = await supabase
+        .from("groups")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!isActive) return;
+
+      if (error) {
+        setGroupsNotice(error.message);
+        setGroupsLoading(false);
+        return;
+      }
+
+      const nextGroups = (data || []).map(mapDbGroupToUi);
+      setGroups(nextGroups);
+      setGroupsLoading(false);
+      setGroupsNotice("");
+    }
+
+    loadGroups();
+
+    const channel = supabase
+      .channel("outsiders-groups")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "groups" },
+        () => {
+          loadGroups();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isActive = false;
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (selectedGroup) {
+      const refreshed = groups.find((group) => group.id === selectedGroup.id);
+      setSelectedGroup(refreshed || null);
+      return;
+    }
+
+    const requestedCode = (routeParams?.groupCode || "").toUpperCase();
+    if (requestedCode) {
+      const matched = groups.find((group) => group.code?.toUpperCase() === requestedCode);
+      if (matched) {
+        setSelectedGroup(matched);
+        setActiveTab("Invite Link");
+      }
+    }
+  }, [groups, routeParams, selectedGroup]);
+
+  const currentDisplayName = currentProfile?.full_name || currentUser?.user_metadata?.full_name || "You";
+  const currentUsername = currentProfile?.username || currentUser?.user_metadata?.username || "";
+  const canManageSelectedGroup = Boolean(
+    selectedGroup && (
+      (currentUser?.id && selectedGroup.ownerId === currentUser.id) ||
+      (!currentUser?.id && (!selectedGroup.ownerId || selectedGroup.ownerId === "local-user"))
+    )
+  );
+  const isViewingInviteLink = Boolean(routeParams?.groupCode);
+  const inviteLink = selectedGroup ? buildGroupInviteLink(selectedGroup.code) : "";
+  const currentVoteKey = currentUser?.id || (currentUsername ? `username:${currentUsername}` : `name:${currentDisplayName}`);
+  const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
+  const billWatchVoteEntries = Object.entries(selectedBillWatch.votes || {});
+  const billWatchLeader = selectedGroup?.members?.reduce((best, member) => {
+    const memberVotes = billWatchVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
+    if (!best || memberVotes > best.votes) {
+      return { name: member.name, votes: memberVotes };
+    }
+    return best;
+  }, null);
+
+  async function persistGroup(nextGroup) {
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { data, error } = await supabase
+        .from("groups")
+        .update(mapUiGroupToDb(nextGroup))
+        .eq("id", nextGroup.id)
+        .select("*")
+        .single();
+
+      if (error) {
+        setGroupsNotice(error.message);
+        return null;
+      }
+
+      const savedGroup = mapDbGroupToUi(data);
+      setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
+      setSelectedGroup(savedGroup);
+      return savedGroup;
+    }
+
+    setGroups((prev) => prev.map((group) => (group.id === nextGroup.id ? nextGroup : group)));
+    setSelectedGroup(nextGroup);
+    return nextGroup;
+  }
+
+  async function generateVibeProfile(group) {
+    const apiKey = localStorage.getItem("outsiders-ai-api-key") || import.meta.env.VITE_OPENAI_API_KEY || "";
+    if (!apiKey) {
+      setVibeProfiles(prev => ({ ...prev, [group.id]: { error: "Open the AI panel (bottom right) to set up your API key first." } }));
+      return;
+    }
+    setVibeLoading(group.id);
+    const memberList = group.members.map(m => m.name).join(", ");
+    const prompt = `Generate a fun vibe profile for a friend group called "${group.name}" with ${group.members.length} members (${memberList}). Include:\n1. A one-line vibe summary (e.g. "60% chaos, 40% snacks")\n2. Three personality trait labels (short, funny, like "Late arrivals", "Idea starters")\n3. Their ideal hangout type (1 sentence)\n4. A short group motto\n\nRespond ONLY with JSON: {"vibe": "...", "traits": ["...", "...", "..."], "idealHangout": "...", "motto": "..."}`;
+    try {
+      const result = await createOpenAIResponse({
+        apiKey,
+        model: DEFAULT_OPENAI_MODEL,
+        instructions: "You generate fun, playful group personality profiles for friend groups. Always respond with valid JSON only, no markdown.",
+        input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+      });
+      let parsed = null;
+      try {
+        const match = result.text.match(/\{[\s\S]*\}/);
+        if (match) parsed = JSON.parse(match[0]);
+      } catch {
+        parsed = null;
+      }
+      setVibeProfiles(prev => ({ ...prev, [group.id]: parsed || { raw: result.text } }));
+    } catch (err) {
+      setVibeProfiles(prev => ({ ...prev, [group.id]: { error: err.message || "Something went wrong." } }));
+    } finally {
+      setVibeLoading(null);
+    }
+  }
+
+  const handleCreateGroup = async () => {
     if (!newGroupName.trim()) { setCreateError("Give your group a name!"); return; }
+    if (isSupabaseConfigured && !currentUser?.id) {
+      setCreateError(`Log in first to create a shared group. ${supabaseConfigError}`);
+      return;
+    }
     const newGroup = {
       id: Date.now(),
-      name: `${newGroupName.trim()} ${newGroupEmoji}`,
+      name: newGroupName.trim(),
       emoji: newGroupEmoji,
-      members: [{ initials: "YOU", name: "You", role: "Admin" }],
+      members: [{
+        initials: getInitials(currentDisplayName),
+        name: currentDisplayName,
+        role: "Admin",
+        username: currentUsername ? `@${currentUsername}` : "",
+        userId: currentUser?.id || "local-user",
+      }],
       pending: [],
       color: GROUP_COLORS[groups.length % GROUP_COLORS.length],
+      colorIndex: groups.length % GROUP_COLORS.length,
       code: generateCode(),
+      cases: [],
+      billWatch: {
+        electedMemberName: "",
+        votes: {},
+        checklist: [
+          "Track what each person paid",
+          "Check every split before people settle up",
+          "Post the final math after each hangout",
+        ],
+      },
+      peaceMaker: {
+        electedMemberName: "",
+        votes: {},
+        oath: "Hear both sides, cool the temperature, and push the room toward something fair.",
+      },
+      ownerId: currentUser?.id || "local-user",
+      ownerUsername: currentUsername,
     };
-    setGroups(prev => [...prev, newGroup]);
-    setAppData?.(prev => ({ ...prev, groups: [...prev.groups, newGroup] }));
-    setSelectedGroup(newGroup);
+
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { data, error } = await supabase
+        .from("groups")
+        .insert(mapUiGroupToDb(newGroup))
+        .select("*")
+        .single();
+
+      if (error) {
+        setCreateError(error.message);
+        return;
+      }
+
+      const savedGroup = mapDbGroupToUi(data);
+      setGroups((prev) => [savedGroup, ...prev]);
+      setSelectedGroup(savedGroup);
+    } else {
+      setGroups(prev => [...prev, newGroup]);
+      setSelectedGroup(newGroup);
+    }
     setShowCreateModal(false);
     setNewGroupName("");
     setNewGroupEmoji("👥");
     setCreateError("");
   };
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     if (!inviteUsername.trim()) { setInviteError("Enter a username!"); return; }
+    if (!selectedGroup) return;
     const username = inviteUsername.startsWith("@") ? inviteUsername : `@${inviteUsername}`;
-    const initials = inviteUsername.replace("@", "").slice(0, 2).toUpperCase();
+    const initials = getInitials(inviteUsername);
     const newPending = { initials, name: inviteUsername, username };
-    setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, pending: [...g.pending, newPending] } : g));
-    setSelectedGroup(prev => ({ ...prev, pending: [...prev.pending, newPending] }));
+    const nextGroup = { ...selectedGroup, pending: [...selectedGroup.pending, newPending] };
+
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { data, error } = await supabase
+        .from("groups")
+        .update(mapUiGroupToDb(nextGroup))
+        .eq("id", selectedGroup.id)
+        .select("*")
+        .single();
+
+      if (error) {
+        setInviteError(error.message);
+        return;
+      }
+
+      const savedGroup = mapDbGroupToUi(data);
+      setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
+      setSelectedGroup(savedGroup);
+    } else {
+      setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, pending: [...g.pending, newPending] } : g));
+      setSelectedGroup(prev => ({ ...prev, pending: [...prev.pending, newPending] }));
+    }
     setInviteUsername("");
     setInviteSent(true);
     setTimeout(() => setInviteSent(false), 2000);
     setInviteError("");
   };
 
-  const handleRemoveMember = (name) => {
+  const handleRemoveMember = async (name) => {
+    if (!selectedGroup) return;
+    const nextGroup = { ...selectedGroup, members: selectedGroup.members.filter((member) => member.name !== name) };
+
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { data } = await supabase
+        .from("groups")
+        .update(mapUiGroupToDb(nextGroup))
+        .eq("id", selectedGroup.id)
+        .select("*")
+        .single();
+
+      if (data) {
+        const savedGroup = mapDbGroupToUi(data);
+        setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
+        setSelectedGroup(savedGroup);
+      }
+      return;
+    }
+
     setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, members: g.members.filter(m => m.name !== name) } : g));
     setSelectedGroup(prev => ({ ...prev, members: prev.members.filter(m => m.name !== name) }));
   };
 
-  const handleCancelInvite = (username) => {
+  const handleCancelInvite = async (username) => {
+    if (!selectedGroup) return;
+    const nextGroup = { ...selectedGroup, pending: selectedGroup.pending.filter((pendingInvite) => pendingInvite.username !== username) };
+
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { data } = await supabase
+        .from("groups")
+        .update(mapUiGroupToDb(nextGroup))
+        .eq("id", selectedGroup.id)
+        .select("*")
+        .single();
+
+      if (data) {
+        const savedGroup = mapDbGroupToUi(data);
+        setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
+        setSelectedGroup(savedGroup);
+      }
+      return;
+    }
+
     setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, pending: g.pending.filter(p => p.username !== username) } : g));
     setSelectedGroup(prev => ({ ...prev, pending: prev.pending.filter(p => p.username !== username) }));
+  };
+
+  const handleBillWatchVote = async (memberName) => {
+    if (!selectedGroup) return;
+    const nextGroup = {
+      ...selectedGroup,
+      billWatch: {
+        ...selectedBillWatch,
+        electedMemberName: memberName,
+        votes: {
+          ...(selectedBillWatch.votes || {}),
+          [currentVoteKey]: memberName,
+        },
+      },
+    };
+
+    const savedGroup = await persistGroup(nextGroup);
+    if (!savedGroup) return;
+    setGroupsNotice(`${memberName} just got your Bill Watch vote.`);
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!selectedGroup || !canManageSelectedGroup) return;
+    const confirmed = window.confirm(`Delete "${selectedGroup.name}"? This can't be undone.`);
+    if (!confirmed) return;
+
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { error } = await supabase.from("groups").delete().eq("id", selectedGroup.id);
+      if (error) {
+        setGroupsNotice(error.message);
+        return;
+      }
+    }
+
+    setGroups((prev) => prev.filter((group) => group.id !== selectedGroup.id));
+    setSelectedGroup(null);
+    setActiveTab("Members");
+  };
+
+  const handleJoinFromInviteLink = async () => {
+    if (!selectedGroup) return;
+    if (isSupabaseConfigured && !currentUser?.id) {
+      setGroupsNotice("Log in or sign up first, then open the invite link again to join this crew.");
+      return;
+    }
+
+    const alreadyMember = selectedGroup.members.some(
+      (member) => member.userId === currentUser?.id || member.username === (currentUsername ? `@${currentUsername}` : "")
+    );
+
+    if (alreadyMember) {
+      setGroupsNotice("You're already in this crew.");
+      return;
+    }
+
+    const joiningMember = normalizeMember({
+      name: currentDisplayName,
+      initials: getInitials(currentDisplayName),
+      role: "Member",
+      username: currentUsername ? `@${currentUsername}` : "",
+      userId: currentUser?.id || "local-user",
+    }, currentDisplayName);
+
+    const nextGroup = {
+      ...selectedGroup,
+      members: [...selectedGroup.members, joiningMember],
+      pending: selectedGroup.pending.filter((pendingInvite) => pendingInvite.username !== `@${currentUsername}`),
+    };
+
+    if (isSupabaseConfigured && currentUser?.id) {
+      const { data, error } = await supabase
+        .from("groups")
+        .update(mapUiGroupToDb(nextGroup))
+        .eq("id", selectedGroup.id)
+        .select("*")
+        .single();
+
+      if (error) {
+        setGroupsNotice(error.message);
+        return;
+      }
+
+      const savedGroup = mapDbGroupToUi(data);
+      setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
+      setSelectedGroup(savedGroup);
+    } else {
+      setGroups((prev) => prev.map((group) => (group.id === selectedGroup.id ? nextGroup : group)));
+      setSelectedGroup(nextGroup);
+    }
+
+    setGroupsNotice(`You're now in ${selectedGroup.name}.`);
+    setActiveTab("Members");
   };
 
   const copyCode = () => {
@@ -414,7 +873,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   };
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`https://outsiders.app/join/${selectedGroup.code}`);
+    navigator.clipboard.writeText(inviteLink);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
   };
@@ -427,10 +886,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
         {/* Top Nav */}
         <nav className="top-nav">
           <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <button
                 onClick={() => onNavigate?.("landing")}
@@ -473,6 +932,12 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
               </button>
             </div>
 
+            {groupsNotice && (
+              <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "12px 16px", boxShadow: "4px 4px 0 #ff9a3c", marginBottom: 18 }}>
+                <p style={{ fontSize: 13, fontWeight: 800, color: "#7a4d00", margin: 0 }}>{groupsNotice}</p>
+              </div>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 24 }}>
 
               {/* Group list */}
@@ -484,7 +949,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                     <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Create your first group to start inviting people.</p>
                   </div>
                 )}
-                {groups.map((g, i) => (
+                {groupsLoading && (
+                  <div style={{ border: "3px dashed #4ecdc4", borderRadius: 16, padding: "18px", textAlign: "center", background: "#e8f4fd" }}>
+                    <p className="bangers" style={{ fontSize: 16, color: "#1a1a2e", margin: "0 0 6px" }}>Loading your shared crews...</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#666", margin: 0 }}>Pulling the latest groups from Supabase.</p>
+                  </div>
+                )}
+                {groups.map((g) => (
                   <div
                     key={g.id}
                     className="group-card"
@@ -543,20 +1014,39 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                         </div>
                         <div>
                           <h2 className="bangers" style={{ fontSize: 26, margin: 0, color: "#1a1a2e" }}>{selectedGroup.name}</h2>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#666", margin: 0 }}>{selectedGroup.members.length} members · {selectedGroup.pending.length} pending</p>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#666", margin: 0 }}>
+                            {selectedGroup.members.length} members · {selectedGroup.pending.length} pending
+                            {selectedGroup.ownerUsername ? ` · Created by @${selectedGroup.ownerUsername}` : ""}
+                          </p>
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 10 }}>
                         <button className="btn-secondary" onClick={() => setShowInviteModal(true)}>
                           <IconPlus /> Invite
                         </button>
+                        {canManageSelectedGroup && (
+                          <button className="btn-danger" onClick={handleDeleteGroup}>
+                            Delete Group
+                          </button>
+                        )}
                       </div>
                     </div>
+                    {isViewingInviteLink && routeParams?.groupCode?.toUpperCase() === selectedGroup.code?.toUpperCase() && (
+                      <div style={{ marginTop: 14, background: "#fff", border: `3px solid ${selectedGroup.color.border}`, borderRadius: 12, padding: "14px 16px", boxShadow: `4px 4px 0 ${selectedGroup.color.border}` }}>
+                        <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px", color: "#1a1a2e" }}>Invite Link Opened</p>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: "0 0 12px" }}>
+                          This link points to {selectedGroup.name}. Log in, then tap below to join this crew.
+                        </p>
+                        <button className="btn-primary" style={{ width: "auto" }} onClick={handleJoinFromInviteLink}>
+                          Join This Crew
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Tabs */}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {["Members", "Pending", "Invite Link"].map(t => (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {["Members", "Pending", "Invite Link", "Bill Watch", "Vibe Profile"].map(t => (
                       <button key={t} className={`tab ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>
                         {t} {t === "Pending" && selectedGroup.pending.length > 0 && `(${selectedGroup.pending.length})`}
                       </button>
@@ -580,7 +1070,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                             color: m.role === "Admin" ? "#ff9a3c" : "#4ecdc4",
                             borderColor: m.role === "Admin" ? "#ff9a3c" : "#4ecdc4",
                           }}>{m.role}</span>
-                          {m.role !== "Admin" && (
+                          {canManageSelectedGroup && m.role !== "Admin" && (
                             <button className="btn-danger" onClick={() => handleRemoveMember(m.name)}>Remove</button>
                           )}
                         </div>
@@ -605,9 +1095,126 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                             <p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{p.username}</p>
                             <p style={{ fontSize: 12, fontWeight: 700, color: "#ff9a3c", margin: 0 }}>⏳ Invite pending</p>
                           </div>
-                          <button className="btn-danger" onClick={() => handleCancelInvite(p.username)}>Cancel</button>
+                          {canManageSelectedGroup ? <button className="btn-danger" onClick={() => handleCancelInvite(p.username)}>Cancel</button> : null}
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {activeTab === "Bill Watch" && (
+                    <div className="card">
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+                        <div>
+                          <h3 className="bangers" style={{ fontSize: 20, margin: "0 0 4px" }}>Bill Watch Roster 🧮</h3>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Vote for the most observant and trustworthy person to track every hangout split.</p>
+                        </div>
+                        <span className="badge" style={{ background: "#e8f4fd", color: "#4ecdc4", borderColor: "#4ecdc4" }}>
+                          {billWatchLeader?.name ? `${billWatchLeader.name} leading` : "No votes yet"}
+                        </span>
+                      </div>
+
+                      <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff9a3c", marginBottom: 18 }}>
+                        <p className="bangers" style={{ fontSize: 14, margin: "0 0 8px" }}>Money job checklist</p>
+                        {(selectedBillWatch.checklist || []).map((item) => (
+                          <p key={item} style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: "0 0 6px" }}>• {item}</p>
+                        ))}
+                      </div>
+
+                      <div style={{ display: "grid", gap: 12 }}>
+                        {selectedGroup.members.map((member, index) => {
+                          const voteCount = billWatchVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
+                          const isMyVote = selectedBillWatch.votes?.[currentVoteKey] === member.name;
+                          const isLeader = billWatchLeader?.name === member.name && voteCount > 0;
+                          return (
+                            <div key={member.name} style={{ border: "3px solid #1a1a2e", borderRadius: 14, padding: "14px 16px", boxShadow: "4px 4px 0 #1a1a2e", background: isLeader ? "#e8fde8" : "#fff" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                  <div className="avatar" style={{ background: AVATAR_COLORS[index % AVATAR_COLORS.length] }}>{member.initials}</div>
+                                  <div>
+                                    <p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{member.name}</p>
+                                    <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: 0 }}>
+                                      {voteCount} crew vote{voteCount === 1 ? "" : "s"} {isMyVote ? "· You picked them" : ""}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  {isLeader ? <span className="badge" style={{ background: "#e8fde8", color: "#51cf66", borderColor: "#51cf66" }}>Top Pick</span> : null}
+                                  <button className="btn-secondary" style={{ fontSize: 14, padding: "8px 14px" }} onClick={() => handleBillWatchVote(member.name)}>
+                                    {isMyVote ? "Change Vote" : "Vote For This Person"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {selectedBillWatch.electedMemberName ? (
+                        <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #4ecdc4", marginTop: 18 }}>
+                          <p className="bangers" style={{ fontSize: 14, margin: "0 0 6px" }}>Current designated tracker</p>
+                          <p style={{ fontSize: 15, fontWeight: 900, color: "#1a1a2e", margin: 0 }}>{selectedBillWatch.electedMemberName}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {activeTab === "Vibe Profile" && (
+                    <div className="card">
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Vibe Profile ✨</h3>
+                        <button
+                          className="btn-secondary"
+                          onClick={() => generateVibeProfile(selectedGroup)}
+                          disabled={vibeLoading === selectedGroup.id}
+                          style={{ fontSize: 14, padding: "8px 14px" }}
+                        >
+                          {vibeLoading === selectedGroup.id ? "Generating..." : vibeProfiles[selectedGroup.id] ? "Regenerate" : "Generate"}
+                        </button>
+                      </div>
+
+                      {!vibeProfiles[selectedGroup.id] ? (
+                        <div style={{ textAlign: "center", padding: "32px 0" }}>
+                          <p style={{ fontSize: 36, margin: "0 0 8px" }}>🔮</p>
+                          <p className="bangers" style={{ fontSize: 18, color: "#aaa", margin: "0 0 6px" }}>No vibe profile yet!</p>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Hit Generate to reveal your group's personality.</p>
+                        </div>
+                      ) : vibeProfiles[selectedGroup.id].error ? (
+                        <p style={{ color: "#ff6b6b", fontWeight: 900, fontSize: 14 }}>{vibeProfiles[selectedGroup.id].error}</p>
+                      ) : vibeProfiles[selectedGroup.id].raw ? (
+                        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{vibeProfiles[selectedGroup.id].raw}</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                          <div style={{ background: selectedGroup.color.bg, border: `3px solid ${selectedGroup.color.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: `4px 4px 0 ${selectedGroup.color.border}` }}>
+                            <p className="bangers" style={{ fontSize: 12, letterSpacing: "0.08em", color: "#888", margin: "0 0 6px", textTransform: "uppercase" }}>Group Vibe</p>
+                            <p className="bangers" style={{ fontSize: 22, margin: 0, color: "#1a1a2e" }}>{vibeProfiles[selectedGroup.id].vibe}</p>
+                          </div>
+
+                          {vibeProfiles[selectedGroup.id].traits?.length > 0 && (
+                            <div>
+                              <p className="bangers" style={{ fontSize: 12, letterSpacing: "0.08em", color: "#888", margin: "0 0 10px", textTransform: "uppercase" }}>Personality Traits</p>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                {vibeProfiles[selectedGroup.id].traits.map((trait, i) => (
+                                  <span key={i} className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c", padding: "5px 12px", fontSize: 13 }}>{trait}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {vibeProfiles[selectedGroup.id].idealHangout && (
+                            <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #4ecdc4" }}>
+                              <p className="bangers" style={{ fontSize: 12, letterSpacing: "0.08em", color: "#888", margin: "0 0 6px", textTransform: "uppercase" }}>Ideal Hangout</p>
+                              <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "#1a1a2e" }}>{vibeProfiles[selectedGroup.id].idealHangout}</p>
+                            </div>
+                          )}
+
+                          {vibeProfiles[selectedGroup.id].motto && (
+                            <div style={{ background: "#fde8f0", border: "3px solid #ff6b9d", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff6b9d", textAlign: "center" }}>
+                              <p className="bangers" style={{ fontSize: 12, letterSpacing: "0.08em", color: "#888", margin: "0 0 6px", textTransform: "uppercase" }}>Group Motto</p>
+                              <p className="bangers" style={{ fontSize: 20, margin: 0, color: "#ff6b9d" }}>"{vibeProfiles[selectedGroup.id].motto}"</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -630,7 +1237,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       <div>
                         <p className="form-label">Invite Link</p>
                         <div className="link-box" style={{ marginBottom: 10 }}>
-                          https://outsiders.app/join/{selectedGroup.code}
+                          {inviteLink}
                         </div>
                         <button className="btn-outline" style={{ width: "100%", justifyContent: "center" }} onClick={copyLink}>
                           {linkCopied ? <><IconCheck /> Copied!</> : <><IconCopy /> Copy Link</>}
@@ -639,7 +1246,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                       <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 12, padding: "14px 16px", marginTop: 20, boxShadow: "4px 4px 0 #4ecdc4" }}>
                         <p className="bangers" style={{ fontSize: 14, margin: "0 0 4px", letterSpacing: "0.04em" }}>How it works:</p>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>Friends need an Outsiders account to join. Send them the code or link and they'll be in your group instantly.</p>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>Send the code or this link. When your friend logs in on Outsiders, the link opens this crew and lets them join it.</p>
                       </div>
                     </div>
                   )}
@@ -722,6 +1329,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   <div style={{ background: "#1a1a2e", color: "#ffd93d", borderRadius: 10, padding: "10px", fontFamily: "'Bangers', cursive", fontSize: 28, letterSpacing: "0.2em", boxShadow: "4px 4px 0 #ff6b6b" }}>
                     {selectedGroup.code}
                   </div>
+                  <div className="link-box" style={{ marginTop: 12 }}>{inviteLink}</div>
+                  <button className="btn-outline" style={{ width: "100%", justifyContent: "center", marginTop: 12 }} onClick={copyLink}>
+                    {linkCopied ? <><IconCheck /> Copied Link!</> : <><IconCopy /> Copy Invite Link</>}
+                  </button>
                 </div>
               </div>
             </div>

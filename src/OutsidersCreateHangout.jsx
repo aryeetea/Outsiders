@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { createOpenAIResponse, DEFAULT_OPENAI_MODEL } from "./openaiResponses";
+import { buildHangoutInviteLink } from "./siteConfig";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -43,6 +45,16 @@ const STYLES = `
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 3px 3px 0 #1a1a2e;
+  }
+
+  .logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   .card {
@@ -236,11 +248,189 @@ const STYLES = `
     box-shadow: 2px 2px 0 #1a1a2e;
     flex-shrink: 0;
   }
+
+  .ai-suggest-btn {
+    background: #e8f4fd;
+    border: 2px solid #4ecdc4;
+    border-radius: 8px;
+    padding: 4px 11px;
+    font-family: 'Bangers', cursive;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    color: #1a1a2e;
+    box-shadow: 2px 2px 0 #4ecdc4;
+    transition: transform 0.1s, box-shadow 0.1s;
+    white-space: nowrap;
+  }
+  .ai-suggest-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 #4ecdc4; }
+  .ai-suggest-btn:disabled { opacity: 0.6; cursor: wait; }
+
+  .avail-toggle {
+    width: 100%;
+    background: #fff;
+    border: 3px solid #9b59b6;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-family: 'Bangers', cursive;
+    font-size: 16px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    color: #9b59b6;
+    box-shadow: 4px 4px 0 #9b59b6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .avail-toggle:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 #9b59b6; }
+
+  .avail-panel {
+    background: #f3e8fd;
+    border: 3px solid #9b59b6;
+    border-radius: 12px;
+    box-shadow: 4px 4px 0 #9b59b6;
+    padding: 16px;
+    margin-top: 8px;
+  }
+
+  .day-chip {
+    padding: 5px 8px;
+    border-radius: 8px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    border: 2px solid #1a1a2e;
+    background: #fff;
+    color: #1a1a2e;
+    box-shadow: 2px 2px 0 #1a1a2e;
+    transition: all 0.1s;
+  }
+  .day-chip.selected { background: #51cf66; }
+
+  .time-chip {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    border: 2px solid #1a1a2e;
+    background: #fff;
+    color: #1a1a2e;
+    box-shadow: 2px 2px 0 #1a1a2e;
+    transition: all 0.1s;
+  }
+  .time-chip.selected { background: #ffd93d; }
+
+  .ai-result-box {
+    background: #e8fdf2;
+    border: 3px solid #51cf66;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 4px 4px 0 #51cf66;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    color: #1a1a2e;
+    margin-top: 12px;
+  }
 `;
 
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
+function generateUniqueCode(existingHangouts) {
+  const usedCodes = new Set((existingHangouts || []).map((hangout) => hangout?.code).filter(Boolean));
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const nextCode = generateCode();
+    if (!usedCodes.has(nextCode)) return nextCode;
+  }
+
+  return `${Date.now().toString(36).toUpperCase().slice(-6)}`;
+}
+
+function buildNextDays() {
+  const days = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    days.push({
+      label: d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+      value: d.toISOString().slice(0, 10),
+    });
+  }
+  return days;
+}
+
+const NEXT_7_DAYS = buildNextDays();
+const TIME_SLOTS = ["Morning (8am–12pm)", "Afternoon (12pm–5pm)", "Evening (5pm–10pm)"];
+
+function buildAvailabilityPeople(group) {
+  const members = group?.members?.length
+    ? group.members.map((member) => ({
+        id: member.userId || member.username || member.name,
+        name: member.name,
+        days: [],
+        times: [],
+      }))
+    : [{ id: "you", name: "You", days: [], times: [] }];
+
+  return members;
+}
+
+function getBestTimeValue(slot) {
+  if (slot.includes("Morning")) return "10:00";
+  if (slot.includes("Afternoon")) return "14:00";
+  return "19:00";
+}
+
+function rankAvailabilitySuggestions(people) {
+  if (!people.length) return [];
+
+  return NEXT_7_DAYS.flatMap((day) => (
+    TIME_SLOTS.map((slot) => {
+      const availableMembers = people.filter((person) => {
+        const dayMatch = person.days.length === 0 || person.days.includes(day.value);
+        const timeMatch = person.times.length === 0 || person.times.includes(slot);
+        return dayMatch && timeMatch;
+      });
+      const explicitMatches = availableMembers.filter((person) => person.days.includes(day.value) || person.times.includes(slot)).length;
+
+      return {
+        date: day.value,
+        dateLabel: day.label,
+        slot,
+        time: getBestTimeValue(slot),
+        availableCount: availableMembers.length,
+        explicitMatches,
+        totalCount: people.length,
+        names: availableMembers.map((person) => person.name),
+      };
+    })
+  ))
+    .sort((a, b) => (
+      b.availableCount - a.availableCount ||
+      b.explicitMatches - a.explicitMatches ||
+      a.date.localeCompare(b.date) ||
+      TIME_SLOTS.indexOf(a.slot) - TIME_SLOTS.indexOf(b.slot)
+    ))
+    .slice(0, 3)
+    .map((suggestion, index) => ({
+      ...suggestion,
+      summary:
+        suggestion.availableCount === suggestion.totalCount
+          ? `Everybody can make this one${suggestion.explicitMatches ? " and most of them actually picked it" : ""}.`
+          : `${suggestion.availableCount} of ${suggestion.totalCount} members line up here${index === 0 ? ", so this is your strongest overlap" : ""}.`,
+    }));
+}
+
+function getStoredApiKey() {
+  return localStorage.getItem("outsiders-ai-api-key") || import.meta.env.VITE_OPENAI_API_KEY || "";
 }
 
 const IconLogoMark = () => (
@@ -269,12 +459,44 @@ const IconArrow = () => (
   </svg>
 );
 
-export default function OutsidersCreateHangout({ onNavigate, setAppData }) {
+export default function OutsidersCreateHangout({ onNavigate, appData, setAppData }) {
   const [form, setForm] = useState({ name: "", date: "", time: "", location: "", vibe: "" });
   const [errors, setErrors] = useState({});
   const [hangout, setHangout] = useState(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showAvailability, setShowAvailability] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState(appData?.groups?.[0]?.id || "");
+  const [memberAvailability, setMemberAvailability] = useState({});
+  const [guestPeople, setGuestPeople] = useState([]);
+  const [newPersonName, setNewPersonName] = useState("");
+  const [aiTimeLoading, setAiTimeLoading] = useState(false);
+  const [aiTimeResult, setAiTimeResult] = useState(null);
+  const [aiVibeLoading, setAiVibeLoading] = useState(false);
+  const groups = useMemo(() => appData?.groups || [], [appData]);
+  const activeGroupId = selectedGroupId && groups.some((group) => String(group.id) === String(selectedGroupId))
+    ? selectedGroupId
+    : groups[0]?.id || "";
+  const selectedGroup = useMemo(
+    () => groups.find((group) => String(group.id) === String(activeGroupId)) || null,
+    [activeGroupId, groups]
+  );
+  const availPeople = useMemo(() => {
+    const crewPeople = buildAvailabilityPeople(selectedGroup).map((person) => {
+      const saved = memberAvailability[String(person.id)];
+      return {
+        ...person,
+        days: saved?.days || [],
+        times: saved?.times || [],
+      };
+    });
+
+    return [...crewPeople, ...guestPeople];
+  }, [guestPeople, memberAvailability, selectedGroup]);
+  const availabilitySuggestions = useMemo(
+    () => rankAvailabilitySuggestions(availPeople),
+    [availPeople]
+  );
 
   const handleChange = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
@@ -294,8 +516,18 @@ export default function OutsidersCreateHangout({ onNavigate, setAppData }) {
   const handleCreate = () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    const code = generateCode();
-    const createdHangout = { ...form, code, link: `https://outsiders.app/join/${code}`, id: Date.now(), members: ["YOU"] };
+    const code = generateUniqueCode(appData?.hangouts);
+    const createdHangout = {
+      ...form,
+      code,
+      link: buildHangoutInviteLink(code),
+      id: Date.now(),
+      groupId: selectedGroup?.id || null,
+      groupName: selectedGroup?.name || "",
+      availability: availPeople,
+      members: (selectedGroup?.members || []).map((member) => member.initials || member.name?.slice(0, 3)?.toUpperCase()).filter(Boolean),
+      ratings: [],
+    };
     setHangout(createdHangout);
     setAppData?.(prev => ({ ...prev, hangouts: [...prev.hangouts, createdHangout] }));
   };
@@ -312,7 +544,135 @@ export default function OutsidersCreateHangout({ onNavigate, setAppData }) {
     setTimeout(() => setLinkCopied(false), 2000);
   };
 
-  const reset = () => { setHangout(null); setForm({ name: "", date: "", time: "", location: "", vibe: "" }); };
+  const reset = () => {
+    setHangout(null);
+    setForm({ name: "", date: "", time: "", location: "", vibe: "" });
+  };
+
+  function toggleDay(personId, dayValue) {
+    if (String(personId).startsWith("guest:")) {
+      setGuestPeople((prev) => prev.map((person) => {
+        if (String(person.id) !== String(personId)) return person;
+        const has = person.days.includes(dayValue);
+        return { ...person, days: has ? person.days.filter((day) => day !== dayValue) : [...person.days, dayValue] };
+      }));
+      return;
+    }
+
+    setMemberAvailability((prev) => {
+      const current = prev[String(personId)] || { days: [], times: [] };
+      const has = current.days.includes(dayValue);
+      return {
+        ...prev,
+        [personId]: {
+          ...current,
+          days: has ? current.days.filter((day) => day !== dayValue) : [...current.days, dayValue],
+        },
+      };
+    });
+  }
+
+  function toggleTime(personId, slot) {
+    if (String(personId).startsWith("guest:")) {
+      setGuestPeople((prev) => prev.map((person) => {
+        if (String(person.id) !== String(personId)) return person;
+        const has = person.times.includes(slot);
+        return { ...person, times: has ? person.times.filter((time) => time !== slot) : [...person.times, slot] };
+      }));
+      return;
+    }
+
+    setMemberAvailability((prev) => {
+      const current = prev[String(personId)] || { days: [], times: [] };
+      const has = current.times.includes(slot);
+      return {
+        ...prev,
+        [personId]: {
+          ...current,
+          times: has ? current.times.filter((time) => time !== slot) : [...current.times, slot],
+        },
+      };
+    });
+  }
+
+  function addPerson() {
+    const name = newPersonName.trim();
+    if (!name) return;
+    setGuestPeople((prev) => [...prev, { id: `guest:${name.toLowerCase()}`, name, days: [], times: [] }]);
+    setNewPersonName("");
+  }
+
+  function removePerson(personId) {
+    setGuestPeople((prev) => prev.filter((person) => String(person.id) !== String(personId)));
+  }
+
+  async function handleAIFindTime() {
+    const apiKey = getStoredApiKey();
+    if (!apiKey) {
+      setAiTimeResult({ error: "Open the AI panel (bottom right) and add your OpenAI API key first." });
+      return;
+    }
+    setAiTimeLoading(true);
+    setAiTimeResult(availabilitySuggestions[0] || null);
+    const peopleText = availPeople.map(p => {
+      const daysText = p.days.length > 0
+        ? `Available on: ${p.days.map(d => NEXT_7_DAYS.find(x => x.value === d)?.label || d).join(", ")}`
+        : "No specific days marked — flexible";
+      const timesText = p.times.length > 0 ? `Prefers: ${p.times.join(", ")}` : "No time preference";
+      return `- ${p.name}: ${daysText}. ${timesText}.`;
+    }).join("\n");
+    const prompt = `Find the best time for a hangout${form.name ? ` called "${form.name}"` : ""}${form.location ? ` at ${form.location}` : ""}.\n\nAvailability:\n${peopleText}\n\nDates to consider: ${NEXT_7_DAYS.map(d => d.label).join(", ")}\n\nPick the single best date and time that works for everyone. Respond ONLY with JSON: {"date": "YYYY-MM-DD", "time": "HH:MM", "summary": "one sentence why this works"}`;
+    try {
+      const result = await createOpenAIResponse({
+        apiKey,
+        model: DEFAULT_OPENAI_MODEL,
+        instructions: "You are a scheduling assistant. Find the best overlap in people's availability. Always respond with valid JSON only, no markdown, no extra text.",
+        input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+      });
+      let parsed = null;
+      try {
+        const match = result.text.match(/\{[\s\S]*\}/);
+        if (match) parsed = JSON.parse(match[0]);
+      } catch {
+        parsed = null;
+      }
+      setAiTimeResult(parsed?.date && parsed?.time ? parsed : { raw: result.text });
+    } catch (err) {
+      setAiTimeResult({ error: err.message || "Something went wrong." });
+    } finally {
+      setAiTimeLoading(false);
+    }
+  }
+
+  function useAISuggestedTime() {
+    if (!aiTimeResult?.date) return;
+    setForm(prev => ({ ...prev, date: aiTimeResult.date, time: aiTimeResult.time }));
+    setErrors(prev => ({ ...prev, date: "", time: "" }));
+    setShowAvailability(false);
+  }
+
+  async function handleAISuggestVibe() {
+    const apiKey = getStoredApiKey();
+    if (!apiKey) {
+      setForm(prev => ({ ...prev, vibe: "Open the AI panel (bottom right) and add your OpenAI API key to use this." }));
+      return;
+    }
+    setAiVibeLoading(true);
+    const prompt = `Write a short, fun, warm vibe description for a hangout${form.name ? ` called "${form.name}"` : ""}${form.location ? ` at ${form.location}` : ""}${form.date ? ` on ${form.date}` : ""}. Keep it under 2 casual sentences. No quotes around the result.`;
+    try {
+      const result = await createOpenAIResponse({
+        apiKey,
+        model: DEFAULT_OPENAI_MODEL,
+        instructions: "You write short, warm, casual event descriptions for friend hangouts. Be fun and inviting. Never wrap the result in quotes.",
+        input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+      });
+      setForm(prev => ({ ...prev, vibe: result.text }));
+      setErrors(prev => ({ ...prev, vibe: "" }));
+    } catch {
+      setErrors(prev => ({ ...prev, vibe: "AI couldn't suggest a vibe right now. Try again in a moment." }));
+    }
+    finally { setAiVibeLoading(false); }
+  }
 
   return (
     <>
@@ -322,10 +682,10 @@ export default function OutsidersCreateHangout({ onNavigate, setAppData }) {
         {/* Nav */}
         <nav className="nav-bar">
           <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <button onClick={() => onNavigate ? onNavigate("dashboard") : reset()} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Bangers', cursive", fontSize: 16, color: "#888", letterSpacing: "0.04em" }}>
               ← Back
             </button>
@@ -358,6 +718,28 @@ export default function OutsidersCreateHangout({ onNavigate, setAppData }) {
                   {errors.name && <p className="error-msg">{errors.name}</p>}
                 </div>
 
+                <div>
+                  <label className="form-label">👥 Crew</label>
+                  <select
+                    className="form-input"
+                    value={activeGroupId}
+                    onChange={(event) => setSelectedGroupId(event.target.value)}
+                  >
+                    {groups.length === 0 ? (
+                      <option value="">No crew yet</option>
+                    ) : (
+                      groups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.emoji} {group.name} ({group.members?.length || 0} members)
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: "#888", margin: "8px 0 0" }}>
+                    Suggestions below use this crew&apos;s availability.
+                  </p>
+                </div>
+
                 {/* Date & Time row */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                   <div>
@@ -372,6 +754,133 @@ export default function OutsidersCreateHangout({ onNavigate, setAppData }) {
                   </div>
                 </div>
 
+                {availabilitySuggestions.length > 0 && (
+                  <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "4px 4px 0 #ff9a3c" }}>
+                    <p className="bangers" style={{ fontSize: 16, margin: "0 0 10px", color: "#1a1a2e" }}>
+                      Best Crew Availability
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {availabilitySuggestions.map((suggestion, index) => (
+                        <button
+                          key={`${suggestion.date}-${suggestion.slot}`}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, date: suggestion.date, time: suggestion.time }));
+                            setErrors((prev) => ({ ...prev, date: "", time: "" }));
+                          }}
+                          style={{ background: "#fff", border: "2px solid #1a1a2e", borderRadius: 10, padding: "12px 14px", boxShadow: "3px 3px 0 #1a1a2e", cursor: "pointer", textAlign: "left" }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+                            <span className="bangers" style={{ fontSize: 16, color: "#1a1a2e" }}>
+                              {index === 0 ? "Top Pick" : `Option ${index + 1}`} · {suggestion.dateLabel}
+                            </span>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: "#ff9a3c" }}>
+                              {suggestion.availableCount}/{suggestion.totalCount} free
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555", marginBottom: 4 }}>
+                            {suggestion.slot} · {suggestion.time}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>{suggestion.summary}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Availability Finder */}
+                <div>
+                  <button type="button" className="avail-toggle" onClick={() => setShowAvailability(prev => !prev)}>
+                    <span>🗓 Find Best Time With AI</span>
+                    <span style={{ fontSize: 12 }}>{showAvailability ? "▲" : "▼"}</span>
+                  </button>
+                  {showAvailability && (
+                    <div className="avail-panel">
+                      <p style={{ fontFamily: "'Bangers', cursive", fontSize: 15, letterSpacing: "0.05em", margin: "0 0 14px", color: "#6c3483" }}>
+                        Mark your crew&apos;s availability and the app suggests the strongest overlap.
+                      </p>
+
+                      {availPeople.map((person) => (
+                        <div key={person.id} style={{ background: "#fff", border: "2px solid #9b59b6", borderRadius: 10, padding: "12px 14px", marginBottom: 12, boxShadow: "3px 3px 0 #9b59b6" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                            <strong style={{ fontFamily: "'Bangers', cursive", fontSize: 16, letterSpacing: "0.04em" }}>
+                              {person.name}
+                            </strong>
+                            {String(person.id).startsWith("guest:") && (
+                              <button type="button" onClick={() => removePerson(person.id)} style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, color: "#ff6b6b", fontSize: 18, lineHeight: 1 }}>✕</button>
+                            )}
+                          </div>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: "#9b59b6", margin: "0 0 7px" }}>Available days (tap to select):</p>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                            {NEXT_7_DAYS.map(day => (
+                              <button key={day.value} type="button" className={`day-chip ${person.days.includes(day.value) ? "selected" : ""}`} onClick={() => toggleDay(person.id, day.value)}>
+                                {day.label}
+                              </button>
+                            ))}
+                          </div>
+                          <p style={{ fontSize: 12, fontWeight: 800, color: "#9b59b6", margin: "0 0 7px" }}>Preferred time:</p>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {TIME_SLOTS.map(slot => (
+                              <button key={slot} type="button" className={`time-chip ${person.times.includes(slot) ? "selected" : ""}`} onClick={() => toggleTime(person.id, slot)}>
+                                {slot}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Add another person's name"
+                          value={newPersonName}
+                          onChange={e => setNewPersonName(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && addPerson()}
+                          style={{ flex: 1, padding: "9px 12px", fontSize: 13 }}
+                        />
+                        <button type="button" onClick={addPerson} style={{ background: "#9b59b6", color: "#fff", border: "3px solid #1a1a2e", borderRadius: 10, padding: "9px 14px", fontFamily: "'Bangers', cursive", fontSize: 15, cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e", whiteSpace: "nowrap" }}>
+                          + Add
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleAIFindTime}
+                        disabled={aiTimeLoading}
+                        style={{ width: "100%", background: aiTimeLoading ? "#ccc" : "#9b59b6", color: "#fff", border: "3px solid #1a1a2e", borderRadius: 10, padding: "11px", fontFamily: "'Bangers', cursive", fontSize: 18, cursor: aiTimeLoading ? "wait" : "pointer", boxShadow: "4px 4px 0 #1a1a2e", letterSpacing: "0.06em" }}
+                      >
+                        {aiTimeLoading ? "Finding Best Time..." : "Find Best Time 🗓"}
+                      </button>
+
+                      {aiTimeResult && (
+                        <div className="ai-result-box">
+                          {aiTimeResult.error ? (
+                            <span style={{ color: "#ff6b6b" }}>{aiTimeResult.error}</span>
+                          ) : aiTimeResult.raw ? (
+                            <span>{aiTimeResult.raw}</span>
+                          ) : (
+                            <div>
+                              <div style={{ marginBottom: 6 }}>
+                                <span style={{ fontFamily: "'Bangers', cursive", fontSize: 17 }}>Best time: </span>
+                                {new Date(aiTimeResult.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} at {aiTimeResult.time}
+                              </div>
+                              {aiTimeResult.summary && <div style={{ fontSize: 13, color: "#555", marginBottom: 10 }}>{aiTimeResult.summary}</div>}
+                              <button
+                                type="button"
+                                onClick={useAISuggestedTime}
+                                style={{ background: "#51cf66", color: "#fff", border: "3px solid #1a1a2e", borderRadius: 8, padding: "8px 14px", fontFamily: "'Bangers', cursive", fontSize: 15, cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
+                              >
+                                Use This Date & Time ✓
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Location */}
                 <div>
                   <label className="form-label">🗺 Location</label>
@@ -381,7 +890,12 @@ export default function OutsidersCreateHangout({ onNavigate, setAppData }) {
 
                 {/* Vibe */}
                 <div>
-                  <label className="form-label">✨ Vibe / Description</label>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <label className="form-label" style={{ margin: 0 }}>✨ Vibe / Description</label>
+                    <button type="button" className="ai-suggest-btn" onClick={handleAISuggestVibe} disabled={aiVibeLoading}>
+                      {aiVibeLoading ? "Thinking..." : "✨ AI Suggest"}
+                    </button>
+                  </div>
                   <textarea className="form-input" rows={3} placeholder="e.g. Casual dinner, dress comfy, good vibes only 🙌" value={form.vibe} onChange={handleChange("vibe")} />
                   {errors.vibe && <p className="error-msg">{errors.vibe}</p>}
                 </div>

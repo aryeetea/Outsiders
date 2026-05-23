@@ -41,6 +41,16 @@ const STYLES = `
     box-shadow: 3px 3px 0 #1a1a2e;
   }
 
+  .logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
 
   .sidebar {
@@ -346,9 +356,9 @@ const NAV_TARGETS = {
   "Debrief": "debrief",
 };
 
-export default function OutsidersTripPlanning({ onNavigate }) {
+export default function OutsidersTripPlanning({ onNavigate, appData, setAppData }) {
   const [activeNav, setActiveNav] = useState("Trips");
-  const [trips, setTrips] = useState(INITIAL_TRIPS);
+  const [trips, setTrips] = useState(appData?.trips?.length ? appData.trips : INITIAL_TRIPS);
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [activeTab, setActiveTab] = useState("Overview");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -363,6 +373,7 @@ export default function OutsidersTripPlanning({ onNavigate }) {
 
   const updateTrip = (updatedTrip) => {
     setTrips(prev => prev.map(t => t.id === updatedTrip.id ? updatedTrip : t));
+    setAppData?.(prev => ({ ...prev, trips: prev.trips.map(t => t.id === updatedTrip.id ? updatedTrip : t) }));
     setSelectedTrip(updatedTrip);
   };
 
@@ -421,8 +432,10 @@ export default function OutsidersTripPlanning({ onNavigate }) {
       status: "Planning",
       itinerary,
       packingList: [{ id: 1, item: "Passport / ID 🛂", packed: false }, { id: 2, item: "Phone charger 🔋", packed: false }],
+      ratings: [],
     };
     setTrips(prev => [...prev, newTrip]);
+    setAppData?.(prev => ({ ...prev, trips: [...prev.trips, newTrip] }));
     setSelectedTrip(newTrip);
     setShowCreateModal(false);
     setNewTripForm({ name: "", destination: "", startDate: "", endDate: "", budget: "" });
@@ -443,10 +456,10 @@ export default function OutsidersTripPlanning({ onNavigate }) {
         {/* Top Nav */}
         <nav className="top-nav">
           <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <button
                 onClick={() => onNavigate?.("landing")}

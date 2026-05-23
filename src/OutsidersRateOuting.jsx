@@ -9,6 +9,7 @@ const STYLES = `
   .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
   .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf9; border-bottom: 4px solid #1a1a2e; box-shadow: 0 4px 0 #1a1a2e; }
   .logo-mark { width: 36px; height: 36px; background: #ff6b6b; border: 3px solid #1a1a2e; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 3px 3px 0 #1a1a2e; }
+  .logo-link { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; padding: 0; cursor: pointer; }
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
   .sidebar { width: 220px; flex-shrink: 0; background: #fffdf9; border-right: 4px solid #1a1a2e; padding: 24px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 68px; height: calc(100vh - 68px); overflow-y: auto; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #666; border: 2.5px solid transparent; transition: all 0.15s; }
@@ -41,14 +42,20 @@ const MEMBERS = [
   { initials: "YOU", name: "You" },
 ];
 
-const CATEGORIES = [
-  { key: "vibe", label: "Vibe", emoji: "✨" },
-  { key: "location", label: "Location", emoji: "📍" },
-  { key: "food", label: "Food & Drinks", emoji: "🍕" },
-  { key: "crew", label: "The Crew", emoji: "👥" },
-];
-
-const PAST_OUTINGS = [];
+const CATEGORY_SETS = {
+  outing: [
+    { key: "vibe", label: "Vibe", emoji: "✨" },
+    { key: "location", label: "Location", emoji: "📍" },
+    { key: "food", label: "Food & Drinks", emoji: "🍕" },
+    { key: "crew", label: "The Crew", emoji: "👥" },
+  ],
+  trip: [
+    { key: "stay", label: "Stay", emoji: "🛏️" },
+    { key: "activities", label: "Activities", emoji: "🗺️" },
+    { key: "budget", label: "Budget Flow", emoji: "💸" },
+    { key: "crew", label: "Travel Crew", emoji: "👥" },
+  ],
+};
 
 const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
 const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
@@ -102,26 +109,97 @@ const NAV_TARGETS = {
   "Debrief": "debrief",
 };
 
-export default function OutsidersRateOuting({ onNavigate }) {
+function normalizeRateableItems(appData) {
+  const hangouts = (appData?.hangouts || []).map((hangout, index) => ({
+    ...hangout,
+    itemType: "outing",
+    ratings: hangout.ratings || [],
+    color: hangout.color || { bg: "#fff4e6", border: ["#ff9a3c", "#4ecdc4", "#ff6b9d", "#51cf66"][index % 4] },
+    displayDate: hangout.date,
+    displayLocation: hangout.location,
+  }));
+
+  const trips = (appData?.trips || []).map((trip, index) => ({
+    ...trip,
+    itemType: "trip",
+    ratings: trip.ratings || [],
+    color: trip.color || { bg: "#e8f4fd", border: ["#4ecdc4", "#a29bfe", "#ff6b6b", "#51cf66"][index % 4] },
+    displayDate: `${trip.startDate} - ${trip.endDate}`,
+    displayLocation: trip.destination,
+  }));
+
+  return [...hangouts, ...trips];
+}
+
+function getTypeCopy(itemType) {
+  if (itemType === "trip") {
+    return {
+      tag: "Worth the trip? ✈️",
+      title: "Rate The Trip ⭐",
+      subtitle: "Figure out which getaways are worth repeating.",
+      empty: "Finished trips will show up here for feedback.",
+      listLabel: "Past Trips & Outings",
+      thing: "trip",
+    };
+  }
+
+  return {
+    tag: "How was it? ⭐",
+    title: "Rate The Outing ⭐",
+    subtitle: "Keep score. Pick better spots next time.",
+    empty: "Finished outings will show up here for feedback.",
+    listLabel: "Past Trips & Outings",
+    thing: "outing",
+  };
+}
+
+function createEmptyRating(itemType) {
+  const categories = CATEGORY_SETS[itemType] || CATEGORY_SETS.outing;
+  return {
+    overall: 0,
+    categories: Object.fromEntries(categories.map((category) => [category.key, 0])),
+    comment: "",
+  };
+}
+
+export default function OutsidersRateOuting({ onNavigate, appData, setAppData }) {
   const [activeNav, setActiveNav] = useState("Ratings");
   const [activeTab, setActiveTab] = useState("Rate");
-  const [outings, setOutings] = useState(PAST_OUTINGS);
   const [selectedOuting, setSelectedOuting] = useState(null);
-  const [rating, setRating] = useState({ overall: 0, categories: { vibe: 0, location: 0, food: 0, crew: 0 }, comment: "" });
+  const [rating, setRating] = useState(createEmptyRating("outing"));
   const [submitted, setSubmitted] = useState(false);
   const handleNav = (label) => {
     setActiveNav(label);
     onNavigate?.(NAV_TARGETS[label] || "rate-outing");
   };
 
+  const outings = normalizeRateableItems(appData);
+  const currentType = selectedOuting?.itemType || "outing";
+  const categories = CATEGORY_SETS[currentType];
+  const pageCopy = getTypeCopy(currentType);
   const alreadyRated = selectedOuting?.ratings.some(r => r.member === 0);
+
+  const updateSelectedFromAppData = (updatedItem) => {
+    setSelectedOuting(updatedItem);
+    if (updatedItem.itemType === "trip") {
+      setAppData?.((prev) => ({
+        ...prev,
+        trips: prev.trips.map((trip) => trip.id === updatedItem.id ? { ...trip, ratings: updatedItem.ratings } : trip),
+      }));
+      return;
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      hangouts: prev.hangouts.map((hangout) => hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout),
+    }));
+  };
 
   const handleSubmit = () => {
     if (rating.overall === 0) return;
     const newRating = { member: 0, overall: rating.overall, categories: rating.categories, comment: rating.comment };
     const updatedOuting = { ...selectedOuting, ratings: [...selectedOuting.ratings.filter(r => r.member !== 0), newRating] };
-    setOutings(prev => prev.map(o => o.id === updatedOuting.id ? updatedOuting : o));
-    setSelectedOuting(updatedOuting);
+    updateSelectedFromAppData(updatedOuting);
     setSubmitted(true);
   };
 
@@ -131,10 +209,10 @@ export default function OutsidersRateOuting({ onNavigate }) {
       <div className="root">
         <nav className="top-nav">
           <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
               <div className="logo-mark"><IconLogoMark /></div>
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </div>
+            </button>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <button
                 onClick={() => onNavigate?.("landing")}
@@ -163,29 +241,31 @@ export default function OutsidersRateOuting({ onNavigate }) {
 
           <main className="main">
             <div style={{ marginBottom: 24 }}>
-              <span className="comic-tag">How was it? ⭐</span>
-              <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>Rate The Outing ⭐</h1>
-              <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Keep score. Pick better spots next time.</p>
+              <span className="comic-tag">{pageCopy.tag}</span>
+              <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>{pageCopy.title}</h1>
+              <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>{pageCopy.subtitle}</p>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24 }}>
 
               {/* Outing list */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <p className="bangers" style={{ fontSize: 13, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Past Outings</p>
+                <p className="bangers" style={{ fontSize: 13, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>{pageCopy.listLabel}</p>
                 {outings.length === 0 && (
                   <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "16px", textAlign: "center" }}>
-                    <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>No outings to rate yet</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Finished hangouts will show up here for feedback.</p>
+                    <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>Nothing to rate yet</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Finished hangouts and trips will show up here for feedback.</p>
                   </div>
                 )}
                 {outings.map(o => {
                   const avg = avgRating(o);
                   const myRating = o.ratings.find(r => r.member === 0);
                   return (
-                    <div key={o.id} onClick={() => { setSelectedOuting(o); setSubmitted(false); setActiveTab("Rate"); }} style={{ background: selectedOuting?.id === o.id ? o.color : "#fff", border: `3px solid ${selectedOuting?.id === o.id ? o.border : "#1a1a2e"}`, borderRadius: 14, padding: "16px 18px", cursor: "pointer", boxShadow: `5px 5px 0 ${selectedOuting?.id === o.id ? o.border : "#1a1a2e"}`, transition: "all 0.15s" }}>
+                    <div key={o.id} onClick={() => { setSelectedOuting(o); setRating(createEmptyRating(o.itemType)); setSubmitted(false); setActiveTab("Rate"); }} style={{ background: selectedOuting?.id === o.id ? o.color : "#fff", border: `3px solid ${selectedOuting?.id === o.id ? o.border : "#1a1a2e"}`, borderRadius: 14, padding: "16px 18px", cursor: "pointer", boxShadow: `5px 5px 0 ${selectedOuting?.id === o.id ? o.border : "#1a1a2e"}`, transition: "all 0.15s" }}>
                       <p className="bangers" style={{ fontSize: 16, margin: "0 0 4px", color: "#1a1a2e" }}>{o.name}</p>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: "0 0 8px" }}>📅 {o.date} · 📍 {o.location}</p>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: "0 0 8px" }}>
+                        {o.itemType === "trip" ? "✈️ Trip" : "🎉 Outing"} · 📅 {o.displayDate} · 📍 {o.displayLocation}
+                      </p>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <span className="bangers" style={{ fontSize: 18, color: o.border }}>⭐ {avg > 0 ? avg : "—"}/10</span>
                         {myRating
@@ -205,7 +285,9 @@ export default function OutsidersRateOuting({ onNavigate }) {
                   {/* Header */}
                   <div className="card" style={{ background: selectedOuting.color, borderColor: selectedOuting.border, boxShadow: `5px 5px 0 ${selectedOuting.border}` }}>
                     <h2 className="bangers" style={{ fontSize: 26, margin: "0 0 4px" }}>{selectedOuting.name}</h2>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#666", margin: "0 0 12px" }}>📅 {selectedOuting.date} · 📍 {selectedOuting.location}</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#666", margin: "0 0 12px" }}>
+                      {selectedOuting.itemType === "trip" ? "✈️ Trip" : "🎉 Outing"} · 📅 {selectedOuting.displayDate} · 📍 {selectedOuting.displayLocation}
+                    </p>
                     <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                       <div style={{ background: "#fff", border: `3px solid ${selectedOuting.border}`, borderRadius: 10, padding: "10px 16px", boxShadow: `3px 3px 0 ${selectedOuting.border}` }}>
                         <p style={{ fontSize: 11, fontWeight: 800, color: "#888", margin: "0 0 2px" }}>AVG RATING</p>
@@ -230,14 +312,14 @@ export default function OutsidersRateOuting({ onNavigate }) {
                       {(alreadyRated && !submitted) ? (
                         <div className="card" style={{ textAlign: "center" }}>
                           <p style={{ fontSize: 36, margin: "0 0 8px" }}>✅</p>
-                          <p className="bangers" style={{ fontSize: 22, margin: "0 0 4px" }}>You already rated this one!</p>
+                          <p className="bangers" style={{ fontSize: 22, margin: "0 0 4px" }}>You already rated this {pageCopy.thing}!</p>
                           <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: 0 }}>Check "All Ratings" to see what the crew thought.</p>
                         </div>
                       ) : submitted ? (
                         <div className="card" style={{ textAlign: "center", background: "#e8fde8", borderColor: "#51cf66", boxShadow: "5px 5px 0 #51cf66" }}>
                           <p style={{ fontSize: 48, margin: "0 0 8px" }}>🎉</p>
                           <p className="bangers" style={{ fontSize: 26, margin: "0 0 4px", color: "#1a1a2e" }}>Rating submitted!</p>
-                          <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: 0 }}>You gave it a {rating.overall}/10. The crew can see your thoughts.</p>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: 0 }}>You gave this {pageCopy.thing} a {rating.overall}/10. The crew can see your thoughts.</p>
                         </div>
                       ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -255,7 +337,7 @@ export default function OutsidersRateOuting({ onNavigate }) {
 
                           {/* Category ratings */}
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                            {CATEGORIES.map(cat => (
+                            {categories.map(cat => (
                               <div key={cat.key} className="category-card">
                                 <p className="bangers" style={{ fontSize: 15, margin: "0 0 10px" }}>{cat.emoji} {cat.label}</p>
                                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -274,11 +356,11 @@ export default function OutsidersRateOuting({ onNavigate }) {
                           {/* Comment */}
                           <div className="card">
                             <p className="bangers" style={{ fontSize: 18, margin: "0 0 12px" }}>💬 Leave a comment (optional)</p>
-                            <textarea className="form-input" rows={3} placeholder="How was it really? Be honest..." value={rating.comment} onChange={e => setRating(p => ({ ...p, comment: e.target.value }))} />
+                            <textarea className="form-input" rows={3} placeholder={selectedOuting.itemType === "trip" ? "How did the whole trip really go?" : "How was the outing really? Be honest..."} value={rating.comment} onChange={e => setRating(p => ({ ...p, comment: e.target.value }))} />
                           </div>
 
                           <button className="btn-primary" onClick={handleSubmit} style={{ opacity: rating.overall === 0 ? 0.5 : 1 }}>
-                            Submit Rating ⭐
+                            Submit {selectedOuting.itemType === "trip" ? "Trip" : "Outing"} Rating ⭐
                           </button>
                         </div>
                       )}
@@ -302,7 +384,7 @@ export default function OutsidersRateOuting({ onNavigate }) {
                             <span className="bangers" style={{ fontSize: 24, color: r.overall >= 8 ? "#51cf66" : r.overall >= 5 ? "#ff9a3c" : "#ff6b6b" }}>⭐ {r.overall}/10</span>
                           </div>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                            {CATEGORIES.map(cat => (
+                            {CATEGORY_SETS[selectedOuting.itemType || "outing"].map(cat => (
                               <div key={cat.key} style={{ background: "#f5f3ee", border: "2px solid #e0dbd0", borderRadius: 8, padding: "4px 10px" }}>
                                 <span style={{ fontSize: 12, fontWeight: 800, color: "#888" }}>{cat.emoji} {cat.label}: </span>
                                 <span className="bangers" style={{ fontSize: 14, color: "#1a1a2e" }}>{r.categories[cat.key]}/10</span>
