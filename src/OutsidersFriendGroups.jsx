@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { createOpenAIResponse, DEFAULT_OPENAI_MODEL } from "./openaiResponses";
 import { buildGroupInviteLink } from "./siteConfig";
 import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
 
@@ -521,8 +520,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const [linkCopied, setLinkCopied] = useState(false);
   const [createError, setCreateError] = useState("");
   const [activeNav, setActiveNav] = useState("My Crew");
-  const [vibeProfiles, setVibeProfiles] = useState({});
-  const [vibeLoading, setVibeLoading] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [currentProfile, setCurrentProfile] = useState(null);
   const [groupsLoading, setGroupsLoading] = useState(false);
@@ -561,7 +558,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
 
   useEffect(() => {
     if (!isSupabaseConfigured || !currentUser?.id) {
-      setCurrentProfile(null);
+      queueMicrotask(() => setCurrentProfile(null));
       return;
     }
 
@@ -635,22 +632,24 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     if (requestedCode && selectedGroup?.code?.toUpperCase() !== requestedCode) {
       const matched = groups.find((group) => group.code?.toUpperCase() === requestedCode);
       if (matched) {
-        setSelectedGroup(matched);
-        setActiveTab("Invite Link");
+        queueMicrotask(() => {
+          setSelectedGroup(matched);
+          setActiveTab("Invite Link");
+        });
       }
       return;
     }
 
     if (selectedGroup) {
       const refreshed = groups.find((group) => group.id === selectedGroup.id);
-      setSelectedGroup(refreshed || null);
+      queueMicrotask(() => setSelectedGroup(refreshed || null));
       return;
     }
   }, [groups, routeParams, selectedGroup]);
 
   useEffect(() => {
     if (routeParams?.groupCode) {
-      setJoinCode(routeParams.groupCode);
+      queueMicrotask(() => setJoinCode(routeParams.groupCode));
     }
   }, [routeParams?.groupCode]);
 
@@ -699,37 +698,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     setGroups((prev) => prev.map((group) => (group.id === nextGroup.id ? nextGroup : group)));
     setSelectedGroup(nextGroup);
     return nextGroup;
-  }
-
-  async function generateVibeProfile(group) {
-    const apiKey = localStorage.getItem("outsiders-ai-api-key") || import.meta.env.VITE_OPENAI_API_KEY || "";
-    if (!apiKey) {
-      setVibeProfiles(prev => ({ ...prev, [group.id]: { error: "Open the AI panel (bottom right) to set up your API key first." } }));
-      return;
-    }
-    setVibeLoading(group.id);
-    const memberList = group.members.map(m => m.name).join(", ");
-    const prompt = `Generate a fun vibe profile for a friend group called "${group.name}" with ${group.members.length} members (${memberList}). Include:\n1. A one-line vibe summary (e.g. "60% chaos, 40% snacks")\n2. Three personality trait labels (short, funny, like "Late arrivals", "Idea starters")\n3. Their ideal hangout type (1 sentence)\n4. A short group motto\n\nRespond ONLY with JSON: {"vibe": "...", "traits": ["...", "...", "..."], "idealHangout": "...", "motto": "..."}`;
-    try {
-      const result = await createOpenAIResponse({
-        apiKey,
-        model: DEFAULT_OPENAI_MODEL,
-        instructions: "You generate fun, playful group personality profiles for friend groups. Always respond with valid JSON only, no markdown.",
-        input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
-      });
-      let parsed = null;
-      try {
-        const match = result.text.match(/\{[\s\S]*\}/);
-        if (match) parsed = JSON.parse(match[0]);
-      } catch {
-        parsed = null;
-      }
-      setVibeProfiles(prev => ({ ...prev, [group.id]: parsed || { raw: result.text } }));
-    } catch (err) {
-      setVibeProfiles(prev => ({ ...prev, [group.id]: { error: err.message || "Something went wrong." } }));
-    } finally {
-      setVibeLoading(null);
-    }
   }
 
   const handleCreateGroup = async () => {
@@ -1235,7 +1203,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
 
                   {/* Tabs */}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {["Members", "Pending", "Invite Link", "Bill Watch", "Vibe Profile"].map(t => (
+                    {["Members", "Pending", "Invite Link", "Bill Watch"].map(t => (
                       <button key={t} className={`tab ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>
                         {t} {t === "Pending" && selectedGroup.pending.length > 0 && `(${selectedGroup.pending.length})`}
                       </button>
@@ -1344,66 +1312,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                           <p style={{ fontSize: 15, fontWeight: 900, color: "#1a1a2e", margin: 0 }}>{selectedBillWatch.electedMemberName}</p>
                         </div>
                       ) : null}
-                    </div>
-                  )}
-
-                  {activeTab === "Vibe Profile" && (
-                    <div className="card">
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Vibe Profile ✨</h3>
-                        <button
-                          className="btn-secondary"
-                          onClick={() => generateVibeProfile(selectedGroup)}
-                          disabled={vibeLoading === selectedGroup.id}
-                          style={{ fontSize: 14, padding: "8px 14px" }}
-                        >
-                          {vibeLoading === selectedGroup.id ? "Generating..." : vibeProfiles[selectedGroup.id] ? "Regenerate" : "Generate"}
-                        </button>
-                      </div>
-
-                      {!vibeProfiles[selectedGroup.id] ? (
-                        <div style={{ textAlign: "center", padding: "32px 0" }}>
-                          <p style={{ fontSize: 36, margin: "0 0 8px" }}>🔮</p>
-                          <p className="bangers" style={{ fontSize: 18, color: "#aaa", margin: "0 0 6px" }}>No vibe profile yet!</p>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Hit Generate to reveal your group's personality.</p>
-                        </div>
-                      ) : vibeProfiles[selectedGroup.id].error ? (
-                        <p style={{ color: "#ff6b6b", fontWeight: 900, fontSize: 14 }}>{vibeProfiles[selectedGroup.id].error}</p>
-                      ) : vibeProfiles[selectedGroup.id].raw ? (
-                        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{vibeProfiles[selectedGroup.id].raw}</div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                          <div style={{ background: selectedGroup.color.bg, border: `3px solid ${selectedGroup.color.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: `4px 4px 0 ${selectedGroup.color.border}` }}>
-                            <p className="bangers" style={{ fontSize: 12, letterSpacing: "0.08em", color: "#888", margin: "0 0 6px", textTransform: "uppercase" }}>Group Vibe</p>
-                            <p className="bangers" style={{ fontSize: 22, margin: 0, color: "#1a1a2e" }}>{vibeProfiles[selectedGroup.id].vibe}</p>
-                          </div>
-
-                          {vibeProfiles[selectedGroup.id].traits?.length > 0 && (
-                            <div>
-                              <p className="bangers" style={{ fontSize: 12, letterSpacing: "0.08em", color: "#888", margin: "0 0 10px", textTransform: "uppercase" }}>Personality Traits</p>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                {vibeProfiles[selectedGroup.id].traits.map((trait, i) => (
-                                  <span key={i} className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c", padding: "5px 12px", fontSize: 13 }}>{trait}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {vibeProfiles[selectedGroup.id].idealHangout && (
-                            <div style={{ background: "#e8f4fd", border: "3px solid #4ecdc4", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #4ecdc4" }}>
-                              <p className="bangers" style={{ fontSize: 12, letterSpacing: "0.08em", color: "#888", margin: "0 0 6px", textTransform: "uppercase" }}>Ideal Hangout</p>
-                              <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "#1a1a2e" }}>{vibeProfiles[selectedGroup.id].idealHangout}</p>
-                            </div>
-                          )}
-
-                          {vibeProfiles[selectedGroup.id].motto && (
-                            <div style={{ background: "#fde8f0", border: "3px solid #ff6b9d", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff6b9d", textAlign: "center" }}>
-                              <p className="bangers" style={{ fontSize: 12, letterSpacing: "0.08em", color: "#888", margin: "0 0 6px", textTransform: "uppercase" }}>Group Motto</p>
-                              <p className="bangers" style={{ fontSize: 20, margin: 0, color: "#ff6b9d" }}>"{vibeProfiles[selectedGroup.id].motto}"</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   )}
 

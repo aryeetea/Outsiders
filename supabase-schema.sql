@@ -15,7 +15,7 @@ create table if not exists public.profiles (
   username text not null unique,
   email text not null,
   avatar_url text,
-  availability jsonb not null default '{"days":[],"times":[]}'::jsonb,
+  availability jsonb not null default '{"slots":{"Mon":[],"Tue":[],"Wed":[],"Thu":[],"Fri":[],"Sat":[],"Sun":[]}}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -25,7 +25,7 @@ alter table public.profiles
   add column if not exists username text,
   add column if not exists email text,
   add column if not exists avatar_url text,
-  add column if not exists availability jsonb not null default '{"days":[],"times":[]}'::jsonb,
+  add column if not exists availability jsonb not null default '{"slots":{"Mon":[],"Tue":[],"Wed":[],"Thu":[],"Fri":[],"Sat":[],"Sun":[]}}'::jsonb,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 
@@ -194,3 +194,164 @@ on public.groups
 for delete
 to authenticated
 using (auth.uid() = owner_id);
+
+-- =========================
+-- Hangouts Table
+-- =========================
+
+create table if not exists public.hangouts (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  date text,
+  time text,
+  location text not null,
+  vibe text,
+  code text not null unique,
+  group_id uuid references public.groups(id) on delete set null,
+  creator_id uuid not null references auth.users(id) on delete cascade,
+  participants jsonb not null default '[]'::jsonb,
+  recommendations jsonb not null default '[]'::jsonb,
+  ratings jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.hangouts
+  add column if not exists date text,
+  add column if not exists time text,
+  add column if not exists location text,
+  add column if not exists vibe text,
+  add column if not exists code text,
+  add column if not exists group_id uuid references public.groups(id) on delete set null,
+  add column if not exists creator_id uuid references auth.users(id) on delete cascade,
+  add column if not exists participants jsonb not null default '[]'::jsonb,
+  add column if not exists recommendations jsonb not null default '[]'::jsonb,
+  add column if not exists ratings jsonb not null default '[]'::jsonb,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+create unique index if not exists hangouts_code_key on public.hangouts (code);
+
+drop trigger if exists set_hangouts_updated_at on public.hangouts;
+create trigger set_hangouts_updated_at
+before update on public.hangouts
+for each row execute procedure public.set_updated_at();
+
+alter table public.hangouts enable row level security;
+
+drop policy if exists "Hangouts are readable by authenticated users" on public.hangouts;
+create policy "Hangouts are readable by authenticated users"
+on public.hangouts
+for select
+to authenticated
+using (true);
+
+drop policy if exists "Users can create hangouts" on public.hangouts;
+create policy "Users can create hangouts"
+on public.hangouts
+for insert
+to authenticated
+with check (auth.uid() = creator_id);
+
+drop policy if exists "Creators can update hangouts" on public.hangouts;
+create policy "Creators can update hangouts"
+on public.hangouts
+for update
+to authenticated
+using (auth.uid() = creator_id)
+with check (auth.uid() = creator_id);
+
+drop policy if exists "Creators can delete hangouts" on public.hangouts;
+create policy "Creators can delete hangouts"
+on public.hangouts
+for delete
+to authenticated
+using (auth.uid() = creator_id);
+
+-- =========================
+-- Scheduling Helper RPCs
+-- =========================
+
+create or replace function public.save_my_availability(next_availability jsonb)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  saved_profile public.profiles;
+begin
+  update public.profiles
+  set availability = next_availability,
+      updated_at = now()
+  where id = auth.uid()
+  returning * into saved_profile;
+
+  return saved_profile;
+end;
+$$;
+
+create or replace function public.get_participant_availability(participant_ids uuid[])
+returns table (
+  id uuid,
+  full_name text,
+  username text,
+  availability jsonb
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select p.id, p.full_name, p.username, p.availability
+  from public.profiles p
+  where p.id = any(participant_ids);
+$$;
+
+create or replace function public.create_hangout(
+  hangout_name text,
+  hangout_date text,
+  hangout_time text,
+  hangout_location text,
+  hangout_vibe text,
+  hangout_code text,
+  hangout_group_id uuid,
+  hangout_participants jsonb,
+  hangout_recommendations jsonb
+)
+returns public.hangouts
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  saved_hangout public.hangouts;
+begin
+  insert into public.hangouts (
+    name,
+    date,
+    time,
+    location,
+    vibe,
+    code,
+    group_id,
+    creator_id,
+    participants,
+    recommendations
+  )
+  values (
+    hangout_name,
+    hangout_date,
+    hangout_time,
+    hangout_location,
+    hangout_vibe,
+    hangout_code,
+    hangout_group_id,
+    auth.uid(),
+    hangout_participants,
+    hangout_recommendations
+  )
+  returning * into saved_hangout;
+
+  return saved_hangout;
+end;
+$$;

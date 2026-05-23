@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import OutsidersAI from "./OutsidersAI";
 import OutsidersBillSplit from "./OutsidersBillSplit";
 import OutsidersCreateHangout from "./OutsidersCreateHangout";
 import OutsidersDashboard from "./OutsidersDashboard";
@@ -13,9 +12,12 @@ import OutsidersRateOuting from "./OutsidersRateOuting";
 import OutsidersSignUp from "./Outsiderssignup";
 import OutsidersTripPlanning from "./OutsidersTripPlanning";
 import OutsidersVoting from "./OutsidersVoting";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const DEFAULT_SCREEN = "landing";
 const APP_DATA_STORAGE_KEY = "outsiders-app-data";
+const LAST_APP_ROUTE_STORAGE_KEY = "outsiders-last-app-route";
+const PUBLIC_SCREENS = new Set(["landing", "login", "signup"]);
 
 const SCREEN_COMPONENTS = {
   "landing": OutsidersLanding,
@@ -71,6 +73,8 @@ function getInitialAppData() {
 export default function App() {
   const [route, setRoute] = useState(getRouteFromLocation);
   const [appData, setAppData] = useState(getInitialAppData);
+  const [sessionReady, setSessionReady] = useState(!isSupabaseConfigured);
+  const [currentSession, setCurrentSession] = useState(null);
 
   useEffect(() => {
     const handleHashChange = () => setRoute(getRouteFromLocation());
@@ -79,11 +83,84 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+
+    let isActive = true;
+
+    async function loadSession() {
+      const { data } = await supabase.auth.getSession();
+      if (!isActive) return;
+      setCurrentSession(data.session || null);
+      setSessionReady(true);
+    }
+
+    loadSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentSession(session || null);
+      setSessionReady(true);
+    });
+
+    return () => {
+      isActive = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData));
   }, [appData]);
 
+  useEffect(() => {
+    if (!sessionReady || !currentSession || !PUBLIC_SCREENS.has(route.screen)) return;
+
+    const saved = window.localStorage.getItem(LAST_APP_ROUTE_STORAGE_KEY);
+    let nextRoute = { screen: "dashboard", params: {} };
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (SCREEN_COMPONENTS[parsed?.screen] && !PUBLIC_SCREENS.has(parsed.screen)) {
+          nextRoute = { screen: parsed.screen, params: parsed.params || {} };
+        }
+      } catch {
+        nextRoute = { screen: "dashboard", params: {} };
+      }
+    }
+
+    const query = new URLSearchParams(
+      Object.entries(nextRoute.params).filter(([, value]) => value !== undefined && value !== null && value !== "")
+    ).toString();
+    const nextHash = `#/${nextRoute.screen}${query ? `?${query}` : ""}`;
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, [currentSession, route.screen, sessionReady]);
+
+  useEffect(() => {
+    if (!PUBLIC_SCREENS.has(route.screen)) {
+      window.localStorage.setItem(LAST_APP_ROUTE_STORAGE_KEY, JSON.stringify(route));
+    }
+  }, [route]);
+
+  const logout = async () => {
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
+    window.localStorage.removeItem(LAST_APP_ROUTE_STORAGE_KEY);
+    if (window.location.hash) {
+      window.location.hash = "";
+      return;
+    }
+    setRoute({ screen: DEFAULT_SCREEN, params: {} });
+  };
+
   const navigate = (nextScreen, params = {}) => {
     const normalized = normalizeScreen(nextScreen);
+    if (normalized === "landing" && !PUBLIC_SCREENS.has(route.screen)) {
+      logout();
+      return;
+    }
     const query = new URLSearchParams(
       Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "")
     ).toString();
@@ -100,8 +177,7 @@ export default function App() {
   const Screen = SCREEN_COMPONENTS[route.screen];
   return (
     <>
-      <Screen onNavigate={navigate} appData={appData} setAppData={setAppData} routeParams={route.params} />
-      <OutsidersAI screen={route.screen} appData={appData} />
+      <Screen onNavigate={navigate} onLogout={logout} appData={appData} setAppData={setAppData} routeParams={route.params} />
     </>
   );
 }

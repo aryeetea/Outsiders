@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isSupabaseConfigured, supabase } from "./supabase";
+import { DEFAULT_AVAILABILITY, WEEK_DAYS, availabilityToText, normalizeAvailability } from "./scheduling";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -85,9 +86,6 @@ const NAV_TARGETS = {
   "Ratings": "rate-outing",
   "Debrief": "debrief",
 };
-
-const AVAILABILITY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DEFAULT_AVAILABILITY = { days: [], startTime: "", endTime: "" };
 
 const PROFILE_STORAGE_KEY = "outsiders-profile";
 const DEFAULT_PROFILE = { name: "", username: "", bio: "", location: "", email: "", availability: DEFAULT_AVAILABILITY };
@@ -218,20 +216,14 @@ export default function OutsidersProfile({ onNavigate }) {
         name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
         username: data.username || prev.username || currentUser.user_metadata?.username || "",
         email: data.email || prev.email || currentUser.email || "",
-        availability: {
-          ...DEFAULT_AVAILABILITY,
-          ...(data.availability || prev.availability || {}),
-        },
+        availability: normalizeAvailability(data.availability || prev.availability),
       }));
       setEditForm((prev) => ({
         ...prev,
         name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
         username: data.username || prev.username || currentUser.user_metadata?.username || "",
         email: data.email || prev.email || currentUser.email || "",
-        availability: {
-          ...DEFAULT_AVAILABILITY,
-          ...(data.availability || prev.availability || {}),
-        },
+        availability: normalizeAvailability(data.availability || prev.availability),
       }));
 
       if (data.avatar_url) {
@@ -256,11 +248,7 @@ export default function OutsidersProfile({ onNavigate }) {
       bio: nextProfile.bio.trim(),
       location: nextProfile.location.trim(),
       email: nextProfile.email.trim(),
-      availability: {
-        days: nextProfile.availability?.days || [],
-        startTime: nextProfile.availability?.startTime || "",
-        endTime: nextProfile.availability?.endTime || "",
-      },
+      availability: normalizeAvailability(nextProfile.availability),
     };
 
     setProfile(cleanedProfile);
@@ -292,17 +280,52 @@ export default function OutsidersProfile({ onNavigate }) {
   }
 
   const handleSave = () => saveProfile(editForm);
-  const toggleAvailability = (value, target = "profile") => {
+  const addAvailabilitySlot = (day, target = "profile", slot = { start: "15:00", end: "20:00" }) => {
     const setter = target === "edit" ? setEditForm : setProfile;
     setter((prev) => {
-      const currentValues = prev.availability?.days || [];
-      const hasValue = currentValues.includes(value);
+      const availability = normalizeAvailability(prev.availability);
       return {
         ...prev,
         availability: {
-          ...DEFAULT_AVAILABILITY,
-          ...(prev.availability || {}),
-          days: hasValue ? currentValues.filter((item) => item !== value) : [...currentValues, value],
+          ...availability,
+          slots: {
+            ...availability.slots,
+            [day]: [...(availability.slots[day] || []), slot],
+          },
+        },
+      };
+    });
+  };
+  const updateAvailabilitySlot = (day, index, field, value, target = "profile") => {
+    const setter = target === "edit" ? setEditForm : setProfile;
+    setter((prev) => {
+      const availability = normalizeAvailability(prev.availability);
+      return {
+        ...prev,
+        availability: {
+          ...availability,
+          slots: {
+            ...availability.slots,
+            [day]: (availability.slots[day] || []).map((slot, slotIndex) => (
+              slotIndex === index ? { ...slot, [field]: value } : slot
+            )),
+          },
+        },
+      };
+    });
+  };
+  const removeAvailabilitySlot = (day, index, target = "profile") => {
+    const setter = target === "edit" ? setEditForm : setProfile;
+    setter((prev) => {
+      const availability = normalizeAvailability(prev.availability);
+      return {
+        ...prev,
+        availability: {
+          ...availability,
+          slots: {
+            ...availability.slots,
+            [day]: (availability.slots[day] || []).filter((_, slotIndex) => slotIndex !== index),
+          },
         },
       };
     });
@@ -390,8 +413,7 @@ export default function OutsidersProfile({ onNavigate }) {
                   <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: "0 0 10px" }}>{profile.bio || "Add a short bio so people know who you are."}</p>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <span className="badge" style={{ background: "#fff", color: "#ff6b9d", borderColor: "#ff6b9d" }}>📍 {profile.location || "No location yet"}</span>
-                    <span className="badge" style={{ background: "#fff", color: "#ff9a3c", borderColor: "#ff9a3c" }}>🗓 {profile.availability?.days?.length || 0} days picked</span>
-                    <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>⏰ {profile.availability?.startTime && profile.availability?.endTime ? `${profile.availability.startTime}-${profile.availability.endTime}` : "No time range yet"}</span>
+                    <span className="badge" style={{ background: "#fff", color: "#ff9a3c", borderColor: "#ff9a3c" }}>🗓 {availabilityToText(profile.availability)}</span>
                     <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>✨ Profile in progress</span>
                   </div>
                 </div>
@@ -468,18 +490,27 @@ export default function OutsidersProfile({ onNavigate }) {
                     <div>
                       <label className="form-label">Weekly Availability</label>
                       <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff9a3c" }}>
-                        <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Days:</p>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                          {AVAILABILITY_DAYS.map((day) => {
-                            const selected = profile.availability?.days?.includes(day);
-                            return <button key={day} type="button" onClick={() => toggleAvailability(day)} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{day}</button>;
-                          })}
-                        </div>
-                        <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Usual time range:</p>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                          <input className="form-input" type="time" value={profile.availability?.startTime || ""} onChange={e => setProfile(p => ({ ...p, availability: { ...DEFAULT_AVAILABILITY, ...(p.availability || {}), startTime: e.target.value } }))} />
-                          <input className="form-input" type="time" value={profile.availability?.endTime || ""} onChange={e => setProfile(p => ({ ...p, availability: { ...DEFAULT_AVAILABILITY, ...(p.availability || {}), endTime: e.target.value } }))} />
-                        </div>
+                        {WEEK_DAYS.map((day) => {
+                          const slots = normalizeAvailability(profile.availability).slots[day] || [];
+                          return (
+                            <div key={day} style={{ background: "#fff", border: "2px solid #1a1a2e", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: slots.length ? 8 : 0 }}>
+                                <strong>{day}</strong>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  <button type="button" className="btn-outline" onClick={() => addAvailabilitySlot(day, "profile", { start: "00:00", end: "23:59" })}>All day</button>
+                                  <button type="button" className="btn-outline" onClick={() => addAvailabilitySlot(day)}>+ Time</button>
+                                </div>
+                              </div>
+                              {slots.map((slot, index) => (
+                                <div key={`${day}-${index}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center", marginTop: 8 }}>
+                                  <input className="form-input" type="time" value={slot.start} onChange={e => updateAvailabilitySlot(day, index, "start", e.target.value)} />
+                                  <input className="form-input" type="time" value={slot.end} onChange={e => updateAvailabilitySlot(day, index, "end", e.target.value)} />
+                                  <button type="button" className="btn-danger" onClick={() => removeAvailabilitySlot(day, index)}>Remove</button>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                     {saveError && <p style={{ fontSize: 13, fontWeight: 800, color: "#ff6b6b", margin: 0 }}>{saveError}</p>}
@@ -545,18 +576,27 @@ export default function OutsidersProfile({ onNavigate }) {
                 <div>
                   <label className="form-label">Weekly Availability</label>
                   <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "3px 3px 0 #ff9a3c" }}>
-                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Days:</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                      {AVAILABILITY_DAYS.map((day) => {
-                        const selected = editForm.availability?.days?.includes(day);
-                        return <button key={day} type="button" onClick={() => toggleAvailability(day, "edit")} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{day}</button>;
-                      })}
-                    </div>
-                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Usual time range:</p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <input className="form-input" type="time" value={editForm.availability?.startTime || ""} onChange={e => setEditForm(p => ({ ...p, availability: { ...DEFAULT_AVAILABILITY, ...(p.availability || {}), startTime: e.target.value } }))} />
-                      <input className="form-input" type="time" value={editForm.availability?.endTime || ""} onChange={e => setEditForm(p => ({ ...p, availability: { ...DEFAULT_AVAILABILITY, ...(p.availability || {}), endTime: e.target.value } }))} />
-                    </div>
+                    {WEEK_DAYS.map((day) => {
+                      const slots = normalizeAvailability(editForm.availability).slots[day] || [];
+                      return (
+                        <div key={day} style={{ background: "#fff", border: "2px solid #1a1a2e", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: slots.length ? 8 : 0 }}>
+                            <strong>{day}</strong>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <button type="button" className="btn-outline" onClick={() => addAvailabilitySlot(day, "edit", { start: "00:00", end: "23:59" })}>All day</button>
+                              <button type="button" className="btn-outline" onClick={() => addAvailabilitySlot(day, "edit")}>+ Time</button>
+                            </div>
+                          </div>
+                          {slots.map((slot, index) => (
+                            <div key={`${day}-${index}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center", marginTop: 8 }}>
+                              <input className="form-input" type="time" value={slot.start} onChange={e => updateAvailabilitySlot(day, index, "start", e.target.value, "edit")} />
+                              <input className="form-input" type="time" value={slot.end} onChange={e => updateAvailabilitySlot(day, index, "end", e.target.value, "edit")} />
+                              <button type="button" className="btn-danger" onClick={() => removeAvailabilitySlot(day, index, "edit")}>Remove</button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
                 {saveError && <p style={{ fontSize: 13, fontWeight: 800, color: "#ff6b6b", margin: 0 }}>{saveError}</p>}

@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
+import { DEFAULT_AVAILABILITY, WEEK_DAYS, availabilityToText, hasAvailability } from "./scheduling";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&family=Caveat:wght@600;700&display=swap');
@@ -281,9 +282,6 @@ const IconEye = ({ show }) => show ? (
   </svg>
 );
 
-const AVAILABILITY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DEFAULT_AVAILABILITY = { days: [], startTime: "", endTime: "" };
-
 function getPasswordStrength(pw) {
   if (!pw) return { score: 0, label: "", color: "" };
   let score = 0;
@@ -313,8 +311,7 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
   const strength = getPasswordStrength(form.password);
   const inviteParams = routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {};
   const postAuthScreen = routeParams?.redirect || "dashboard";
-  const selectedDaysText = availability.days.length > 0 ? availability.days.join(", ") : "No days picked yet";
-  const selectedTimeText = availability.startTime && availability.endTime ? `${availability.startTime} - ${availability.endTime}` : "No usual time range yet";
+  const availabilitySummary = availabilityToText(availability);
 
   const handleAvatar = (e) => {
     const file = e.target.files[0];
@@ -328,14 +325,35 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
     setErrors(prev => ({ ...prev, [field]: "" }));
   };
-  const toggleAvailabilityDay = (value) => {
-    setAvailability((prev) => {
-      const hasValue = prev.days.includes(value);
-      return {
-        ...prev,
-        days: hasValue ? prev.days.filter((item) => item !== value) : [...prev.days, value],
-      };
-    });
+  const addAvailabilitySlot = (day, slot = { start: "15:00", end: "20:00" }) => {
+    setAvailability((prev) => ({
+      ...prev,
+      slots: {
+        ...(prev.slots || DEFAULT_AVAILABILITY.slots),
+        [day]: [...(prev.slots?.[day] || []), slot],
+      },
+    }));
+    setErrors((prev) => ({ ...prev, availability: "" }));
+  };
+  const updateAvailabilitySlot = (day, index, field, value) => {
+    setAvailability((prev) => ({
+      ...prev,
+      slots: {
+        ...(prev.slots || DEFAULT_AVAILABILITY.slots),
+        [day]: (prev.slots?.[day] || []).map((slot, slotIndex) => (
+          slotIndex === index ? { ...slot, [field]: value } : slot
+        )),
+      },
+    }));
+  };
+  const removeAvailabilitySlot = (day, index) => {
+    setAvailability((prev) => ({
+      ...prev,
+      slots: {
+        ...(prev.slots || DEFAULT_AVAILABILITY.slots),
+        [day]: (prev.slots?.[day] || []).filter((_, slotIndex) => slotIndex !== index),
+      },
+    }));
   };
   const validate = () => {
     const errs = {};
@@ -347,6 +365,7 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = "That doesn't look like an email!";
     if (!form.password) errs.password = "Password is required!";
     else if (form.password.length < 8) errs.password = "At least 8 characters!";
+    if (!hasAvailability(availability)) errs.availability = "Add at least one day and time you are free!";
     return errs;
   };
   const handleSubmit = async () => {
@@ -510,44 +529,32 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
                     <label className="form-label" style={{ marginBottom: 4 }}>Hangout Availability</label>
                     <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: 0 }}>Add when your crew can usually catch you.</p>
                   </div>
-                  <span className="comic-tag" style={{ margin: 0, background: "#fff", transform: "rotate(2deg)" }}>Optional</span>
+                  <span className="comic-tag" style={{ margin: 0, background: "#fff", transform: "rotate(2deg)" }}>Required</span>
                 </div>
-                <p style={{ fontSize: 12, fontWeight: 900, color: "#1a1a2e", margin: "0 0 8px" }}>Usual days</p>
-                <div className="availability-days">
-                  {AVAILABILITY_DAYS.map((day) => {
-                    const selected = availability.days.includes(day);
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        className={`day-chip ${selected ? "selected" : ""}`}
-                        onClick={() => toggleAvailabilityDay(day)}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
+                <div style={{ display: "grid", gap: 12 }}>
+                  {WEEK_DAYS.map((day) => (
+                    <div key={day} style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 12, padding: "12px", boxShadow: "3px 3px 0 #1a1a2e" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: availability.slots?.[day]?.length ? 10 : 0 }}>
+                        <span className="bangers" style={{ fontSize: 16 }}>{day}</span>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button type="button" className="day-chip" onClick={() => addAvailabilitySlot(day, { start: "00:00", end: "23:59" })}>All day</button>
+                          <button type="button" className="day-chip selected" onClick={() => addAvailabilitySlot(day)}>+ Time</button>
+                        </div>
+                      </div>
+                      {(availability.slots?.[day] || []).map((slot, index) => (
+                        <div key={`${day}-${index}`} className="time-grid" style={{ alignItems: "center", marginTop: 8 }}>
+                          <input className="form-input" type="time" aria-label={`${day} start`} value={slot.start} onChange={(e) => updateAvailabilitySlot(day, index, "start", e.target.value)} />
+                          <input className="form-input" type="time" aria-label={`${day} end`} value={slot.end} onChange={(e) => updateAvailabilitySlot(day, index, "end", e.target.value)} />
+                          <button type="button" className="day-chip" onClick={() => removeAvailabilitySlot(day, index)}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
                 </div>
-                <p style={{ fontSize: 12, fontWeight: 900, color: "#1a1a2e", margin: "0 0 8px" }}>Usual time window</p>
-                <div className="time-grid">
-                  <input
-                    className="form-input"
-                    type="time"
-                    aria-label="Available from"
-                    value={availability.startTime}
-                    onChange={(e) => setAvailability((prev) => ({ ...prev, startTime: e.target.value }))}
-                  />
-                  <input
-                    className="form-input"
-                    type="time"
-                    aria-label="Available until"
-                    value={availability.endTime}
-                    onChange={(e) => setAvailability((prev) => ({ ...prev, endTime: e.target.value }))}
-                  />
-                </div>
+                {errors.availability && <p className="error-msg">{errors.availability}</p>}
                 <div className="availability-summary" style={{ marginTop: 14 }}>
                   <span className="bangers" style={{ display: "block", fontSize: 13, color: "#4ecdc4", marginBottom: 4 }}>Saved to your profile</span>
-                  {selectedDaysText} · {selectedTimeText}
+                  {availabilitySummary}
                 </div>
               </div>
 
