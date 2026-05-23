@@ -66,10 +66,69 @@ const STYLES = `
     box-shadow: 10px 10px 0 #1a1a2e;
     padding: 40px 36px;
     width: 100%;
-    max-width: 480px;
+    max-width: 560px;
     margin: 0 auto;
     position: relative;
     z-index: 1;
+  }
+
+  .profile-step {
+    background: #fffdf9;
+    border: 3px solid #1a1a2e;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 5px 5px 0 #1a1a2e;
+  }
+
+  .availability-panel {
+    background: #e8f4fd;
+    border: 3px solid #4ecdc4;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 5px 5px 0 #4ecdc4;
+  }
+
+  .availability-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .day-chip {
+    min-height: 42px;
+    border-radius: 10px;
+    border: 3px solid #1a1a2e;
+    background: #fff;
+    box-shadow: 3px 3px 0 #1a1a2e;
+    cursor: pointer;
+    font-weight: 900;
+    font-size: 12px;
+    color: #1a1a2e;
+    transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  }
+
+  .day-chip.selected {
+    background: #ffd93d;
+    box-shadow: 3px 3px 0 #ff9a3c;
+    border-color: #ff9a3c;
+  }
+
+  .availability-summary {
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 3px 3px 0 #1a1a2e;
+    font-size: 13px;
+    font-weight: 800;
+    color: #555;
+  }
+
+  .time-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
 
   .form-label {
@@ -191,6 +250,12 @@ const STYLES = `
     margin-bottom: 12px;
     display: inline-block;
   }
+
+  @media (max-width: 640px) {
+    .signup-card { padding: 30px 20px; }
+    .availability-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .time-grid { grid-template-columns: 1fr; }
+  }
 `;
 
 const IconLogoMark = () => (
@@ -248,6 +313,8 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
   const strength = getPasswordStrength(form.password);
   const inviteParams = routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {};
   const postAuthScreen = routeParams?.redirect || "dashboard";
+  const selectedDaysText = availability.days.length > 0 ? availability.days.join(", ") : "No days picked yet";
+  const selectedTimeText = availability.startTime && availability.endTime ? `${availability.startTime} - ${availability.endTime}` : "No usual time range yet";
 
   const handleAvatar = (e) => {
     const file = e.target.files[0];
@@ -395,16 +462,15 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
               <span style={{ fontSize: 12, color: "#aaa", fontWeight: 800, marginTop: 8 }}>Tap to upload a photo</span>
             </div>
 
-            {/* Fields */}
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
-              <div>
+              <div className="profile-step">
                 <label className="form-label">Full Name</label>
                 <input className="form-input" type="text" placeholder="e.g. Jordan Smith" value={form.name} onChange={handleChange("name")} />
                 {errors.name && <p className="error-msg">{errors.name}</p>}
               </div>
 
-              <div>
+              <div className="profile-step">
                 <label className="form-label">Username</label>
                 <div style={{ position: "relative" }}>
                   <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontWeight: 900, color: "#aaa", fontSize: 16 }}>@</span>
@@ -413,13 +479,13 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
                 {errors.username && <p className="error-msg">{errors.username}</p>}
               </div>
 
-              <div>
+              <div className="profile-step">
                 <label className="form-label">Email</label>
                 <input className="form-input" type="email" placeholder="you@email.com" value={form.email} onChange={handleChange("email")} />
                 {errors.email && <p className="error-msg">{errors.email}</p>}
               </div>
 
-              <div>
+              <div className="profile-step">
                 <label className="form-label">Password</label>
                 <div style={{ position: "relative" }}>
                   <input className="form-input" type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" value={form.password} onChange={handleChange("password")} style={{ paddingRight: 44 }} />
@@ -438,42 +504,51 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
                 {errors.password && <p className="error-msg">{errors.password}</p>}
               </div>
 
-              <div>
-                <label className="form-label">When are you usually free? (Optional)</label>
-                <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "4px 4px 0 #ff9a3c" }}>
-                  <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Pick the days your crew can usually catch you:</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                    {AVAILABILITY_DAYS.map((day) => {
-                      const selected = availability.days.includes(day);
-                      return (
-                        <button
-                          key={day}
-                          type="button"
-                          onClick={() => toggleAvailabilityDay(day)}
-                          style={{ padding: "8px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12, color: "#1a1a2e" }}
-                        >
-                          {day}
-                        </button>
-                      );
-                    })}
+              <div className="availability-panel">
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+                  <div>
+                    <label className="form-label" style={{ marginBottom: 4 }}>Hangout Availability</label>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: 0 }}>Add when your crew can usually catch you.</p>
                   </div>
-                  <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Add your usual time range if you want:</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <input
-                      className="form-input"
-                      type="time"
-                      value={availability.startTime}
-                      onChange={(e) => setAvailability((prev) => ({ ...prev, startTime: e.target.value }))}
-                    />
-                    <input
-                      className="form-input"
-                      type="time"
-                      value={availability.endTime}
-                      onChange={(e) => setAvailability((prev) => ({ ...prev, endTime: e.target.value }))}
-                    />
-                  </div>
+                  <span className="comic-tag" style={{ margin: 0, background: "#fff", transform: "rotate(2deg)" }}>Optional</span>
                 </div>
-                <p style={{ fontSize: 12, color: "#888", fontWeight: 800, margin: "8px 0 0" }}>You can skip this now and update it later in profile.</p>
+                <p style={{ fontSize: 12, fontWeight: 900, color: "#1a1a2e", margin: "0 0 8px" }}>Usual days</p>
+                <div className="availability-days">
+                  {AVAILABILITY_DAYS.map((day) => {
+                    const selected = availability.days.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`day-chip ${selected ? "selected" : ""}`}
+                        onClick={() => toggleAvailabilityDay(day)}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p style={{ fontSize: 12, fontWeight: 900, color: "#1a1a2e", margin: "0 0 8px" }}>Usual time window</p>
+                <div className="time-grid">
+                  <input
+                    className="form-input"
+                    type="time"
+                    aria-label="Available from"
+                    value={availability.startTime}
+                    onChange={(e) => setAvailability((prev) => ({ ...prev, startTime: e.target.value }))}
+                  />
+                  <input
+                    className="form-input"
+                    type="time"
+                    aria-label="Available until"
+                    value={availability.endTime}
+                    onChange={(e) => setAvailability((prev) => ({ ...prev, endTime: e.target.value }))}
+                  />
+                </div>
+                <div className="availability-summary" style={{ marginTop: 14 }}>
+                  <span className="bangers" style={{ display: "block", fontSize: 13, color: "#4ecdc4", marginBottom: 4 }}>Saved to your profile</span>
+                  {selectedDaysText} · {selectedTimeText}
+                </div>
               </div>
 
               {errors.submit && <p className="error-msg" style={{ margin: 0 }}>{errors.submit}</p>}

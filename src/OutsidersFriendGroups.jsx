@@ -89,6 +89,80 @@ const STYLES = `
 
   .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
 
+  .crew-hero {
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    border-radius: 18px;
+    box-shadow: 6px 6px 0 #1a1a2e;
+    padding: 22px 24px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .crew-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .action-tile {
+    border: 3px solid #1a1a2e;
+    border-radius: 16px;
+    background: #fffdf9;
+    box-shadow: 4px 4px 0 #1a1a2e;
+    padding: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.12s, box-shadow 0.12s;
+    min-height: 104px;
+  }
+
+  .action-tile:hover {
+    transform: translate(-2px,-2px);
+    box-shadow: 6px 6px 0 #1a1a2e;
+  }
+
+  .action-icon {
+    width: 34px;
+    height: 34px;
+    border: 3px solid #1a1a2e;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 2px 2px 0 #1a1a2e;
+    margin-bottom: 10px;
+  }
+
+  .crew-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .group-list-panel {
+    background: #fffdf9;
+    border: 3px solid #1a1a2e;
+    border-radius: 18px;
+    box-shadow: 5px 5px 0 #1a1a2e;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .empty-crew {
+    border: 3px dashed #4ecdc4;
+    border-radius: 16px;
+    padding: 22px 18px;
+    text-align: center;
+    background: #e8f4fd;
+  }
+
   .card {
     background: #fff;
     border: 3px solid #1a1a2e;
@@ -300,6 +374,26 @@ const STYLES = `
     width: 8px; height: 8px; background: #ff6b6b;
     border: 2px solid #1a1a2e; border-radius: 50%;
     position: absolute; top: -2px; right: -2px;
+  }
+
+  @media (max-width: 980px) {
+    .layout { display: block; }
+    .sidebar {
+      position: static;
+      width: auto;
+      height: auto;
+      border-right: none;
+      border-bottom: 4px solid #1a1a2e;
+      flex-direction: row;
+      overflow-x: auto;
+    }
+    .crew-hero { grid-template-columns: 1fr; }
+    .crew-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    .main { padding: 22px 16px; }
+    .crew-actions { grid-template-columns: 1fr; }
   }
 `;
 
@@ -969,17 +1063,28 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
           <main className="main">
 
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+            <div className="crew-hero">
               <div>
-                <h1 className="bangers" style={{ fontSize: 34, margin: "0 0 4px", color: "#1a1a2e" }}>My Crew 👥</h1>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Manage your friend groups and invite your people.</p>
+                <span className="comic-tag">Crew HQ</span>
+                <h1 className="bangers" style={{ fontSize: 38, margin: "0 0 6px", color: "#1a1a2e" }}>My Crew</h1>
+                <p style={{ fontSize: 14, color: "#666", fontWeight: 800, margin: "0 0 14px", maxWidth: 560 }}>Create a group, join one from an invite code, and keep the roster, links, votes, and planning details in one place.</p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <span className="badge" style={{ background: "#e8f4fd", color: "#4ecdc4", borderColor: "#4ecdc4" }}>{groups.length} group{groups.length === 1 ? "" : "s"}</span>
+                  <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>
+                    {groups.reduce((count, group) => count + group.members.length, 0)} total member{groups.reduce((count, group) => count + group.members.length, 0) === 1 ? "" : "s"}
+                  </span>
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <button className="btn-secondary" onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
-                  <IconUsers /> Join Crew
+              <div className="crew-actions">
+                <button className="action-tile" onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
+                  <span className="action-icon" style={{ background: "#ffd93d" }}><IconUsers /></span>
+                  <span className="bangers" style={{ display: "block", fontSize: 19, color: "#1a1a2e", marginBottom: 4 }}>Join Crew</span>
+                  <span style={{ display: "block", fontSize: 12, fontWeight: 800, color: "#666" }}>Use an invite code or link.</span>
                 </button>
-                <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-                  <IconPlus /> New Group
+                <button className="action-tile" onClick={() => setShowCreateModal(true)}>
+                  <span className="action-icon" style={{ background: "#ff6b6b", color: "#fff" }}><IconPlus /></span>
+                  <span className="bangers" style={{ display: "block", fontSize: 19, color: "#1a1a2e", marginBottom: 4 }}>Create Group</span>
+                  <span style={{ display: "block", fontSize: 12, fontWeight: 800, color: "#666" }}>Start a new crew space.</span>
                 </button>
               </div>
             </div>
@@ -1007,15 +1112,29 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
               </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 24 }}>
+            <div className="crew-grid">
 
               {/* Group list */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <p className="bangers" style={{ fontSize: 14, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Your Groups</p>
+              <div className="group-list-panel">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                  <p className="bangers" style={{ fontSize: 14, color: "#888", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Your Groups</p>
+                  <button className="btn-outline" style={{ padding: "7px 10px", fontSize: 13 }} onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
+                    Join
+                  </button>
+                </div>
                 {groups.length === 0 && (
-                  <div style={{ border: "3px dashed #ccc", borderRadius: 16, padding: "18px", textAlign: "center" }}>
-                    <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>No groups yet</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Create your first group to start inviting people.</p>
+                  <div className="empty-crew">
+                    <p style={{ fontSize: 30, margin: "0 0 8px" }}>👥</p>
+                    <p className="bangers" style={{ fontSize: 20, color: "#1a1a2e", margin: "0 0 6px" }}>No crews yet</p>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: "#555", margin: "0 0 14px" }}>Create a group or join one with an invite code.</p>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      <button className="btn-secondary" style={{ justifyContent: "center" }} onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
+                        <IconUsers /> Join Crew
+                      </button>
+                      <button className="btn-primary" style={{ justifyContent: "center" }} onClick={() => setShowCreateModal(true)}>
+                        <IconPlus /> Create New Group
+                      </button>
+                    </div>
                   </div>
                 )}
                 {groupsLoading && (
@@ -1059,15 +1178,16 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                   </div>
                 ))}
 
-                {/* Create new group prompt */}
-                <div
-                  onClick={() => setShowCreateModal(true)}
-                  style={{ border: "3px dashed #ccc", borderRadius: 16, padding: "18px", textAlign: "center", cursor: "pointer", transition: "border-color 0.2s" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = "#ff6b6b"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = "#ccc"}
-                >
-                  <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: 0 }}>+ Create New Group</p>
-                </div>
+                {groups.length > 0 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <button className="btn-secondary" style={{ justifyContent: "center", padding: "10px 12px" }} onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
+                      <IconUsers /> Join
+                    </button>
+                    <button className="btn-primary" style={{ justifyContent: "center", padding: "10px 12px" }} onClick={() => setShowCreateModal(true)}>
+                      <IconPlus /> New
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Group detail */}
@@ -1319,6 +1439,25 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+              {!selectedGroup && (
+                <div className="card" style={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", background: "#fffdf9" }}>
+                  <div style={{ maxWidth: 420 }}>
+                    <div style={{ width: 70, height: 70, border: "3px solid #1a1a2e", borderRadius: 18, boxShadow: "4px 4px 0 #1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", background: "#ffd93d", fontSize: 32 }}>
+                      👥
+                    </div>
+                    <p className="bangers" style={{ fontSize: 26, margin: "0 0 8px", color: "#1a1a2e" }}>Pick Or Join A Crew</p>
+                    <p style={{ fontSize: 14, fontWeight: 800, color: "#666", margin: "0 0 18px" }}>Select a group from the left, paste an invite code, or create a new group for your people.</p>
+                    <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+                      <button className="btn-secondary" onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
+                        <IconUsers /> Join Crew
+                      </button>
+                      <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+                        <IconPlus /> Create Group
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

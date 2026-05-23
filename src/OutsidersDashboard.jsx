@@ -125,6 +125,54 @@ const STYLES = `
     overflow-y: auto;
   }
 
+  .dashboard-hero {
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    border-radius: 18px;
+    box-shadow: 6px 6px 0 #1a1a2e;
+    padding: 24px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .empty-panel {
+    background: #fffdf9;
+    border: 3px dashed #4ecdc4;
+    border-radius: 14px;
+    padding: 22px;
+    text-align: center;
+  }
+
   /* ── Cards ── */
   .card {
     background: #fff;
@@ -332,6 +380,36 @@ const STYLES = `
     gap: 8px;
   }
   .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
+
+  .btn-secondary {
+    background: #ffd93d;
+    color: #1a1a2e;
+    border: 3px solid #1a1a2e;
+    cursor: pointer;
+    font-family: 'Bangers', cursive;
+    letter-spacing: 0.08em;
+    border-radius: 10px;
+    box-shadow: 4px 4px 0 #1a1a2e;
+    transition: transform 0.12s, box-shadow 0.12s;
+    font-size: 16px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-secondary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
+
+  @media (max-width: 1080px) {
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 720px) {
+    .dashboard-hero { grid-template-columns: 1fr; }
+    .hero-actions { justify-content: stretch; }
+    .hero-actions button { width: 100%; justify-content: center; }
+    .quick-grid { grid-template-columns: 1fr; }
+  }
 `;
 
 const IconLogoMark = () => (
@@ -451,20 +529,28 @@ export default function OutsidersDashboard({ onNavigate }) {
           <main className="main">
 
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+            <div className="dashboard-hero">
               <div>
-                <h1 className="bangers" style={{ fontSize: 34, margin: "0 0 4px", color: "#1a1a2e" }}>
-                  Welcome! 👋
+                <span className="comic-tag">Command Center</span>
+                <h1 className="bangers" style={{ fontSize: 38, margin: "8px 0 6px", color: "#1a1a2e" }}>
+                  Welcome Back
                 </h1>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>This dashboard stays empty until real activity starts happening.</p>
+                <p style={{ fontSize: 14, color: "#666", fontWeight: 800, margin: 0, maxWidth: 560 }}>
+                  Plan the next hangout, jump into your crew, and keep trips, bills, ratings, and debriefs within reach.
+                </p>
               </div>
-              <button className="btn-primary" onClick={() => onNavigate?.("create-hangout")}>
-                <IconPlus /> Create Hangout
-              </button>
+              <div className="hero-actions">
+                <button className="btn-secondary" onClick={() => onNavigate?.("friend-groups")}>
+                  <IconUsers /> My Crew
+                </button>
+                <button className="btn-primary" onClick={() => onNavigate?.("create-hangout")}>
+                  <IconPlus /> Create Hangout
+                </button>
+              </div>
             </div>
 
             {/* ── Stat cards ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 28 }}>
+            <div className="stats-grid">
               {[
                 { icon: "🗓", label: "Upcoming Hangouts", value: "0", bg: "#fff4e6", border: "#ff9a3c" },
                 { icon: "👥", label: "Crew Members", value: "0", bg: "#e8f4fd", border: "#4ecdc4" },
@@ -482,7 +568,7 @@ export default function OutsidersDashboard({ onNavigate }) {
             </div>
 
             {/* ── Two column grid ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24 }}>
+            <div className="dashboard-grid">
 
               {/* LEFT column */}
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -495,9 +581,13 @@ export default function OutsidersDashboard({ onNavigate }) {
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {HANGOUTS.length === 0 ? (
-                      <div className="hangout-card" style={{ background: "#fff", borderColor: "#1a1a2e", boxShadow: "5px 5px 0 #1a1a2e", cursor: "default" }}>
-                        <h3 className="bangers" style={{ fontSize: 18, margin: "0 0 8px", color: "#1a1a2e" }}>No hangouts yet</h3>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Create one when you’re ready to start planning.</p>
+                      <div className="empty-panel">
+                        <p style={{ fontSize: 30, margin: "0 0 8px" }}>🗓</p>
+                        <h3 className="bangers" style={{ fontSize: 22, margin: "0 0 8px", color: "#1a1a2e" }}>No hangouts yet</h3>
+                        <p style={{ fontSize: 13, fontWeight: 800, color: "#666", margin: "0 0 14px" }}>Create one when you are ready to start planning.</p>
+                        <button className="btn-primary" style={{ margin: "0 auto", justifyContent: "center" }} onClick={() => onNavigate?.("create-hangout")}>
+                          <IconPlus /> Create Hangout
+                        </button>
                       </div>
                     ) : HANGOUTS.map((h) => (
                       <div key={h.name} className="hangout-card" style={{ background: h.color, borderColor: h.borderColor, boxShadow: `5px 5px 0 ${h.borderColor}` }}>
@@ -531,21 +621,23 @@ export default function OutsidersDashboard({ onNavigate }) {
                   <div className="section-header">
                     <h2 className="bangers" style={{ fontSize: 22, margin: 0 }}>Quick Actions ⚡</h2>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                  <div className="quick-grid">
                     {[
                       { icon: "🎟", label: "Join Hangout" },
+                      { icon: "👥", label: "Join Crew" },
                       { icon: "✈️", label: "Plan Trip" },
                       { icon: "💸", label: "Split Bill" },
-                      { icon: "⭐", label: "Rate Outing/Trip" },
+                      { icon: "⭐", label: "Rate Outing" },
                     ].map((a) => (
                       <button
                         key={a.label}
                         className="quick-btn"
                         onClick={() => onNavigate?.({
                           "Join Hangout": "join-hangout",
+                          "Join Crew": "friend-groups",
                           "Plan Trip": "trip-planning",
                           "Split Bill": "bill-split",
-                          "Rate Outing/Trip": "rate-outing",
+                          "Rate Outing": "rate-outing",
                         }[a.label])}
                       >
                         <span style={{ fontSize: 26 }}>{a.icon}</span>
@@ -566,7 +658,13 @@ export default function OutsidersDashboard({ onNavigate }) {
                     <button className="see-all" onClick={() => onNavigate?.("friend-groups")}>See All →</button>
                   </div>
                   {FRIENDS.length === 0 ? (
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>No crew members yet. Invite people from the crew page.</p>
+                    <div className="empty-panel" style={{ padding: 16 }}>
+                      <p style={{ fontSize: 26, margin: "0 0 8px" }}>👥</p>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: "#666", margin: "0 0 12px" }}>No crew members yet.</p>
+                      <button className="btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => onNavigate?.("friend-groups")}>
+                        Join Or Create Crew
+                      </button>
+                    </div>
                   ) : FRIENDS.map((f) => (
                     <div key={f.name} className="friend-item">
                       <div className="avatar" style={{ background: f.color }}>{f.initials}</div>
@@ -576,9 +674,11 @@ export default function OutsidersDashboard({ onNavigate }) {
                       </div>
                     </div>
                   ))}
-                  <button style={{ width: "100%", marginTop: 14, background: "#ffd93d", border: "3px solid #1a1a2e", borderRadius: 10, padding: "10px", fontFamily: "'Bangers', cursive", fontSize: 16, letterSpacing: "0.04em", cursor: "pointer", boxShadow: "4px 4px 0 #1a1a2e" }} onClick={() => onNavigate?.("friend-groups")}>
-                    + Invite Friends
-                  </button>
+                  {FRIENDS.length > 0 && (
+                    <button style={{ width: "100%", marginTop: 14, background: "#ffd93d", border: "3px solid #1a1a2e", borderRadius: 10, padding: "10px", fontFamily: "'Bangers', cursive", fontSize: 16, letterSpacing: "0.04em", cursor: "pointer", boxShadow: "4px 4px 0 #1a1a2e" }} onClick={() => onNavigate?.("friend-groups")}>
+                      + Invite Friends
+                    </button>
+                  )}
                 </div>
 
                 {/* Recent Activity */}
