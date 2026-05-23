@@ -309,21 +309,6 @@ const STYLES = `
   }
   .day-chip.selected { background: #51cf66; }
 
-  .time-chip {
-    padding: 5px 10px;
-    border-radius: 8px;
-    font-family: 'Nunito', sans-serif;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    border: 2px solid #1a1a2e;
-    background: #fff;
-    color: #1a1a2e;
-    box-shadow: 2px 2px 0 #1a1a2e;
-    transition: all 0.1s;
-  }
-  .time-chip.selected { background: #ffd93d; }
-
   .ai-result-box {
     background: #e8fdf2;
     border: 3px solid #51cf66;
@@ -368,7 +353,6 @@ function buildNextDays() {
 }
 
 const NEXT_7_DAYS = buildNextDays();
-const TIME_SLOTS = ["Morning (8am–12pm)", "Afternoon (12pm–5pm)", "Evening (5pm–10pm)"];
 
 function buildAvailabilityPeople(group) {
   const members = group?.members?.length
@@ -376,63 +360,113 @@ function buildAvailabilityPeople(group) {
         id: member.userId || member.username || member.name,
         name: member.name,
         days: [],
-        times: [],
+        startTime: "",
+        endTime: "",
       }))
-    : [{ id: "you", name: "You", days: [], times: [] }];
+    : [{ id: "you", name: "You", days: [], startTime: "", endTime: "" }];
 
   return members;
 }
 
-function getBestTimeValue(slot) {
-  if (slot.includes("Morning")) return "10:00";
-  if (slot.includes("Afternoon")) return "14:00";
-  return "19:00";
+function toMinutes(time) {
+  if (!time || !time.includes(":")) return null;
+  const [hours, minutes] = time.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return (hours * 60) + minutes;
+}
+
+function formatTimeLabel(time) {
+  if (!time) return "";
+  return new Date(`2000-01-01T${time}:00`).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function buildCandidateTimes(people) {
+  const times = new Set(["12:00", "15:00", "18:00"]);
+  people.forEach((person) => {
+    if (person.startTime) times.add(person.startTime);
+    if (person.endTime) times.add(person.endTime);
+  });
+  return Array.from(times).sort();
 }
 
 function rankAvailabilitySuggestions(people) {
-  if (!people.length) return [];
+  if (!people.length) return { good: [], bad: [] };
 
-  return NEXT_7_DAYS.flatMap((day) => (
-    TIME_SLOTS.map((slot) => {
-      const availableMembers = people.filter((person) => {
-        const dayMatch = person.days.length === 0 || person.days.includes(day.value);
-        const timeMatch = person.times.length === 0 || person.times.includes(slot);
-        return dayMatch && timeMatch;
+  const candidates = buildCandidateTimes(people);
+  const ranked = NEXT_7_DAYS.flatMap((day) => (
+    candidates.map((time) => {
+      const timeMinutes = toMinutes(time);
+      const availableMembers = [];
+      const blockedReasons = [];
+
+      people.forEach((person) => {
+        const hasDay = person.days.includes(day.value);
+        const startMinutes = toMinutes(person.startTime);
+        const endMinutes = toMinutes(person.endTime);
+        const hasTimeRange = startMinutes !== null && endMinutes !== null && startMinutes < endMinutes;
+
+        if (!hasDay) {
+          blockedReasons.push(`${person.name} did not mark ${day.label}`);
+          return;
+        }
+
+        if (!hasTimeRange) {
+          blockedReasons.push(`${person.name} has no time range yet`);
+          return;
+        }
+
+        if (timeMinutes < startMinutes || timeMinutes > endMinutes) {
+          blockedReasons.push(`${person.name} is outside that window (${formatTimeLabel(person.startTime)}-${formatTimeLabel(person.endTime)})`);
+          return;
+        }
+
+        availableMembers.push(person.name);
       });
-      const explicitMatches = availableMembers.filter((person) => person.days.includes(day.value) || person.times.includes(slot)).length;
 
       return {
         date: day.value,
         dateLabel: day.label,
-        slot,
-        time: getBestTimeValue(slot),
+        time,
+        timeLabel: formatTimeLabel(time),
         availableCount: availableMembers.length,
-        explicitMatches,
         totalCount: people.length,
-        names: availableMembers.map((person) => person.name),
+        names: availableMembers,
+        blockedReasons,
       };
     })
-  ))
-    .sort((a, b) => (
-      b.availableCount - a.availableCount ||
-      b.explicitMatches - a.explicitMatches ||
-      a.date.localeCompare(b.date) ||
-      TIME_SLOTS.indexOf(a.slot) - TIME_SLOTS.indexOf(b.slot)
-    ))
-    .slice(0, 3)
-    .map((suggestion, index) => ({
+  )).sort((a, b) => (
+    b.availableCount - a.availableCount ||
+    a.blockedReasons.length - b.blockedReasons.length ||
+    a.date.localeCompare(b.date) ||
+    a.time.localeCompare(b.time)
+  ));
+
+  const good = ranked.slice(0, 3).map((suggestion, index) => ({
+    ...suggestion,
+    summary: suggestion.availableCount === suggestion.totalCount
+      ? `This is your cleanest overlap. Everybody marked this window.`
+      : `${suggestion.availableCount} of ${suggestion.totalCount} people can do this${index === 0 ? ", so it is the strongest option right now" : ""}.`,
+  }));
+
+  const bad = ranked
+    .filter((suggestion) => suggestion.blockedReasons.length > 0)
+    .slice(-3)
+    .reverse()
+    .map((suggestion) => ({
       ...suggestion,
-      summary:
-        suggestion.availableCount === suggestion.totalCount
-          ? `Everybody can make this one${suggestion.explicitMatches ? " and most of them actually picked it" : ""}.`
-          : `${suggestion.availableCount} of ${suggestion.totalCount} members line up here${index === 0 ? ", so this is your strongest overlap" : ""}.`,
+      summary: suggestion.blockedReasons[0] || "Not many people match this window.",
     }));
+
+  return { good, bad };
 }
 
 function getAvailabilityIssues(people) {
   return (people || []).reduce((issues, person) => {
     const missingDays = !person.days.length;
-    const missingTimes = !person.times.length;
+    const missingTimes = !person.startTime || !person.endTime;
 
     if (!missingDays && !missingTimes) return issues;
 
@@ -506,16 +540,19 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       return {
         ...person,
         days: saved?.days || [],
-        times: saved?.times || [],
+        startTime: saved?.startTime || "",
+        endTime: saved?.endTime || "",
       };
     });
 
     return [...crewPeople, ...guestPeople];
   }, [guestPeople, memberAvailability, selectedGroup]);
-  const availabilitySuggestions = useMemo(
+  const availabilityAnalysis = useMemo(
     () => rankAvailabilitySuggestions(availPeople),
     [availPeople]
   );
+  const availabilitySuggestions = availabilityAnalysis.good;
+  const badTimeSuggestions = availabilityAnalysis.bad;
   const availabilityIssues = useMemo(
     () => getAvailabilityIssues(availPeople),
     [availPeople]
@@ -597,23 +634,24 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   }
 
   function toggleTime(personId, slot) {
+    const field = slot.field;
+    const value = slot.value;
     if (String(personId).startsWith("guest:")) {
-      setGuestPeople((prev) => prev.map((person) => {
-        if (String(person.id) !== String(personId)) return person;
-        const has = person.times.includes(slot);
-        return { ...person, times: has ? person.times.filter((time) => time !== slot) : [...person.times, slot] };
-      }));
+      setGuestPeople((prev) => prev.map((person) => (
+        String(person.id) !== String(personId)
+          ? person
+          : { ...person, [field]: value }
+      )));
       return;
     }
 
     setMemberAvailability((prev) => {
-      const current = prev[String(personId)] || { days: [], times: [] };
-      const has = current.times.includes(slot);
+      const current = prev[String(personId)] || { days: [], startTime: "", endTime: "" };
       return {
         ...prev,
         [personId]: {
           ...current,
-          times: has ? current.times.filter((time) => time !== slot) : [...current.times, slot],
+          [field]: value,
         },
       };
     });
@@ -622,7 +660,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   function addPerson() {
     const name = newPersonName.trim();
     if (!name) return;
-    setGuestPeople((prev) => [...prev, { id: `guest:${name.toLowerCase()}`, name, days: [], times: [] }]);
+    setGuestPeople((prev) => [...prev, { id: `guest:${name.toLowerCase()}`, name, days: [], startTime: "", endTime: "" }]);
     setNewPersonName("");
   }
 
@@ -641,16 +679,18 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     const peopleText = availPeople.map(p => {
       const daysText = p.days.length > 0
         ? `Available on: ${p.days.map(d => NEXT_7_DAYS.find(x => x.value === d)?.label || d).join(", ")}`
-        : "No specific days marked — flexible";
-      const timesText = p.times.length > 0 ? `Prefers: ${p.times.join(", ")}` : "No time preference";
+        : "No specific days marked";
+      const timesText = p.startTime && p.endTime
+        ? `Available between ${formatTimeLabel(p.startTime)} and ${formatTimeLabel(p.endTime)}`
+        : "No time range set";
       return `- ${p.name}: ${daysText}. ${timesText}.`;
     }).join("\n");
-    const prompt = `Find the best time for a hangout${form.name ? ` called "${form.name}"` : ""}${form.location ? ` at ${form.location}` : ""}.\n\nAvailability:\n${peopleText}\n\nDates to consider: ${NEXT_7_DAYS.map(d => d.label).join(", ")}\n\nPick the single best date and time that works for everyone. Respond ONLY with JSON: {"date": "YYYY-MM-DD", "time": "HH:MM", "summary": "one sentence why this works"}`;
+    const prompt = `Help a friend group pick the best hangout time${form.name ? ` for "${form.name}"` : ""}${form.location ? ` at ${form.location}` : ""}.\n\nAvailability:\n${peopleText}\n\nDates to consider: ${NEXT_7_DAYS.map(d => d.label).join(", ")}\n\nRespond ONLY with JSON in this shape: {"date":"YYYY-MM-DD","time":"HH:MM","summary":"one sentence why this is the best option","badTimes":[{"label":"Day at time","reason":"short reason it is weaker"}]}. Keep the reasons practical and based on who is not available.`;
     try {
       const result = await createOpenAIResponse({
         apiKey,
         model: DEFAULT_OPENAI_MODEL,
-        instructions: "You are a scheduling assistant. Find the best overlap in people's availability. Always respond with valid JSON only, no markdown, no extra text.",
+        instructions: "You are a scheduling assistant. Find the best overlap in people's specific availability windows. Always respond with valid JSON only, no markdown, no extra text.",
         input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
       });
       let parsed = null;
@@ -803,12 +843,25 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                             </span>
                           </div>
                           <div style={{ fontSize: 13, fontWeight: 800, color: "#555", marginBottom: 4 }}>
-                            {suggestion.slot} · {suggestion.time}
+                              {suggestion.timeLabel}
                           </div>
                           <div style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>{suggestion.summary}</div>
                         </button>
                       ))}
                     </div>
+                    {badTimeSuggestions.length > 0 ? (
+                      <div style={{ marginTop: 14 }}>
+                        <p className="bangers" style={{ fontSize: 14, margin: "0 0 8px", color: "#ff6b6b" }}>Usually not great</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {badTimeSuggestions.map((suggestion) => (
+                            <div key={`bad-${suggestion.date}-${suggestion.time}`} style={{ background: "#fff", border: "2px solid #ff6b6b", borderRadius: 10, padding: "10px 12px", boxShadow: "3px 3px 0 #ff6b6b" }}>
+                              <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1a2e", marginBottom: 4 }}>{suggestion.dateLabel} · {suggestion.timeLabel}</div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: "#666" }}>{suggestion.summary}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 )}
 
@@ -859,13 +912,22 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                               </button>
                             ))}
                           </div>
-                          <p style={{ fontSize: 12, fontWeight: 800, color: "#9b59b6", margin: "0 0 7px" }}>Preferred time:</p>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {TIME_SLOTS.map(slot => (
-                              <button key={slot} type="button" className={`time-chip ${person.times.includes(slot) ? "selected" : ""}`} onClick={() => toggleTime(person.id, slot)}>
-                                {slot}
-                              </button>
-                            ))}
+                          <p style={{ fontSize: 12, fontWeight: 800, color: "#9b59b6", margin: "0 0 7px" }}>Available from / until:</p>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <input
+                              className="form-input"
+                              type="time"
+                              value={person.startTime}
+                              onChange={(event) => toggleTime(person.id, { field: "startTime", value: event.target.value })}
+                              style={{ padding: "9px 12px", fontSize: 13 }}
+                            />
+                            <input
+                              className="form-input"
+                              type="time"
+                              value={person.endTime}
+                              onChange={(event) => toggleTime(person.id, { field: "endTime", value: event.target.value })}
+                              style={{ padding: "9px 12px", fontSize: 13 }}
+                            />
                           </div>
                         </div>
                       ))}
@@ -904,9 +966,17 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                             <div>
                               <div style={{ marginBottom: 6 }}>
                                 <span style={{ fontFamily: "'Bangers', cursive", fontSize: 17 }}>Best time: </span>
-                                {new Date(aiTimeResult.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} at {aiTimeResult.time}
+                                {new Date(aiTimeResult.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} at {formatTimeLabel(aiTimeResult.time)}
                               </div>
                               {aiTimeResult.summary && <div style={{ fontSize: 13, color: "#555", marginBottom: 10 }}>{aiTimeResult.summary}</div>}
+                              {Array.isArray(aiTimeResult.badTimes) && aiTimeResult.badTimes.length > 0 ? (
+                                <div style={{ background: "#fff", border: "2px solid #ff9a3c", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+                                  <p className="bangers" style={{ fontSize: 13, margin: "0 0 6px", color: "#ff9a3c" }}>Why other times are weaker</p>
+                                  {aiTimeResult.badTimes.slice(0, 3).map((item) => (
+                                    <p key={`${item.label}-${item.reason}`} style={{ fontSize: 12, fontWeight: 700, color: "#555", margin: "0 0 4px" }}>• {item.label}: {item.reason}</p>
+                                  ))}
+                                </div>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={useAISuggestedTime}

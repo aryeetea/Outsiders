@@ -87,10 +87,10 @@ const NAV_TARGETS = {
 };
 
 const AVAILABILITY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const AVAILABILITY_TIMES = ["Morning", "Afternoon", "Evening"];
+const DEFAULT_AVAILABILITY = { days: [], startTime: "", endTime: "" };
 
 const PROFILE_STORAGE_KEY = "outsiders-profile";
-const DEFAULT_PROFILE = { name: "", username: "", bio: "", location: "", email: "", availability: { days: [], times: [] } };
+const DEFAULT_PROFILE = { name: "", username: "", bio: "", location: "", email: "", availability: DEFAULT_AVAILABILITY };
 
 function readStoredProfile() {
   if (typeof window === "undefined") {
@@ -218,14 +218,20 @@ export default function OutsidersProfile({ onNavigate }) {
         name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
         username: data.username || prev.username || currentUser.user_metadata?.username || "",
         email: data.email || prev.email || currentUser.email || "",
-        availability: data.availability || prev.availability || { days: [], times: [] },
+        availability: {
+          ...DEFAULT_AVAILABILITY,
+          ...(data.availability || prev.availability || {}),
+        },
       }));
       setEditForm((prev) => ({
         ...prev,
         name: data.full_name || prev.name || currentUser.user_metadata?.full_name || "",
         username: data.username || prev.username || currentUser.user_metadata?.username || "",
         email: data.email || prev.email || currentUser.email || "",
-        availability: data.availability || prev.availability || { days: [], times: [] },
+        availability: {
+          ...DEFAULT_AVAILABILITY,
+          ...(data.availability || prev.availability || {}),
+        },
       }));
 
       if (data.avatar_url) {
@@ -252,7 +258,8 @@ export default function OutsidersProfile({ onNavigate }) {
       email: nextProfile.email.trim(),
       availability: {
         days: nextProfile.availability?.days || [],
-        times: nextProfile.availability?.times || [],
+        startTime: nextProfile.availability?.startTime || "",
+        endTime: nextProfile.availability?.endTime || "",
       },
     };
 
@@ -285,16 +292,17 @@ export default function OutsidersProfile({ onNavigate }) {
   }
 
   const handleSave = () => saveProfile(editForm);
-  const toggleAvailability = (field, value, target = "profile") => {
+  const toggleAvailability = (value, target = "profile") => {
     const setter = target === "edit" ? setEditForm : setProfile;
     setter((prev) => {
-      const currentValues = prev.availability?.[field] || [];
+      const currentValues = prev.availability?.days || [];
       const hasValue = currentValues.includes(value);
       return {
         ...prev,
         availability: {
-          ...(prev.availability || { days: [], times: [] }),
-          [field]: hasValue ? currentValues.filter((item) => item !== value) : [...currentValues, value],
+          ...DEFAULT_AVAILABILITY,
+          ...(prev.availability || {}),
+          days: hasValue ? currentValues.filter((item) => item !== value) : [...currentValues, value],
         },
       };
     });
@@ -383,7 +391,7 @@ export default function OutsidersProfile({ onNavigate }) {
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <span className="badge" style={{ background: "#fff", color: "#ff6b9d", borderColor: "#ff6b9d" }}>📍 {profile.location || "No location yet"}</span>
                     <span className="badge" style={{ background: "#fff", color: "#ff9a3c", borderColor: "#ff9a3c" }}>🗓 {profile.availability?.days?.length || 0} days picked</span>
-                    <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>⏰ {profile.availability?.times?.length || 0} time windows</span>
+                    <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>⏰ {profile.availability?.startTime && profile.availability?.endTime ? `${profile.availability.startTime}-${profile.availability.endTime}` : "No time range yet"}</span>
                     <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>✨ Profile in progress</span>
                   </div>
                 </div>
@@ -464,15 +472,13 @@ export default function OutsidersProfile({ onNavigate }) {
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
                           {AVAILABILITY_DAYS.map((day) => {
                             const selected = profile.availability?.days?.includes(day);
-                            return <button key={day} type="button" onClick={() => toggleAvailability("days", day)} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{day}</button>;
+                            return <button key={day} type="button" onClick={() => toggleAvailability(day)} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{day}</button>;
                           })}
                         </div>
-                        <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Times:</p>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {AVAILABILITY_TIMES.map((time) => {
-                            const selected = profile.availability?.times?.includes(time);
-                            return <button key={time} type="button" onClick={() => toggleAvailability("times", time)} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#4ecdc4" : "#1a1a2e"}`, background: selected ? "#edfdfb" : "#fff", boxShadow: selected ? "3px 3px 0 #4ecdc4" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{time}</button>;
-                          })}
+                        <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Usual time range:</p>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <input className="form-input" type="time" value={profile.availability?.startTime || ""} onChange={e => setProfile(p => ({ ...p, availability: { ...DEFAULT_AVAILABILITY, ...(p.availability || {}), startTime: e.target.value } }))} />
+                          <input className="form-input" type="time" value={profile.availability?.endTime || ""} onChange={e => setProfile(p => ({ ...p, availability: { ...DEFAULT_AVAILABILITY, ...(p.availability || {}), endTime: e.target.value } }))} />
                         </div>
                       </div>
                     </div>
@@ -543,15 +549,13 @@ export default function OutsidersProfile({ onNavigate }) {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
                       {AVAILABILITY_DAYS.map((day) => {
                         const selected = editForm.availability?.days?.includes(day);
-                        return <button key={day} type="button" onClick={() => toggleAvailability("days", day, "edit")} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{day}</button>;
+                        return <button key={day} type="button" onClick={() => toggleAvailability(day, "edit")} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{day}</button>;
                       })}
                     </div>
-                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Times:</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {AVAILABILITY_TIMES.map((time) => {
-                        const selected = editForm.availability?.times?.includes(time);
-                        return <button key={time} type="button" onClick={() => toggleAvailability("times", time, "edit")} style={{ padding: "7px 12px", borderRadius: 999, border: `3px solid ${selected ? "#4ecdc4" : "#1a1a2e"}`, background: selected ? "#edfdfb" : "#fff", boxShadow: selected ? "3px 3px 0 #4ecdc4" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{time}</button>;
-                      })}
+                    <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Usual time range:</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <input className="form-input" type="time" value={editForm.availability?.startTime || ""} onChange={e => setEditForm(p => ({ ...p, availability: { ...DEFAULT_AVAILABILITY, ...(p.availability || {}), startTime: e.target.value } }))} />
+                      <input className="form-input" type="time" value={editForm.availability?.endTime || ""} onChange={e => setEditForm(p => ({ ...p, availability: { ...DEFAULT_AVAILABILITY, ...(p.availability || {}), endTime: e.target.value } }))} />
                     </div>
                   </div>
                 </div>

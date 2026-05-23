@@ -217,7 +217,7 @@ const IconEye = ({ show }) => show ? (
 );
 
 const AVAILABILITY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const AVAILABILITY_TIMES = ["Morning", "Afternoon", "Evening"];
+const DEFAULT_AVAILABILITY = { days: [], startTime: "", endTime: "" };
 
 function getPasswordStrength(pw) {
   if (!pw) return { score: 0, label: "", color: "" };
@@ -240,7 +240,7 @@ export default function OutsidersSignUp({ onNavigate }) {
   const [avatar, setAvatar] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
-  const [availability, setAvailability] = useState({ days: [], times: [] });
+  const [availability, setAvailability] = useState(DEFAULT_AVAILABILITY);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -259,15 +259,14 @@ export default function OutsidersSignUp({ onNavigate }) {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
     setErrors(prev => ({ ...prev, [field]: "" }));
   };
-  const toggleAvailability = (field, value) => {
+  const toggleAvailabilityDay = (value) => {
     setAvailability((prev) => {
-      const hasValue = prev[field].includes(value);
+      const hasValue = prev.days.includes(value);
       return {
         ...prev,
-        [field]: hasValue ? prev[field].filter((item) => item !== value) : [...prev[field], value],
+        days: hasValue ? prev.days.filter((item) => item !== value) : [...prev.days, value],
       };
     });
-    setErrors((prev) => ({ ...prev, availability: "" }));
   };
   const validate = () => {
     const errs = {};
@@ -279,7 +278,6 @@ export default function OutsidersSignUp({ onNavigate }) {
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = "That doesn't look like an email!";
     if (!form.password) errs.password = "Password is required!";
     else if (form.password.length < 8) errs.password = "At least 8 characters!";
-    if (!availability.days.length || !availability.times.length) errs.availability = "Pick at least one day and one time you’re usually free.";
     return errs;
   };
   const handleSubmit = async () => {
@@ -439,7 +437,7 @@ export default function OutsidersSignUp({ onNavigate }) {
               </div>
 
               <div>
-                <label className="form-label">When are you usually free?</label>
+                <label className="form-label">When are you usually free? (Optional)</label>
                 <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "14px 16px", boxShadow: "4px 4px 0 #ff9a3c" }}>
                   <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Pick the days your crew can usually catch you:</p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
@@ -449,7 +447,7 @@ export default function OutsidersSignUp({ onNavigate }) {
                         <button
                           key={day}
                           type="button"
-                          onClick={() => toggleAvailability("days", day)}
+                          onClick={() => toggleAvailabilityDay(day)}
                           style={{ padding: "8px 12px", borderRadius: 999, border: `3px solid ${selected ? "#ff6b6b" : "#1a1a2e"}`, background: selected ? "#fff0f0" : "#fff", boxShadow: selected ? "3px 3px 0 #ff6b6b" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12, color: "#1a1a2e" }}
                         >
                           {day}
@@ -457,24 +455,23 @@ export default function OutsidersSignUp({ onNavigate }) {
                       );
                     })}
                   </div>
-                  <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Pick the time windows that fit you best:</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {AVAILABILITY_TIMES.map((time) => {
-                      const selected = availability.times.includes(time);
-                      return (
-                        <button
-                          key={time}
-                          type="button"
-                          onClick={() => toggleAvailability("times", time)}
-                          style={{ padding: "8px 12px", borderRadius: 999, border: `3px solid ${selected ? "#4ecdc4" : "#1a1a2e"}`, background: selected ? "#edfdfb" : "#fff", boxShadow: selected ? "3px 3px 0 #4ecdc4" : "3px 3px 0 #1a1a2e", cursor: "pointer", fontWeight: 900, fontSize: 12, color: "#1a1a2e" }}
-                        >
-                          {time}
-                        </button>
-                      );
-                    })}
+                  <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 8px" }}>Add your usual time range if you want:</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <input
+                      className="form-input"
+                      type="time"
+                      value={availability.startTime}
+                      onChange={(e) => setAvailability((prev) => ({ ...prev, startTime: e.target.value }))}
+                    />
+                    <input
+                      className="form-input"
+                      type="time"
+                      value={availability.endTime}
+                      onChange={(e) => setAvailability((prev) => ({ ...prev, endTime: e.target.value }))}
+                    />
                   </div>
                 </div>
-                {errors.availability && <p className="error-msg">{errors.availability}</p>}
+                <p style={{ fontSize: 12, color: "#888", fontWeight: 800, margin: "8px 0 0" }}>You can skip this now and update it later in profile.</p>
               </div>
 
               {errors.submit && <p className="error-msg" style={{ margin: 0 }}>{errors.submit}</p>}

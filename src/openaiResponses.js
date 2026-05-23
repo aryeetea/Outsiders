@@ -33,6 +33,9 @@ export async function createOpenAIResponse({
   instructions,
   input,
   previousResponseId,
+  tools,
+  toolChoice,
+  include,
 }) {
   const response = await fetch(OPENAI_API_URL, {
     method: "POST",
@@ -46,6 +49,9 @@ export async function createOpenAIResponse({
       input,
       previous_response_id: previousResponseId || undefined,
       reasoning: { effort: "low" },
+      tools: tools || undefined,
+      tool_choice: toolChoice || undefined,
+      include: include || undefined,
     }),
   });
 

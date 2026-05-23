@@ -21,44 +21,44 @@ const SCREEN_LABELS = {
 
 const QUICK_ACTIONS = {
   default: [
-    "Summarize what this screen is for and what I should do next.",
-    "Give me three ways AI could improve this part of the product.",
-    "Write friendlier microcopy for the main call to action on this page.",
+    "Help me find a place for my hangout — tell me the vibe you're going for.",
+    "Suggest fun hangout ideas for a group of friends.",
+    "Help me plan a hangout from start to finish.",
   ],
   dashboard: [
-    "What should the dashboard AI prioritize for users first?",
-    "Suggest a smart daily digest for hangouts, votes, and reminders.",
-    "Write a personalized welcome message for an active user.",
+    "What's a fun hangout idea for this weekend?",
+    "Find somewhere new my crew hasn't been yet.",
+    "Help me plan a spontaneous hangout — any city, any vibe.",
   ],
   "create-hangout": [
-    "Turn my hangout idea into a polished invite.",
-    "Suggest a better event description and schedule.",
-    "What details should we auto-fill to reduce friction here?",
+    "Find venues near [your location] with reservation links.",
+    "Give me 3 restaurants in [city] I can book for my group.",
+    "Help me write a fun invite description for this hangout.",
   ],
   voting: [
-    "Draft fair voting copy that feels fun, not pushy.",
-    "Suggest AI features for ranking and tie-breaking options.",
-    "Write a short summary of the leading options.",
+    "Compare our hangout options and recommend the best one.",
+    "Explain which option fits the group best and why.",
+    "Suggest a fun tiebreaker if the group can't decide.",
   ],
   "friend-groups": [
-    "Suggest a vibe-based description for a new friend group.",
-    "How can AI help organize group energy and preferences?",
-    "Draft a better onboarding flow for new groups.",
+    "Find hangout spots in [city] that work for a group.",
+    "What activities suit a close-knit friend group?",
+    "Suggest something unique this crew probably hasn't done.",
   ],
   "trip-planning": [
-    "Build a weekend itinerary from the current trip context.",
-    "Suggest a packing list based on this trip vibe.",
-    "What AI planning features would make this page feel magical?",
+    "Build a day trip itinerary for [destination] with booking links.",
+    "Find the best restaurants near [location] I can reserve now.",
+    "Give me a morning-to-night plan for our trip.",
   ],
   "bill-split": [
-    "Explain the current split in plain English.",
-    "Write friendlier copy for settling up without awkwardness.",
-    "Suggest AI features for spotting unfair or missing expenses.",
+    "Suggest affordable hangout ideas that keep costs low.",
+    "What are free or cheap group activities near [city]?",
+    "Help us plan a great hangout on a tight budget.",
   ],
   debrief: [
-    "Draft a calm message to help resolve tension between friends.",
-    "Suggest AI prompts for each debrief step.",
-    "How can AI keep this process supportive and non-judgmental?",
+    "Suggest a low-key hangout to help the group reconnect.",
+    "What venues are best for calm, relaxed meetups?",
+    "Help me plan something simple everyone will enjoy.",
   ],
 };
 
@@ -311,6 +311,37 @@ const STYLES = `
     font-weight: 700;
   }
 
+  .outsiders-ai-reserve-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #51cf66;
+    color: #1a1a2e;
+    border: 2px solid #1a1a2e;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-family: 'Bangers', cursive;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    box-shadow: 2px 2px 0 #1a1a2e;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin: 2px 1px;
+    vertical-align: middle;
+  }
+  .outsiders-ai-reserve-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 #1a1a2e;
+  }
+
+  .outsiders-ai-link {
+    color: #4ecdc4;
+    font-weight: 800;
+    text-decoration: underline;
+    word-break: break-all;
+  }
+
   @media (max-width: 720px) {
     .outsiders-ai-wrap {
       right: 12px;
@@ -352,13 +383,23 @@ function buildAppContext(screen, appData) {
   const groups = appData?.groups || [];
   const hangouts = appData?.hangouts || [];
 
+  const recentLocations = [...new Set(
+    hangouts.map(h => h.location).filter(Boolean)
+  )].slice(0, 3);
+
   const summary = {
     currentScreen: SCREEN_LABELS[screen] || screen,
-    totalGroups: groups.length,
-    totalHangouts: hangouts.length,
-    groupNames: groups.slice(0, 5).map((group) => group.name || group.title || "Untitled group"),
-    hangoutNames: hangouts.slice(0, 5).map((hangout) => hangout.title || hangout.name || "Untitled hangout"),
-    rawAppData: appData,
+    groups: groups.slice(0, 5).map(g => ({
+      name: g.name,
+      members: g.members?.length || 0,
+    })),
+    recentHangouts: hangouts.slice(0, 5).map(h => ({
+      name: h.name || h.title,
+      location: h.location,
+      vibe: h.vibe,
+      date: h.date,
+    })),
+    ...(recentLocations.length > 0 && { knownLocations: recentLocations }),
   };
 
   return safeStringify(summary);
@@ -371,19 +412,56 @@ function getQuickActions(screen) {
 function getSystemInstructions(screen) {
   const screenLabel = SCREEN_LABELS[screen] || "this screen";
   return [
-    "You are Outsiders AI, a warm and helpful chatbot inside a social planning app.",
-    "Answer in a friendly, straight-to-the-point way.",
-    "Keep answers very short by default.",
-    "Reply in one short paragraph only unless the user explicitly asks for more detail.",
-    "Use 1 to 3 short sentences inside that one paragraph.",
-    "Lead with the answer, then give only the most useful detail if needed.",
-    "Sound like a good friend giving helpful advice: warm, natural, calm, and easy to talk to.",
-    "Avoid sounding robotic, overly formal, repetitive, cold, or long-winded.",
-    "Do not give long lists or long explanations unless asked.",
-    "Prefer actionable suggestions, clear UX copy, and realistic product ideas grounded in the current screen context.",
-    `The user is currently on the ${screenLabel} screen.`,
-    "If you suggest new features, make them feel realistic for a React app used by friend groups planning hangouts, trips, voting, split bills, and debriefs.",
+    "You are Outsiders AI, a dedicated hangout planning assistant inside a social app called Outsiders.",
+    "Your entire purpose is to help users and their friend groups discover places, plan hangouts, make reservations, and make group decisions easier.",
+    "When a user mentions a city, neighborhood, or location, use web search to find specific real places by name — restaurants, bars, cafes, parks, venues, activities, experiences.",
+    "Always be specific: name actual places, say what makes them great for groups, and mention price range or vibe when it helps.",
+    "For every place you recommend, include a direct reservation or booking link from OpenTable, Resy, Tock, or the venue's own site — format each link as [Reserve on OpenTable](url) or [Book on Resy](url).",
+    "If you can't find a specific reservation link, include a Google Maps link formatted as [View on Google Maps](url).",
+    "If the user hasn't mentioned a location, ask briefly for their city or neighborhood before recommending spots.",
+    "Keep answers short and practical — lead with the best option, offer 2–3 alternatives if useful.",
+    "Sound like a knowledgeable friend who knows the best spots: warm, direct, and genuinely helpful.",
+    "Avoid vague advice. Every venue recommendation must include the venue name, a one-line reason it fits, and a booking link.",
+    `The user is on the ${screenLabel} screen of Outsiders.`,
   ].join(" ");
+}
+
+const RESERVATION_PATTERN = /reserve|book|reservation|resy|opentable|yelp|tock/i;
+
+function renderMessageContent(text) {
+  if (!text) return null;
+  const pattern = /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))|(https?:\/\/\S+)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<span key={`t-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>);
+    }
+    if (match[1]) {
+      const label = match[2];
+      const url = match[3];
+      const isReservation = RESERVATION_PATTERN.test(label + " " + url);
+      parts.push(
+        <a key={`l-${match.index}`} href={url} target="_blank" rel="noopener noreferrer"
+          className={isReservation ? "outsiders-ai-reserve-btn" : "outsiders-ai-link"}>
+          {isReservation ? `🗓 ${label}` : label}
+        </a>
+      );
+    } else {
+      const url = match[4];
+      const isReservation = RESERVATION_PATTERN.test(url);
+      parts.push(
+        <a key={`u-${match.index}`} href={url} target="_blank" rel="noopener noreferrer"
+          className={isReservation ? "outsiders-ai-reserve-btn" : "outsiders-ai-link"}>
+          {isReservation ? `🗓 ${url}` : url}
+        </a>
+      );
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) parts.push(<span key="t-end">{text.slice(lastIndex)}</span>);
+  return parts.length > 0 ? parts : text;
 }
 
 function getInitialApiKey() {
@@ -391,8 +469,33 @@ function getInitialApiKey() {
 }
 
 function getGreeting(screen) {
-  const activeScreenLabel = SCREEN_LABELS[screen] || "this screen";
-  return `Hello, how can I help you today? I can help with ${activeScreenLabel.toLowerCase()} planning, better copy, smarter flows, and feature ideas.`;
+  const greetings = {
+    "create-hangout": "Tell me where you're thinking and what kind of hangout you want — I'll find real spots with reservation links and help you lock it in.",
+    "trip-planning": "Let's plan your trip! Tell me the destination and how many people are going — I'll find the best spots with booking links so you can reserve ahead.",
+    "friend-groups": "Tell me your group's vibe and where you're based — I'll find hangout spots that fit them and include reservation options.",
+    dashboard: "What are you planning? Give me a city and a vibe — I'll suggest real places, include booking links, and help you lock in a plan.",
+    voting: "Need help deciding? Tell me the options and I'll recommend the best fit for your group — with reservation links if needed.",
+    "bill-split": "Looking for the next hangout? Tell me your city and budget and I'll find places with booking options.",
+    debrief: "Let's plan something to bring the group back together — tell me where you're based and I'll find a great spot.",
+  };
+  return greetings[screen] || "Tell me what you're planning and where — I'll find real places, include reservation links, and help you build a hangout your crew will love.";
+}
+
+function getWebSearchTools() {
+  const timezone = typeof Intl !== "undefined"
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone
+    : "America/New_York";
+
+  return [
+    {
+      type: "web_search",
+      user_location: {
+        type: "approximate",
+        country: "US",
+        timezone,
+      },
+    },
+  ];
 }
 
 export default function OutsidersAI({ screen, appData }) {
@@ -429,6 +532,9 @@ export default function OutsidersAI({ screen, appData }) {
         model: DEFAULT_OPENAI_MODEL,
         instructions: getSystemInstructions(screen),
         previousResponseId,
+        tools: getWebSearchTools(),
+        toolChoice: "auto",
+        include: ["web_search_call.action.sources"],
         input: [
           {
             role: "user",
@@ -471,7 +577,7 @@ function clearConversation() {
                     Outsiders AI
                   </h3>
                   <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, fontWeight: 800, color: "#5d5967" }}>
-                    Chat with Outsiders AI for help on anything happening in the app.
+                    Your hangout assistant for timing, places, plans, and group decisions.
                   </p>
                 </div>
                 <button
@@ -520,11 +626,11 @@ function clearConversation() {
                 ) : (
                   messages.map((message, index) => (
                     <div key={`${message.role}-${index}`} className={`outsiders-ai-msg ${message.role}`}>
-                      {message.text}
+                      {renderMessageContent(message.text)}
                     </div>
                   ))
                 )}
-                {isLoading ? <div className="outsiders-ai-msg assistant">Thinking through the best next step...</div> : null}
+                {isLoading ? <div className="outsiders-ai-msg assistant">Finding the best spots for you...</div> : null}
               </div>
             </div>
 
@@ -541,10 +647,10 @@ function clearConversation() {
                     className="outsiders-ai-textarea"
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
-                    placeholder={`Ask Outsiders AI anything about ${activeScreenLabel.toLowerCase()}...`}
+                    placeholder={`e.g. "Find a dinner spot in Brooklyn for 6" or "Plan our Saturday evening..."`}
                   />
                   <span className="outsiders-ai-note">
-                    The assistant gets the current screen and shared app context automatically.
+                    Mention your city or neighborhood for the best place suggestions.
                   </span>
                 </div>
                 <button
