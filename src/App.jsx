@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { DEFAULT_PROFILE, normalizeAppData, persistStoredProfile, profileNeedsAvailability } from "./appState";
+import OutsidersAssistant from "./OutsidersAssistant";
 import OutsidersBillSplit from "./OutsidersBillSplit";
 import OutsidersCreateHangout from "./OutsidersCreateHangout";
 import OutsidersDashboard from "./OutsidersDashboard";
@@ -237,6 +238,7 @@ export default function App() {
         }
       `}</style>
       <Screen onNavigate={navigate} onLogout={logout} appData={appData} setAppData={setAppData} routeParams={route.params} />
+      <OutsidersAssistant route={route} appData={appData} />
       {availabilityRequired ? (
         <div className="availability-gate">
           <div className="availability-gate-card">
