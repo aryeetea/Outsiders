@@ -11,31 +11,24 @@ const STYLES = `
     min-height: 100vh;
     color: #17151f;
     font-family: 'Nunito', sans-serif;
-    background:
-      radial-gradient(circle at top left, rgba(255, 217, 61, 0.5), transparent 28%),
-      radial-gradient(circle at 85% 12%, rgba(110, 215, 255, 0.35), transparent 24%),
-      linear-gradient(180deg, #fff6c7 0%, #fffdf6 38%, #f5efe0 100%);
+    background: #fff4b8;
   }
   .root::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image:
-      radial-gradient(circle, rgba(23, 21, 31, 0.14) 1.2px, transparent 1.4px),
-      linear-gradient(135deg, transparent 0 49.2%, rgba(23, 21, 31, 0.035) 49.2% 50.8%, transparent 50.8% 100%);
-    background-size: 22px 22px, 140px 140px;
-    opacity: 0.6;
+    background: transparent;
     pointer-events: none;
     z-index: 0;
   }
   .root::after {
-    content: 'POW! BAM! SNAP!';
+    content: 'POW! BAM! WOW!';
     position: fixed;
     right: -18px;
     top: 68px;
     font: 400 clamp(28px, 4vw, 54px) 'Bangers', cursive;
     letter-spacing: 0.12em;
-    color: rgba(255, 107, 107, 0.18);
+    color: rgba(255, 107, 107, 0.22);
     transform: rotate(-8deg);
     pointer-events: none;
     z-index: 0;
@@ -52,7 +45,7 @@ const STYLES = `
   .glass, .card {
     border-radius: 22px;
     border: 4px solid #17151f;
-    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,250,240,0.98));
+    background: #fffdf7;
     box-shadow: 8px 8px 0 #17151f;
     position: relative;
     overflow: hidden;
@@ -61,9 +54,7 @@ const STYLES = `
     content: '';
     position: absolute;
     inset: 0;
-    background:
-      radial-gradient(circle at top right, rgba(255,255,255,0.7), transparent 30%),
-      linear-gradient(135deg, rgba(255,255,255,0.2), transparent 48%);
+    background: transparent;
     pointer-events: none;
   }
   .glass {
@@ -92,7 +83,7 @@ const STYLES = `
   .logo {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #ff6b6b, #ff9a3c);
+    background: #ff7a59;
     border: 3px solid #17151f;
     border-radius: 14px;
     display: grid;
@@ -102,9 +93,7 @@ const STYLES = `
   }
   .hero {
     padding: 32px;
-    background:
-      radial-gradient(circle at 12% 18%, rgba(255,255,255,0.84), transparent 18%),
-      linear-gradient(135deg, #ffef7d 0%, #fff9cf 32%, #ffffff 100%);
+    background: #fff2a6;
   }
   .layout {
     display: grid;
@@ -120,9 +109,7 @@ const STYLES = `
     padding: 16px;
     border-radius: 16px;
     border: 3px solid #17151f;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,245,230,0.94)),
-      radial-gradient(circle at top right, rgba(255, 217, 61, 0.16), transparent 24%);
+    background: #fff7e8;
     box-shadow: 5px 5px 0 #17151f;
     cursor: pointer;
     position: relative;
@@ -130,7 +117,7 @@ const STYLES = `
   }
   .crew-card.active, .crew-card:hover {
     transform: translate(-2px, -3px) rotate(-0.7deg);
-    background: linear-gradient(180deg, #ffffff, #eafaff);
+    background: #e8f8ff;
     border-color: #00a8cc;
     box-shadow: 7px 7px 0 #00a8cc;
   }
@@ -156,15 +143,15 @@ const STYLES = `
     transform: translate(-1px, -2px);
   }
   .btn.primary {
-    background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
+    background: #ff6b6b;
     color: white;
   }
   .btn.secondary {
-    background: linear-gradient(135deg, #ffd93d, #ffb347);
+    background: #ffd93d;
     color: #17151f;
   }
   .btn.ghost {
-    background: linear-gradient(180deg, #ffffff, #fff3c8);
+    background: #ffffff;
     color: #17151f;
   }
   .tab-row {
@@ -175,7 +162,7 @@ const STYLES = `
   .tab-btn {
     padding: 10px 14px;
     border-radius: 999px;
-    background: #fff8df;
+    background: #fff1c7;
     border: 3px solid transparent;
     color: #6b647a;
     font: 800 13px 'Nunito', sans-serif;
@@ -190,7 +177,7 @@ const STYLES = `
   .member-row, .pending-row, .proposal-card, .roast-card, .bill-card {
     border-radius: 14px;
     border: 3px solid #17151f;
-    background: linear-gradient(180deg, #fffef9, #fff8ea);
+    background: #fff8ea;
     padding: 16px;
     box-shadow: 5px 5px 0 #17151f;
     position: relative;
@@ -204,7 +191,7 @@ const STYLES = `
     width: 82px;
     height: 82px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,217,61,0.34) 0%, rgba(255,217,61,0.12) 44%, transparent 46%);
+    background: rgba(255,217,61,0.2);
     pointer-events: none;
   }
   .vote-grid, .member-list, .roast-list {
@@ -216,19 +203,19 @@ const STYLES = `
     padding: 12px 14px;
     border-radius: 12px;
     text-align: left;
-    background: linear-gradient(180deg, #ffffff, #fff5de);
+    background: #fff5de;
     border: 3px solid #17151f;
     box-shadow: 3px 3px 0 #17151f;
     position: relative;
     z-index: 1;
   }
   .vote-btn.active {
-    background: linear-gradient(180deg, #f3ffe7, #e8fde8);
+    background: #e8fde8;
     border-color: #51cf66;
     box-shadow: 4px 4px 0 #51cf66;
   }
   .roast-card {
-    background: linear-gradient(180deg, #fff2df, #fff7ee);
+    background: #fff2df;
     border-color: #ff9a3c;
     box-shadow: 5px 5px 0 #ff9a3c;
   }
@@ -251,7 +238,7 @@ const STYLES = `
     border: 3px solid #17151f;
     border-radius: 12px;
     padding: 13px 14px;
-    background: linear-gradient(180deg, #fffef8, #fff7e4);
+    background: #fff7e4;
     font: 700 15px 'Nunito', sans-serif;
     color: #17151f;
     outline: none;
@@ -298,7 +285,7 @@ const STYLES = `
     border: 3px solid #17151f;
     box-shadow: 3px 3px 0 #17151f;
     font-weight: 900;
-    background: #fff;
+    background: #fff7da;
   }
   .section-grid {
     display: grid;
@@ -577,7 +564,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
           </section>
 
           {notice ? (
-            <div className="card" style={{ background: "linear-gradient(135deg, rgba(255,245,230,0.96), rgba(255,255,255,0.92))" }}>
+            <div className="card" style={{ background: "#fff5e6" }}>
               <strong>{notice}</strong>
             </div>
           ) : null}

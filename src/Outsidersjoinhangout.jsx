@@ -8,10 +8,7 @@ const STYLES = `
     min-height: 100vh;
     font-family: 'Nunito', sans-serif;
     color: #17151f;
-    background:
-      radial-gradient(circle at top left, rgba(255, 217, 61, 0.46), transparent 28%),
-      radial-gradient(circle at top right, rgba(110, 215, 255, 0.24), transparent 24%),
-      linear-gradient(180deg, #fff7cc 0%, #fffef6 40%, #f5efe0 100%);
+    background: #fff6d8;
     display: grid;
     place-items: center;
     padding: 24px;
@@ -21,9 +18,7 @@ const STYLES = `
     content: '';
     position: fixed;
     inset: 0;
-    background-image: radial-gradient(circle, rgba(23, 21, 31, 0.14) 1.1px, transparent 1.3px);
-    background-size: 22px 22px;
-    opacity: 0.5;
+    background: transparent;
     pointer-events: none;
     z-index: 0;
   }
@@ -31,7 +26,7 @@ const STYLES = `
     width: min(560px, 100%);
     border-radius: 22px;
     border: 4px solid #17151f;
-    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,250,240,0.98));
+    background: #fffdf7;
     box-shadow: 8px 8px 0 #17151f;
     padding: 28px;
     position: relative;
@@ -42,7 +37,7 @@ const STYLES = `
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at top right, rgba(255,255,255,0.64), transparent 28%);
+    background: transparent;
     pointer-events: none;
   }
   .code-input {
@@ -54,7 +49,7 @@ const STYLES = `
     letter-spacing: 0.25em;
     font: 400 30px 'Bangers', cursive;
     color: #17151f;
-    background: linear-gradient(180deg, #fffef8, #fff7e4);
+    background: #fff7e4;
     outline: none;
     text-transform: uppercase;
     box-shadow: 4px 4px 0 #17151f;
@@ -77,11 +72,11 @@ const STYLES = `
   }
   .btn:hover { transform: translate(-1px, -2px); }
   .primary {
-    background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
+    background: #ff6b6b;
     color: white;
   }
   .ghost {
-    background: linear-gradient(180deg, #ffffff, #fff3c8);
+    background: #ffffff;
     color: #17151f;
   }
   .bangers {
@@ -103,7 +98,7 @@ const STYLES = `
   .detail-box {
     border-radius: 18px;
     padding: 16px;
-    background: linear-gradient(180deg, #fff7de, #fffef9);
+    background: #fff7de;
     border: 3px solid #17151f;
     box-shadow: 5px 5px 0 #17151f;
   }

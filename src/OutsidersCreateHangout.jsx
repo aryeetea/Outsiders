@@ -11,19 +11,14 @@ const STYLES = `
     min-height: 100vh;
     color: #17151f;
     font-family: 'Nunito', sans-serif;
-    background:
-      radial-gradient(circle at top left, rgba(255, 217, 61, 0.46), transparent 28%),
-      radial-gradient(circle at top right, rgba(110, 215, 255, 0.24), transparent 24%),
-      linear-gradient(180deg, #fff7cc 0%, #fffef6 40%, #f5efe0 100%);
+    background: #fff6d8;
     position: relative;
   }
   .root::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image: radial-gradient(circle, rgba(23, 21, 31, 0.14) 1.1px, transparent 1.3px);
-    background-size: 22px 22px;
-    opacity: 0.5;
+    background: transparent;
     pointer-events: none;
     z-index: 0;
   }
@@ -39,7 +34,7 @@ const STYLES = `
   .glass, .card {
     border-radius: 22px;
     border: 4px solid #17151f;
-    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,250,240,0.98));
+    background: #fffdf7;
     box-shadow: 8px 8px 0 #17151f;
     position: relative;
     overflow: hidden;
@@ -48,7 +43,7 @@ const STYLES = `
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at top right, rgba(255,255,255,0.64), transparent 28%);
+    background: transparent;
     pointer-events: none;
   }
   .glass {
@@ -78,7 +73,7 @@ const STYLES = `
     width: 48px;
     height: 48px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #ff6b6b, #ff9a3c);
+    background: #ff7a59;
     border: 3px solid #17151f;
     display: grid;
     place-items: center;
@@ -117,7 +112,7 @@ const STYLES = `
     border: 3px solid #17151f;
     border-radius: 12px;
     padding: 13px 14px;
-    background: linear-gradient(180deg, #fffef8, #fff7e4);
+    background: #fff7e4;
     font: 700 15px 'Nunito', sans-serif;
     color: #17151f;
     outline: none;
@@ -145,22 +140,22 @@ const STYLES = `
     padding: 13px 16px;
   }
   .btn.primary {
-    background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
+    background: #ff6b6b;
     color: white;
   }
   .btn.secondary {
-    background: linear-gradient(135deg, #ffd93d, #ffb347);
+    background: #ffd93d;
     color: #17151f;
   }
   .btn.ghost, .mini-btn {
-    background: linear-gradient(180deg, #ffffff, #fff3c8);
+    background: #ffffff;
     color: #17151f;
   }
   .btn:hover, .option-btn:hover, .mini-btn:hover, .crew-member:hover { transform: translate(-1px, -2px); }
   .crew-member, .recommendation, .pill-list, .invite-item {
     border-radius: 18px;
     border: 3px solid #17151f;
-    background: linear-gradient(180deg, #fffef9, #fff8ea);
+    background: #fff8ea;
     box-shadow: 5px 5px 0 #17151f;
     position: relative;
     overflow: hidden;
@@ -170,7 +165,7 @@ const STYLES = `
     cursor: pointer;
   }
   .crew-member.active {
-    background: linear-gradient(180deg, #eefcff, #ebfff4);
+    background: #eefcff;
     border-color: #00a8cc;
     box-shadow: 6px 6px 0 #00a8cc;
   }
@@ -178,7 +173,7 @@ const STYLES = `
     width: 100%;
     border: 3px solid #17151f;
     border-radius: 14px;
-    background: linear-gradient(180deg, #ffffff, #fff5de);
+    background: #fff5de;
     padding: 14px;
     text-align: left;
     cursor: pointer;
@@ -200,7 +195,7 @@ const STYLES = `
     padding: 10px 12px;
     border-radius: 999px;
     border: 3px solid #17151f;
-    background: linear-gradient(180deg, #ffffff, #fff3c8);
+    background: #fff3c8;
     font-size: 13px;
     font-weight: 900;
     box-shadow: 3px 3px 0 #17151f;
@@ -219,7 +214,7 @@ const STYLES = `
   .summary-box {
     border-radius: 18px;
     padding: 16px;
-    background: linear-gradient(180deg, #fff7de, #fffef9);
+    background: #fff7de;
     border: 3px solid #17151f;
     box-shadow: 5px 5px 0 #17151f;
     position: relative;

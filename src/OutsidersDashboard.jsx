@@ -6,19 +6,14 @@ const STYLES = `
     min-height: 100vh;
     font-family: 'Nunito', sans-serif;
     color: #17151f;
-    background:
-      radial-gradient(circle at top left, rgba(255, 217, 61, 0.48), transparent 28%),
-      radial-gradient(circle at top right, rgba(110, 215, 255, 0.22), transparent 26%),
-      linear-gradient(180deg, #fff7cc 0%, #fffef6 40%, #f5efe0 100%);
+    background: #fff6d8;
     position: relative;
   }
   .dash-root::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image: radial-gradient(circle, rgba(23, 21, 31, 0.14) 1.1px, transparent 1.3px);
-    background-size: 22px 22px;
-    opacity: 0.5;
+    background: transparent;
     pointer-events: none;
     z-index: 0;
   }
@@ -33,7 +28,7 @@ const STYLES = `
   }
   .glass, .card {
     border: 4px solid #17151f;
-    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,250,240,0.98));
+    background: #fffdf7;
     box-shadow: 8px 8px 0 #17151f;
     position: relative;
     overflow: hidden;
@@ -42,7 +37,7 @@ const STYLES = `
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at top right, rgba(255,255,255,0.65), transparent 28%);
+    background: transparent;
     pointer-events: none;
   }
   .glass {
@@ -72,7 +67,7 @@ const STYLES = `
     width: 46px;
     height: 46px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #ff6b6b, #ff9a3c);
+    background: #ff7a59;
     border: 3px solid #17151f;
     display: grid;
     place-items: center;
@@ -81,7 +76,7 @@ const STYLES = `
   }
   .chip-btn {
     border: 3px solid #17151f;
-    background: linear-gradient(180deg, #ffffff, #fff3c8);
+    background: #fff3c8;
     color: #17151f;
     padding: 10px 14px;
     border-radius: 999px;
@@ -98,9 +93,7 @@ const STYLES = `
   .hero {
     border-radius: 24px;
     padding: 30px;
-    background:
-      radial-gradient(circle at right top, rgba(110,215,255,0.2), transparent 26%),
-      linear-gradient(135deg, #ffef7d 0%, #fff8ca 38%, #ffffff 100%);
+    background: #fff2a6;
   }
   .hero-grid {
     display: grid;
@@ -126,11 +119,11 @@ const STYLES = `
     z-index: 1;
   }
   .cta-btn.primary {
-    background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
+    background: #ff6b6b;
     color: white;
   }
   .cta-btn.secondary {
-    background: linear-gradient(135deg, #72d8ff, #8bf0c4);
+    background: #72d8ff;
     color: #093344;
   }
   .stats-grid, .content-grid, .quick-grid {
@@ -153,7 +146,7 @@ const STYLES = `
   .proposal-card, .note-card {
     border-radius: 18px;
     padding: 16px;
-    background: linear-gradient(180deg, #fffef9, #fff8ea);
+    background: #fff8ea;
     border: 3px solid #17151f;
     box-shadow: 5px 5px 0 #17151f;
     position: relative;
@@ -163,7 +156,7 @@ const STYLES = `
     animation: fadeSlide 300ms ease both;
   }
   .quick-btn {
-    background: linear-gradient(180deg, #ffffff, #fff5de);
+    background: #fff5de;
     min-height: 112px;
   }
   .bangers {
@@ -197,6 +190,7 @@ const STYLES = `
     border: 3px solid #17151f;
     box-shadow: 3px 3px 0 #17151f;
     font-weight: 900;
+    background: #fff7da;
   }
   @keyframes fadeSlide {
     from { opacity: 0; transform: translateY(10px); }

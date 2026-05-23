@@ -4,12 +4,15 @@
 :root {
   --out-ink: #17151f;
   --out-paper: #fffdf9;
-  --out-page: #f7f1dd;
+  --out-page: #fff6d8;
   --out-red: #ff6b6b;
   --out-yellow: #ffd93d;
   --out-teal: #4ecdc4;
   --out-green: #51cf66;
   --out-pink: #ff6b9d;
+  --out-sky: #6ed7ff;
+  --out-orange: #ff9a3c;
+  --out-lilac: #c6a6ff;
   --out-muted: #666;
   --out-soft-border: #e0dbd0;
   font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -34,10 +37,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(255, 217, 61, 0.34), transparent 28%),
-    radial-gradient(circle at 86% 8%, rgba(110, 215, 255, 0.18), transparent 24%),
-    linear-gradient(180deg, #fff7cc 0%, #fffef6 40%, #f5efe0 100%);
+  background: #fff6d8;
   overflow-x: hidden;
 }
 
@@ -75,9 +75,7 @@ svg {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(23, 21, 31, 0.1) 1px, transparent 1.2px);
-  background-size: 22px 22px;
-  opacity: 0.45;
+  background: transparent;
   pointer-events: none;
   z-index: 0;
 }

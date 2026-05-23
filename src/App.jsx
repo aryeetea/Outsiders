@@ -191,7 +191,7 @@ export default function App() {
         }
         .availability-gate-card {
           width: min(540px, 100%);
-          background: linear-gradient(180deg, #fff9df 0%, #ffffff 54%, #fff7e8 100%);
+          background: #fff9df;
           border: 4px solid #1a1a2e;
           border-radius: 24px;
           box-shadow: 8px 8px 0 #1a1a2e;
@@ -205,16 +205,14 @@ export default function App() {
           content: '';
           position: absolute;
           inset: 0;
-          background-image: radial-gradient(circle, rgba(26,26,46,0.12) 1px, transparent 1.2px);
-          background-size: 20px 20px;
-          opacity: 0.5;
+          background: transparent;
           pointer-events: none;
         }
         .availability-gate-btn {
           width: 100%;
           border: 3px solid #1a1a2e;
           border-radius: 12px;
-          background: linear-gradient(135deg, #ff6b6b, #ff8b6b);
+          background: #ff6b6b;
           color: #fff;
           font: 400 18px 'Bangers', cursive;
           letter-spacing: 0.06em;
