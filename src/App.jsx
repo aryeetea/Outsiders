@@ -104,6 +104,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !sessionReady || !currentSession?.user?.id) return undefined;
+
+    let active = true;
+
+    async function loadProfileFromAccount() {
+      const user = currentSession.user;
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("full_name, username, email, availability")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      setAppData((prev) => normalizeAppData({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          name: profileRow?.full_name || user.user_metadata?.full_name || prev.profile?.name || "",
+          username: profileRow?.username || user.user_metadata?.username || prev.profile?.username || "",
+          email: profileRow?.email || user.email || prev.profile?.email || "",
+          bio: user.user_metadata?.bio || prev.profile?.bio || "",
+          location: user.user_metadata?.location || prev.profile?.location || "",
+          availability: profileRow?.availability || user.user_metadata?.availability || prev.profile?.availability,
+        },
+      }));
+    }
+
+    loadProfileFromAccount();
+    return () => {
+      active = false;
+    };
+  }, [currentSession, sessionReady]);
+
+  useEffect(() => {
     window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData));
     persistStoredProfile(appData.profile, appData.avatar);
   }, [appData]);

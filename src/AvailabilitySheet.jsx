@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TIME_BLOCKS, WEEK_DAYS, availabilityToText, blocksToAvailability, formatTimeLabel, getAvailabilityBlockSet, hasAvailability } from "./scheduling";
 
 const STYLES = `
@@ -48,6 +48,61 @@ const STYLES = `
     border-bottom: 3px solid #1a1a2e;
     overflow: auto;
     background: #f5f3ee;
+  }
+
+  .availability-help {
+    padding: 0 22px 18px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .availability-sheet.compact .availability-help {
+    padding: 0 18px 14px;
+  }
+
+  .availability-tipbox {
+    border: 3px solid #1a1a2e;
+    border-radius: 16px;
+    background: #fff7da;
+    box-shadow: 4px 4px 0 #1a1a2e;
+    padding: 14px;
+  }
+
+  .availability-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .availability-day-card {
+    border: 3px solid #1a1a2e;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 4px 4px 0 #1a1a2e;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .availability-day-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .availability-mini-btn {
+    border: 2px solid #1a1a2e;
+    background: #fff;
+    color: #1a1a2e;
+    border-radius: 999px;
+    padding: 6px 9px;
+    cursor: pointer;
+    font: 800 11px 'Nunito', sans-serif;
+    box-shadow: 2px 2px 0 #1a1a2e;
+  }
+
+  .availability-mini-btn:hover {
+    transform: translateY(-1px);
   }
 
   .availability-grid {
@@ -101,6 +156,7 @@ const STYLES = `
     position: relative;
     cursor: pointer;
     background: rgba(255, 255, 255, 0.66);
+    touch-action: none;
   }
 
   .availability-slot::after {
@@ -117,12 +173,12 @@ const STYLES = `
   }
 
   .availability-slot.active::after {
-    background: linear-gradient(135deg, #4ecdc4, #51cf66);
+    background: #51cf66;
     box-shadow: inset 0 0 0 2px rgba(26, 26, 46, 0.12), 0 4px 0 rgba(26, 26, 46, 0.12);
   }
 
   .availability-slot.dragging::after {
-    background: linear-gradient(135deg, #ffd93d, #ff9a3c);
+    background: #ffd93d;
   }
 
   .availability-footer {
@@ -177,8 +233,18 @@ const STYLES = `
     .availability-sheet-header {
       flex-direction: column;
     }
+
+    .availability-shortcuts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 `;
+
+const RANGE_PRESETS = [
+  { label: "Morning", start: "08:00", end: "12:00" },
+  { label: "Afternoon", start: "12:00", end: "17:00" },
+  { label: "Evening", start: "17:00", end: "22:00" },
+];
 
 function summaryText(availability) {
   const text = availabilityToText(availability);
@@ -197,15 +263,23 @@ export default function AvailabilitySheet({
   footerAction,
 }) {
   const [dragMode, setDragMode] = useState(null);
+  const dragTouchedKeys = useRef(new Set());
   const activeBlocks = useMemo(() => getAvailabilityBlockSet(value), [value]);
   const ready = hasAvailability(value);
   const summary = useMemo(() => summaryText(value), [value]);
 
   useEffect(() => {
     if (!dragMode) return undefined;
-    const stopDrag = () => setDragMode(null);
+    const stopDrag = () => {
+      setDragMode(null);
+      dragTouchedKeys.current = new Set();
+    };
     window.addEventListener("mouseup", stopDrag);
-    return () => window.removeEventListener("mouseup", stopDrag);
+    window.addEventListener("touchend", stopDrag);
+    return () => {
+      window.removeEventListener("mouseup", stopDrag);
+      window.removeEventListener("touchend", stopDrag);
+    };
   }, [dragMode]);
 
   const setAvailabilityFromBlocks = (blocks) => {
@@ -225,7 +299,33 @@ export default function AvailabilitySheet({
     const key = `${day}-${time}`;
     const mode = activeBlocks.has(key) ? "remove" : "add";
     setDragMode(mode);
+    dragTouchedKeys.current = new Set([key]);
     toggleBlock(day, time, mode);
+  };
+
+  const continueDrag = (day, time) => {
+    if (!dragMode) return;
+    const key = `${day}-${time}`;
+    if (dragTouchedKeys.current.has(key)) return;
+    dragTouchedKeys.current.add(key);
+    toggleBlock(day, time, dragMode);
+  };
+
+  const applyPresetToDay = (day, start, end, mode = "add") => {
+    const next = new Set(activeBlocks);
+    TIME_BLOCKS.forEach((time) => {
+      if (time >= start && time < end) {
+        const key = `${day}-${time}`;
+        if (mode === "add") next.add(key);
+        else next.delete(key);
+      }
+    });
+    setAvailabilityFromBlocks(next);
+  };
+
+  const toggleAllDay = (day) => {
+    const hasAny = TIME_BLOCKS.some((time) => activeBlocks.has(`${day}-${time}`));
+    applyPresetToDay(day, TIME_BLOCKS[0], TIME_BLOCKS[TIME_BLOCKS.length - 1] ? "23:00" : "23:00", hasAny ? "remove" : "add");
   };
 
   return (
@@ -248,6 +348,42 @@ export default function AvailabilitySheet({
           </div>
         </div>
 
+        <div className="availability-help">
+          <div className="availability-tipbox">
+            <div className="bangers" style={{ fontSize: 18, marginBottom: 6, color: "#1a1a2e" }}>Easier way to fill this out</div>
+            <div style={{ color: "#555", lineHeight: 1.5, fontWeight: 800, fontSize: 14 }}>
+              Use the day shortcuts first, then tap any half-hour block to fine-tune. You can still drag across blocks, but you do not have to.
+            </div>
+          </div>
+
+          <div className="availability-shortcuts">
+            {WEEK_DAYS.map((day) => {
+              const dayCount = TIME_BLOCKS.filter((time) => activeBlocks.has(`${day}-${time}`)).length;
+              return (
+                <div key={day} className="availability-day-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                    <strong className="bangers" style={{ fontSize: 18, color: "#1a1a2e" }}>{day}</strong>
+                    <span style={{ fontSize: 11, fontWeight: 900, color: "#666" }}>{dayCount ? `${dayCount} slots` : "Empty"}</span>
+                  </div>
+                  <div className="availability-day-actions">
+                    {RANGE_PRESETS.map((preset) => (
+                      <button key={`${day}-${preset.label}`} type="button" className="availability-mini-btn" onClick={() => applyPresetToDay(day, preset.start, preset.end, "add")}>
+                        {preset.label}
+                      </button>
+                    ))}
+                    <button type="button" className="availability-mini-btn" onClick={() => toggleAllDay(day)}>
+                      All day
+                    </button>
+                    <button type="button" className="availability-mini-btn" onClick={() => applyPresetToDay(day, "08:00", "23:00", "remove")}>
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="availability-frame">
           <div className="availability-grid">
             <div className="availability-head" />
@@ -265,10 +401,7 @@ export default function AvailabilitySheet({
                 activeBlocks={activeBlocks}
                 dragMode={dragMode}
                 onMouseDown={startDrag}
-                onMouseEnter={(day) => {
-                  if (!dragMode) return;
-                  toggleBlock(day, time, dragMode);
-                }}
+                onMouseEnter={(day) => continueDrag(day, time)}
               />
             ))}
           </div>
@@ -277,8 +410,8 @@ export default function AvailabilitySheet({
         {showSummary ? (
           <div className="availability-footer">
             <div className="availability-pill">Green blocks = available</div>
-            <div className="availability-pill">Tap once for a single slot</div>
-            <div className="availability-pill">Click and drag for a whole stretch</div>
+            <div className="availability-pill">Use day shortcuts for morning, afternoon, or evening</div>
+            <div className="availability-pill">Tap any block to fine-tune</div>
             <div className="availability-pill">{summary}</div>
           </div>
         ) : null}
@@ -299,9 +432,7 @@ function AvailabilityRow({ time, activeBlocks, dragMode, onMouseDown, onMouseEnt
             className={`availability-slot ${activeBlocks.has(key) ? "active" : ""} ${dragMode ? "dragging" : ""}`}
             onMouseDown={() => onMouseDown(day, time)}
             onMouseEnter={() => onMouseEnter(day)}
-            onClick={() => {
-              if (!dragMode) onMouseDown(day, time);
-            }}
+            onTouchStart={() => onMouseDown(day, time)}
           />
         );
       })}

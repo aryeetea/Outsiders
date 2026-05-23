@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE } from "./appState";
 import { availabilityToText, hasAvailability } from "./scheduling";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -303,20 +304,35 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
   const notifications = appData?.notifications || [];
   const [draft, setDraft] = useState(() => profile);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
   const availabilitySummary = weekSummary(draft.availability);
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const availabilityReady = hasAvailability(draft.availability);
+
+  useEffect(() => {
+    setDraft(profile);
+  }, [profile]);
 
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
+    setSaveError("");
+    setSaving(true);
+
+    const cleanUsername = draft.username.trim().replace(/^@/, "").toLowerCase();
+    const nextProfile = {
+      ...draft,
+      username: cleanUsername,
+    };
+
     setAppData?.((prev) => ({
       ...prev,
       profile: {
         ...prev.profile,
-        ...draft,
+        ...nextProfile,
       },
       groups: (prev.groups || []).map((group) => ({
         ...group,
@@ -324,16 +340,63 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
           member.name === prev.profile?.name || member.username === (prev.profile?.username ? `@${prev.profile.username}` : "")
             ? {
                 ...member,
-                name: draft.name || member.name,
-                username: draft.username ? `@${draft.username.replace(/^@/, "")}` : member.username,
-                initials: initialsFor(draft),
-                availability: draft.availability,
+                name: nextProfile.name || member.name,
+                username: cleanUsername ? `@${cleanUsername}` : member.username,
+                initials: initialsFor(nextProfile),
+                availability: nextProfile.availability,
               }
             : member
         )),
       })),
     }));
+
+    if (isSupabaseConfigured) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData.session?.user || null;
+
+      if (user) {
+        const { error: profileError } = await supabase.from("profiles").upsert({
+          id: user.id,
+          full_name: nextProfile.name.trim() || user.user_metadata?.full_name || user.email?.split("@")[0] || "You",
+          username: cleanUsername || user.user_metadata?.username || user.email?.split("@")[0] || `user-${user.id.slice(0, 8)}`,
+          email: nextProfile.email.trim() || user.email || "",
+        });
+
+        if (profileError) {
+          setSaveError(profileError.message);
+          setSaving(false);
+          return;
+        }
+
+        const { error: availabilityError } = await supabase.rpc("save_my_availability", {
+          next_availability: nextProfile.availability,
+        });
+
+        if (availabilityError) {
+          setSaveError(availabilityError.message);
+          setSaving(false);
+          return;
+        }
+
+        const { error: authError } = await supabase.auth.updateUser({
+          data: {
+            full_name: nextProfile.name.trim(),
+            username: cleanUsername,
+            bio: nextProfile.bio.trim(),
+            location: nextProfile.location.trim(),
+            availability: nextProfile.availability,
+          },
+        });
+
+        if (authError) {
+          console.warn("Profile metadata update failed after profile + availability were saved:", authError.message);
+        }
+      }
+    }
+
+    setDraft(nextProfile);
     setSaved(true);
+    setSaving(false);
     window.setTimeout(() => setSaved(false), 1800);
   };
 
@@ -390,10 +453,11 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
               </div>
 
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
-                <button type="button" className="action-btn" onClick={saveProfile}>Save Profile</button>
+                <button type="button" className="action-btn" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</button>
                 <button type="button" className="ghost-btn" onClick={() => onNavigate?.("friend-groups")}>Back To My Crew</button>
               </div>
               {saved ? <p style={{ margin: "14px 0 0", color: "#0f766e", fontWeight: 700 }}>Profile saved and availability updated.</p> : null}
+              {saveError ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{saveError}</p> : null}
             </section>
 
             <section className="panel">
@@ -435,7 +499,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
             title="Weekly availability sheet"
             subtitle="This is your dedicated availability section as a logged-in user. Mark every half-hour block when you would realistically say yes to a crew plan."
             required
-            footerAction={<button type="button" className="availability-btn primary" onClick={saveProfile}>Save availability</button>}
+            footerAction={<button type="button" className="availability-btn primary" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save availability"}</button>}
           />
 
           <section className="panel">
