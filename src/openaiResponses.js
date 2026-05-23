@@ -7,6 +7,26 @@ function getErrorMessage(data, fallback) {
   return data.error?.message || fallback;
 }
 
+function extractTextFromOutput(data) {
+  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+
+  const outputItems = Array.isArray(data?.output) ? data.output : [];
+  const textParts = outputItems.flatMap((item) => {
+    const contentItems = Array.isArray(item?.content) ? item.content : [];
+    return contentItems
+      .map((content) => {
+        if (typeof content?.text === "string") return content.text;
+        if (typeof content?.output_text === "string") return content.output_text;
+        return "";
+      })
+      .filter(Boolean);
+  });
+
+  return textParts.join("\n").trim();
+}
+
 export async function createOpenAIResponse({
   apiKey,
   model = DEFAULT_OPENAI_MODEL,
@@ -37,6 +57,6 @@ export async function createOpenAIResponse({
 
   return {
     id: data.id,
-    text: data.output_text || "I couldn't generate a text reply for that request.",
+    text: extractTextFromOutput(data) || "I couldn't generate a text reply for that request.",
   };
 }
