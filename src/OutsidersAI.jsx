@@ -98,8 +98,8 @@ const STYLES = `
     position: absolute;
     right: 0;
     bottom: 90px;
-    width: min(390px, calc(100vw - 24px));
-    max-height: min(78vh, 760px);
+    width: min(420px, calc(100vw - 24px));
+    height: min(76vh, 760px);
     background: #fffdf9;
     border: 4px solid #1a1a2e;
     border-radius: 24px;
@@ -110,7 +110,7 @@ const STYLES = `
   }
 
   .outsiders-ai-header {
-    padding: 18px 18px 14px;
+    padding: 18px 18px 16px;
     border-bottom: 4px solid #1a1a2e;
     background:
       radial-gradient(circle at top left, rgba(255, 217, 61, 0.7), transparent 42%),
@@ -132,11 +132,56 @@ const STYLES = `
 
   .outsiders-ai-body {
     padding: 16px;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    min-height: 320px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .outsiders-ai-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .outsiders-ai-toolbar-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .outsiders-ai-reset {
+    background: #ffd93d;
+    border: 3px solid #1a1a2e;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-family: 'Bangers', cursive;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #1a1a2e;
+  }
+
+  .outsiders-ai-conversation {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-right: 4px;
+  }
+
+  .outsiders-ai-conversation::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .outsiders-ai-conversation::-webkit-scrollbar-thumb {
+    background: #d6d1c6;
+    border: 2px solid #fffdf9;
+    border-radius: 999px;
   }
 
   .outsiders-ai-input,
@@ -162,8 +207,8 @@ const STYLES = `
   }
 
   .outsiders-ai-textarea {
-    min-height: 110px;
-    resize: vertical;
+    min-height: 96px;
+    resize: none;
   }
 
   .outsiders-ai-btn,
@@ -192,12 +237,18 @@ const STYLES = `
 
   .outsiders-ai-chip {
     background: #fff;
-    border-radius: 999px;
-    padding: 8px 12px;
+    border-radius: 16px;
+    padding: 10px 12px;
     box-shadow: 3px 3px 0 #1a1a2e;
     text-align: left;
     font-size: 12px;
     line-height: 1.35;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+
+  .outsiders-ai-chip:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #1a1a2e;
   }
 
   .outsiders-ai-msg {
@@ -207,18 +258,21 @@ const STYLES = `
     font-size: 14px;
     line-height: 1.5;
     white-space: pre-wrap;
+    max-width: 92%;
   }
 
   .outsiders-ai-msg.user {
     background: #fde8f0;
     border-color: #ff6b9d;
     box-shadow: 4px 4px 0 #ff6b9d;
+    margin-left: auto;
   }
 
   .outsiders-ai-msg.assistant {
     background: #e8fdf2;
     border-color: #51cf66;
     box-shadow: 4px 4px 0 #51cf66;
+    margin-right: auto;
   }
 
   .outsiders-ai-options {
@@ -230,11 +284,24 @@ const STYLES = `
 
   .outsiders-ai-footer {
     border-top: 4px solid #1a1a2e;
-    background: #fff;
+    background: linear-gradient(180deg, #fffdf9 0%, #fff7ea 100%);
     padding: 14px 16px 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .outsiders-ai-footer-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .outsiders-ai-compose {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .outsiders-ai-note {
@@ -260,6 +327,15 @@ const STYLES = `
 
     .outsiders-ai-fab {
       margin-left: auto;
+    }
+
+    .outsiders-ai-msg {
+      max-width: 100%;
+    }
+
+    .outsiders-ai-footer-row {
+      flex-direction: column;
+      align-items: stretch;
     }
   }
 `;
@@ -411,21 +487,21 @@ export default function OutsidersAI({ screen, appData }) {
             </div>
 
             <div className="outsiders-ai-body">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div className="outsiders-ai-toolbar">
                 <strong style={{ fontFamily: "'Bangers', cursive", fontSize: 18, letterSpacing: "0.05em" }}>Chat</strong>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div className="outsiders-ai-toolbar-meta">
                   <span style={{ fontSize: 11, fontWeight: 900, color: "#4ecdc4" }}>{DEFAULT_OPENAI_MODEL}</span>
                   <button
                     type="button"
                     onClick={clearConversation}
-                    style={{ background: "#ffd93d", border: "3px solid #1a1a2e", borderRadius: 10, padding: "8px 12px", fontFamily: "'Bangers', cursive", fontSize: 13, letterSpacing: "0.05em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
+                    className="outsiders-ai-reset"
                   >
                     Reset
                   </button>
                 </div>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="outsiders-ai-conversation">
                 {messages.length === 0 ? (
                   <div className="outsiders-ai-msg assistant">
                     {getGreeting(screen)}
@@ -463,23 +539,24 @@ export default function OutsidersAI({ screen, appData }) {
                 placeholder="Paste your OpenAI API key"
               />
 
-              <textarea
-                className="outsiders-ai-textarea"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder={`Ask Outsiders AI anything about ${activeScreenLabel.toLowerCase()}...`}
-              />
-
               {error ? (
                 <p style={{ margin: 0, color: "#ff3b30", fontWeight: 900, fontSize: 12 }}>
                   {error}
                 </p>
               ) : null}
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <span className="outsiders-ai-note">
-                  The assistant gets the current screen and shared app context automatically.
-                </span>
+              <div className="outsiders-ai-footer-row">
+                <div className="outsiders-ai-compose">
+                  <textarea
+                    className="outsiders-ai-textarea"
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder={`Ask Outsiders AI anything about ${activeScreenLabel.toLowerCase()}...`}
+                  />
+                  <span className="outsiders-ai-note">
+                    The assistant gets the current screen and shared app context automatically.
+                  </span>
+                </div>
                 <button
                   type="button"
                   className="outsiders-ai-btn"
