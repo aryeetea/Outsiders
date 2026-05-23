@@ -236,7 +236,7 @@ function getPasswordStrength(pw) {
   return { score, ...map[score] };
 }
 
-export default function OutsidersSignUp({ onNavigate }) {
+export default function OutsidersSignUp({ onNavigate, routeParams }) {
   const [avatar, setAvatar] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
@@ -246,6 +246,8 @@ export default function OutsidersSignUp({ onNavigate }) {
   const [loading, setLoading] = useState(false);
   const fileRef = useRef();
   const strength = getPasswordStrength(form.password);
+  const inviteParams = routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {};
+  const postAuthScreen = routeParams?.redirect || "dashboard";
 
   const handleAvatar = (e) => {
     const file = e.target.files[0];
@@ -333,11 +335,11 @@ export default function OutsidersSignUp({ onNavigate }) {
     setLoading(false);
     if (!data.session) {
       window.alert("Account created. Check your email to confirm it, then log in.");
-      onNavigate?.("login");
+      onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams });
       return;
     }
 
-    onNavigate?.("dashboard");
+    onNavigate?.(postAuthScreen, inviteParams);
   };
 
   return (
@@ -481,7 +483,7 @@ export default function OutsidersSignUp({ onNavigate }) {
               </button>
 
               <p style={{ textAlign: "center", fontSize: 14, fontWeight: 800, color: "#888", margin: 0 }}>
-                Already have an account? <a className="link" onClick={() => onNavigate?.("login")}>Log In</a>
+                Already have an account? <a className="link" onClick={() => onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams })}>Log In</a>
               </p>
 
             </div>

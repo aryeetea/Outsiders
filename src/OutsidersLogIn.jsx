@@ -192,11 +192,13 @@ const IconEye = ({ show }) => show ? (
   </svg>
 );
 
-export default function OutsidersLogIn({ onNavigate }) {
+export default function OutsidersLogIn({ onNavigate, routeParams }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const inviteParams = routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {};
+  const postAuthScreen = routeParams?.redirect || "dashboard";
 
   const handleChange = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
@@ -233,7 +235,7 @@ export default function OutsidersLogIn({ onNavigate }) {
       return;
     }
 
-    onNavigate?.("dashboard");
+    onNavigate?.(postAuthScreen, inviteParams);
   };
 
   return (
@@ -249,7 +251,7 @@ export default function OutsidersLogIn({ onNavigate }) {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </button>
             <span style={{ fontWeight: 800, fontSize: 14, color: "#888" }}>
-              No account? <a className="link" style={{ fontSize: 15 }} onClick={() => onNavigate?.("signup")}>Sign up</a>
+              No account? <a className="link" style={{ fontSize: 15 }} onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...inviteParams })}>Sign up</a>
             </span>
           </div>
         </nav>
@@ -330,7 +332,7 @@ export default function OutsidersLogIn({ onNavigate }) {
               </button>
 
               <p style={{ textAlign: "center", fontSize: 14, fontWeight: 800, color: "#888", margin: 0 }}>
-                New here? <a className="link" onClick={() => onNavigate?.("signup")}>Create an account</a>
+                New here? <a className="link" onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...inviteParams })}>Create an account</a>
               </p>
 
             </div>

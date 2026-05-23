@@ -415,11 +415,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const [activeTab, setActiveTab] = useState("Members");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupEmoji, setNewGroupEmoji] = useState("👥");
   const [inviteUsername, setInviteUsername] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [inviteSent, setInviteSent] = useState(false);
+  const [joinCode, setJoinCode] = useState(routeParams?.groupCode || "");
+  const [joinError, setJoinError] = useState("");
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -534,31 +537,39 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   }, [currentUser]);
 
   useEffect(() => {
-    if (selectedGroup) {
-      const refreshed = groups.find((group) => group.id === selectedGroup.id);
-      setSelectedGroup(refreshed || null);
-      return;
-    }
-
     const requestedCode = (routeParams?.groupCode || "").toUpperCase();
-    if (requestedCode) {
+    if (requestedCode && selectedGroup?.code?.toUpperCase() !== requestedCode) {
       const matched = groups.find((group) => group.code?.toUpperCase() === requestedCode);
       if (matched) {
         setSelectedGroup(matched);
         setActiveTab("Invite Link");
       }
+      return;
+    }
+
+    if (selectedGroup) {
+      const refreshed = groups.find((group) => group.id === selectedGroup.id);
+      setSelectedGroup(refreshed || null);
+      return;
     }
   }, [groups, routeParams, selectedGroup]);
 
+  useEffect(() => {
+    if (routeParams?.groupCode) {
+      setJoinCode(routeParams.groupCode);
+    }
+  }, [routeParams?.groupCode]);
+
   const currentDisplayName = currentProfile?.full_name || currentUser?.user_metadata?.full_name || "You";
   const currentUsername = currentProfile?.username || currentUser?.user_metadata?.username || "";
+  const requestedGroupCode = (routeParams?.groupCode || "").trim().toUpperCase();
   const canManageSelectedGroup = Boolean(
     selectedGroup && (
       (currentUser?.id && selectedGroup.ownerId === currentUser.id) ||
       (!currentUser?.id && (!selectedGroup.ownerId || selectedGroup.ownerId === "local-user"))
     )
   );
-  const isViewingInviteLink = Boolean(routeParams?.groupCode);
+  const isViewingInviteLink = Boolean(requestedGroupCode);
   const inviteLink = selectedGroup ? buildGroupInviteLink(selectedGroup.code) : "";
   const currentVoteKey = currentUser?.id || (currentUsername ? `username:${currentUsername}` : `name:${currentDisplayName}`);
   const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
@@ -811,20 +822,22 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     setActiveTab("Members");
   };
 
-  const handleJoinFromInviteLink = async () => {
-    if (!selectedGroup) return;
+  const joinSelectedGroup = async (groupToJoin) => {
+    if (!groupToJoin) return false;
     if (isSupabaseConfigured && !currentUser?.id) {
-      setGroupsNotice("Log in or sign up first, then open the invite link again to join this crew.");
-      return;
+      onNavigate?.("login", { redirect: "friend-groups", groupCode: groupToJoin.code });
+      return false;
     }
 
-    const alreadyMember = selectedGroup.members.some(
+    const alreadyMember = groupToJoin.members.some(
       (member) => member.userId === currentUser?.id || member.username === (currentUsername ? `@${currentUsername}` : "")
     );
 
     if (alreadyMember) {
       setGroupsNotice("You're already in this crew.");
-      return;
+      setSelectedGroup(groupToJoin);
+      setActiveTab("Members");
+      return true;
     }
 
     const joiningMember = normalizeMember({
@@ -836,34 +849,68 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     }, currentDisplayName);
 
     const nextGroup = {
-      ...selectedGroup,
-      members: [...selectedGroup.members, joiningMember],
-      pending: selectedGroup.pending.filter((pendingInvite) => pendingInvite.username !== `@${currentUsername}`),
+      ...groupToJoin,
+      members: [...groupToJoin.members, joiningMember],
+      pending: groupToJoin.pending.filter((pendingInvite) => pendingInvite.username !== `@${currentUsername}`),
     };
 
     if (isSupabaseConfigured && currentUser?.id) {
       const { data, error } = await supabase
         .from("groups")
         .update(mapUiGroupToDb(nextGroup))
-        .eq("id", selectedGroup.id)
+        .eq("id", groupToJoin.id)
         .select("*")
         .single();
 
       if (error) {
         setGroupsNotice(error.message);
-        return;
+        return false;
       }
 
       const savedGroup = mapDbGroupToUi(data);
       setGroups((prev) => prev.map((group) => (group.id === savedGroup.id ? savedGroup : group)));
       setSelectedGroup(savedGroup);
     } else {
-      setGroups((prev) => prev.map((group) => (group.id === selectedGroup.id ? nextGroup : group)));
+      setGroups((prev) => prev.map((group) => (group.id === groupToJoin.id ? nextGroup : group)));
       setSelectedGroup(nextGroup);
     }
 
-    setGroupsNotice(`You're now in ${selectedGroup.name}.`);
+    setGroupsNotice(`You're now in ${groupToJoin.name}.`);
     setActiveTab("Members");
+    return true;
+  };
+
+  const handleJoinFromInviteLink = async () => {
+    if (!selectedGroup) {
+      if (isSupabaseConfigured && !currentUser?.id) {
+        onNavigate?.("login", { redirect: "friend-groups", groupCode: requestedGroupCode });
+        return;
+      }
+      setGroupsNotice("That crew invite could not be found.");
+      return;
+    }
+    await joinSelectedGroup(selectedGroup);
+  };
+
+  const handleJoinByCode = async () => {
+    const normalizedCode = joinCode.trim().toUpperCase();
+    if (!normalizedCode) {
+      setJoinError("Enter a crew code.");
+      return;
+    }
+
+    const matchedGroup = groups.find((group) => group.code?.toUpperCase() === normalizedCode);
+    if (!matchedGroup) {
+      setJoinError(groupsLoading ? "Crews are still loading. Try again in a second." : "No crew found with that code.");
+      return;
+    }
+
+    setJoinError("");
+    const joined = await joinSelectedGroup(matchedGroup);
+    if (joined) {
+      setShowJoinModal(false);
+      setJoinCode("");
+    }
   };
 
   const copyCode = () => {
@@ -927,14 +974,36 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                 <h1 className="bangers" style={{ fontSize: 34, margin: "0 0 4px", color: "#1a1a2e" }}>My Crew 👥</h1>
                 <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Manage your friend groups and invite your people.</p>
               </div>
-              <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-                <IconPlus /> New Group
-              </button>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <button className="btn-secondary" onClick={() => { setJoinCode(routeParams?.groupCode || ""); setJoinError(""); setShowJoinModal(true); }}>
+                  <IconUsers /> Join Crew
+                </button>
+                <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+                  <IconPlus /> New Group
+                </button>
+              </div>
             </div>
 
             {groupsNotice && (
               <div style={{ background: "#fff4e6", border: "3px solid #ff9a3c", borderRadius: 12, padding: "12px 16px", boxShadow: "4px 4px 0 #ff9a3c", marginBottom: 18 }}>
                 <p style={{ fontSize: 13, fontWeight: 800, color: "#7a4d00", margin: 0 }}>{groupsNotice}</p>
+              </div>
+            )}
+
+            {isViewingInviteLink && !selectedGroup && (
+              <div style={{ background: "#fff", border: "3px solid #4ecdc4", borderRadius: 16, padding: "18px 20px", boxShadow: "5px 5px 0 #4ecdc4", marginBottom: 18 }}>
+                <p className="bangers" style={{ fontSize: 20, margin: "0 0 6px", color: "#1a1a2e" }}>Crew Invite Ready</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: "0 0 14px" }}>
+                  This invite code is {requestedGroupCode}. Log in or sign up, then you can join the crew from this same link.
+                </p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button className="btn-primary" onClick={() => onNavigate?.("login", { redirect: "friend-groups", groupCode: requestedGroupCode })}>
+                    Log In To Join
+                  </button>
+                  <button className="btn-outline" onClick={() => onNavigate?.("signup", { redirect: "friend-groups", groupCode: requestedGroupCode })}>
+                    Sign Up
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1296,6 +1365,44 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                 <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px", marginTop: 8 }} onClick={handleCreateGroup}>
                   Create Group 🚀
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Join Crew Modal ── */}
+        {showJoinModal && (
+          <div className="modal-overlay" onClick={() => setShowJoinModal(false)}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+              <button className="close-btn" onClick={() => setShowJoinModal(false)}>✕</button>
+              <div style={{ textAlign: "center", marginBottom: 24 }}>
+                <span className="comic-tag">Got a code?</span>
+                <h2 className="bangers" style={{ fontSize: 32, margin: "8px 0 4px" }}>Join A Crew</h2>
+                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Paste the crew code from your invitation.</p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <label className="form-label">Crew Code</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    placeholder="ABC123"
+                    value={joinCode}
+                    onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); }}
+                    onKeyDown={e => e.key === "Enter" && handleJoinByCode()}
+                    style={{ textTransform: "uppercase", letterSpacing: "0.16em", textAlign: "center" }}
+                  />
+                  {joinError && <p className="error-msg">{joinError}</p>}
+                </div>
+                {isSupabaseConfigured && !currentUser?.id ? (
+                  <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={() => onNavigate?.("login", { redirect: "friend-groups", groupCode: joinCode.trim().toUpperCase() })}>
+                    Log In To Join
+                  </button>
+                ) : (
+                  <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px" }} onClick={handleJoinByCode}>
+                    Join Crew
+                  </button>
+                )}
               </div>
             </div>
           </div>
