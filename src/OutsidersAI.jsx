@@ -342,6 +342,104 @@ const STYLES = `
     word-break: break-all;
   }
 
+  .ai-tab-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .ai-tab {
+    flex: 1;
+    padding: 7px 0;
+    font-family: 'Bangers', cursive;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    border: 3px solid #1a1a2e;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #fff;
+    color: #1a1a2e;
+    box-shadow: 2px 2px 0 #1a1a2e;
+    transition: all 0.12s;
+  }
+  .ai-tab.active {
+    background: #1a1a2e;
+    color: #fff;
+    box-shadow: none;
+  }
+  .ai-tab:hover:not(.active) {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 #1a1a2e;
+  }
+
+  .ai-avail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .ai-avail-person {
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    border-radius: 14px;
+    box-shadow: 4px 4px 0 #1a1a2e;
+    padding: 12px 14px;
+  }
+
+  .ai-avail-cell {
+    width: 30px;
+    height: 26px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 2px solid #ddd;
+    background: #f5f3ee;
+    transition: all 0.1s;
+    display: block;
+  }
+  .ai-avail-cell.on {
+    background: #51cf66;
+    border-color: #1a1a2e;
+    box-shadow: 1px 1px 0 #1a1a2e;
+  }
+  .ai-avail-cell:hover { border-color: #9b59b6; }
+
+  .ai-time-result {
+    background: #e8fdf2;
+    border: 3px solid #51cf66;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 4px 4px 0 #51cf66;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.6;
+    color: #1a1a2e;
+    white-space: pre-wrap;
+  }
+
+  .ai-find-time-btn {
+    width: 100%;
+    background: #9b59b6;
+    color: #fff;
+    border: 3px solid #1a1a2e;
+    border-radius: 10px;
+    padding: 11px;
+    font-family: 'Bangers', cursive;
+    font-size: 18px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 #1a1a2e;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .ai-find-time-btn:hover:not(:disabled) {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 #1a1a2e;
+  }
+  .ai-find-time-btn:disabled { opacity: 0.65; cursor: wait; }
+
   @media (max-width: 720px) {
     .outsiders-ai-wrap {
       right: 12px;
@@ -498,13 +596,21 @@ function getWebSearchTools() {
   ];
 }
 
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const AVAIL_TIMES = ["Morning", "Afternoon", "Evening"];
+
 export default function OutsidersAI({ screen, appData }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("chat");
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [previousResponseId, setPreviousResponseId] = useState("");
+  const [crewAvail, setCrewAvail] = useState([{ name: "You", slots: {} }]);
+  const [newCrewName, setNewCrewName] = useState("");
+  const [availAiLoading, setAvailAiLoading] = useState(false);
+  const [availAiResult, setAvailAiResult] = useState(null);
   const apiKey = getInitialApiKey().trim();
 
   const appContext = useMemo(() => buildAppContext(screen, appData), [screen, appData]);
@@ -557,10 +663,61 @@ export default function OutsidersAI({ screen, appData }) {
     }
   }
 
-function clearConversation() {
+  function clearConversation() {
     setMessages([]);
     setPreviousResponseId("");
     setError("");
+  }
+
+  function toggleSlot(personIdx, day, time) {
+    const key = `${day}-${time}`;
+    setCrewAvail(prev => prev.map((p, i) => {
+      if (i !== personIdx) return p;
+      return { ...p, slots: { ...p.slots, [key]: !p.slots[key] } };
+    }));
+  }
+
+  function addCrewMember() {
+    const name = newCrewName.trim();
+    if (!name) return;
+    setCrewAvail(prev => [...prev, { name, slots: {} }]);
+    setNewCrewName("");
+  }
+
+  function removeCrewMember(idx) {
+    setCrewAvail(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  async function handleFindBestCrewTime() {
+    if (!apiKey) {
+      setAvailAiResult({ error: "Add your OpenAI API key to use this feature." });
+      return;
+    }
+    setAvailAiLoading(true);
+    setAvailAiResult(null);
+
+    const summary = crewAvail.map(person => {
+      const free = Object.entries(person.slots)
+        .filter(([, v]) => v)
+        .map(([k]) => k.replace("-", " "));
+      return `${person.name}: ${free.length > 0 ? free.join(", ") : "no availability marked"}`;
+    }).join("\n");
+
+    const prompt = `Here is the weekly availability for a friend group planning a hangout:\n\n${summary}\n\nAnalyze the overlaps and recommend the best 1–3 time slots that work for the most people. For each recommendation: state the day and time, list who can make it, and give a one-line reason it's the best pick. End with a clear "Best pick:" summary.`;
+
+    try {
+      const result = await createOpenAIResponse({
+        apiKey,
+        model: DEFAULT_OPENAI_MODEL,
+        instructions: "You are a scheduling assistant. Analyze friend group availability, find the best overlapping windows, and give clear, specific recommendations. Be concise and direct.",
+        input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+      });
+      setAvailAiResult({ text: result.text });
+    } catch (err) {
+      setAvailAiResult({ error: err.message || "Something went wrong." });
+    } finally {
+      setAvailAiLoading(false);
+    }
   }
 
   return (
@@ -573,96 +730,161 @@ function clearConversation() {
               <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 10 }}>
                 <div>
                   <div className="outsiders-ai-screen-tag">AI Active on {activeScreenLabel}</div>
-                  <h3 style={{ margin: "10px 0 6px", fontFamily: "'Bangers', cursive", fontSize: 28, letterSpacing: "0.04em", color: "#1a1a2e" }}>
+                  <h3 style={{ margin: "10px 0 4px", fontFamily: "'Bangers', cursive", fontSize: 28, letterSpacing: "0.04em", color: "#1a1a2e" }}>
                     Outsiders AI
                   </h3>
                   <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, fontWeight: 800, color: "#5d5967" }}>
-                    Your hangout assistant for timing, places, plans, and group decisions.
+                    Your hangout assistant for places, plans, and group timing.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 12, width: 42, height: 42, fontSize: 18, fontWeight: 900, cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
+                  style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 12, width: 42, height: 42, fontSize: 18, fontWeight: 900, cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e", flexShrink: 0 }}
                 >
                   ×
                 </button>
               </div>
+              <div className="ai-tab-bar">
+                {[{ id: "chat", label: "💬 Chat" }, { id: "availability", label: "🗓 Crew Time" }].map(t => (
+                  <button key={t.id} type="button" className={`ai-tab ${activeTab === t.id ? "active" : ""}`} onClick={() => setActiveTab(t.id)}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="outsiders-ai-body">
-              <div className="outsiders-ai-toolbar">
-                <strong style={{ fontFamily: "'Bangers', cursive", fontSize: 18, letterSpacing: "0.05em" }}>Chat</strong>
-                <div className="outsiders-ai-toolbar-meta">
-                  <span style={{ fontSize: 11, fontWeight: 900, color: "#4ecdc4" }}>{DEFAULT_OPENAI_MODEL}</span>
-                  <button
-                    type="button"
-                    onClick={clearConversation}
-                    className="outsiders-ai-reset"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-
-              <div className="outsiders-ai-conversation">
-                {messages.length === 0 ? (
-                  <div className="outsiders-ai-msg assistant">
-                    {getGreeting(screen)}
-                    <div className="outsiders-ai-options">
-                      {quickActions.map((action) => (
-                        <button
-                          key={action}
-                          type="button"
-                          className="outsiders-ai-chip"
-                          onClick={() => submitPrompt(action)}
-                          disabled={isLoading}
-                        >
-                          {action}
-                        </button>
-                      ))}
+            {activeTab === "chat" && (
+              <>
+                <div className="outsiders-ai-body">
+                  <div className="outsiders-ai-toolbar">
+                    <strong style={{ fontFamily: "'Bangers', cursive", fontSize: 18, letterSpacing: "0.05em" }}>Chat</strong>
+                    <div className="outsiders-ai-toolbar-meta">
+                      <span style={{ fontSize: 11, fontWeight: 900, color: "#4ecdc4" }}>{DEFAULT_OPENAI_MODEL}</span>
+                      <button type="button" onClick={clearConversation} className="outsiders-ai-reset">Reset</button>
                     </div>
                   </div>
-                ) : (
-                  messages.map((message, index) => (
-                    <div key={`${message.role}-${index}`} className={`outsiders-ai-msg ${message.role}`}>
-                      {renderMessageContent(message.text)}
-                    </div>
-                  ))
-                )}
-                {isLoading ? <div className="outsiders-ai-msg assistant">Finding the best spots for you...</div> : null}
-              </div>
-            </div>
-
-            <div className="outsiders-ai-footer">
-              {error ? (
-                <p style={{ margin: 0, color: "#ff3b30", fontWeight: 900, fontSize: 12 }}>
-                  {error}
-                </p>
-              ) : null}
-
-              <div className="outsiders-ai-footer-row">
-                <div className="outsiders-ai-compose">
-                  <textarea
-                    className="outsiders-ai-textarea"
-                    value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
-                    placeholder={`e.g. "Find a dinner spot in Brooklyn for 6" or "Plan our Saturday evening..."`}
-                  />
-                  <span className="outsiders-ai-note">
-                    Mention your city or neighborhood for the best place suggestions.
-                  </span>
+                  <div className="outsiders-ai-conversation">
+                    {messages.length === 0 ? (
+                      <div className="outsiders-ai-msg assistant">
+                        {getGreeting(screen)}
+                        <div className="outsiders-ai-options">
+                          {quickActions.map((action) => (
+                            <button key={action} type="button" className="outsiders-ai-chip" onClick={() => submitPrompt(action)} disabled={isLoading}>
+                              {action}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      messages.map((message, index) => (
+                        <div key={`${message.role}-${index}`} className={`outsiders-ai-msg ${message.role}`}>
+                          {renderMessageContent(message.text)}
+                        </div>
+                      ))
+                    )}
+                    {isLoading ? <div className="outsiders-ai-msg assistant">Finding the best spots for you...</div> : null}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  className="outsiders-ai-btn"
-                  onClick={() => submitPrompt(draft)}
-                  disabled={!canSend}
-                >
-                  {isLoading ? "Thinking..." : "Send"}
+                <div className="outsiders-ai-footer">
+                  {error ? <p style={{ margin: 0, color: "#ff3b30", fontWeight: 900, fontSize: 12 }}>{error}</p> : null}
+                  <div className="outsiders-ai-footer-row">
+                    <div className="outsiders-ai-compose">
+                      <textarea
+                        className="outsiders-ai-textarea"
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        placeholder={`e.g. "Find a dinner spot in Brooklyn for 6" or "Plan our Saturday evening..."`}
+                      />
+                      <span className="outsiders-ai-note">Mention your city or neighborhood for the best place suggestions.</span>
+                    </div>
+                    <button type="button" className="outsiders-ai-btn" onClick={() => submitPrompt(draft)} disabled={!canSend}>
+                      {isLoading ? "Thinking..." : "Send"}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeTab === "availability" && (
+              <div className="ai-avail-body">
+                <div>
+                  <p style={{ fontFamily: "'Bangers', cursive", fontSize: 18, letterSpacing: "0.05em", margin: "0 0 4px", color: "#1a1a2e" }}>
+                    When is everyone free?
+                  </p>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: "0 0 12px" }}>
+                    Tap the grid to mark available slots — green = free. AI will find the best overlap.
+                  </p>
+                </div>
+
+                {crewAvail.map((person, personIdx) => (
+                  <div key={personIdx} className="ai-avail-person">
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <strong style={{ fontFamily: "'Bangers', cursive", fontSize: 16, letterSpacing: "0.04em" }}>
+                        {personIdx === 0 ? "You" : person.name}
+                      </strong>
+                      {personIdx > 0 && (
+                        <button type="button" onClick={() => removeCrewMember(personIdx)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ff6b6b", fontWeight: 900, fontSize: 17, lineHeight: 1 }}>✕</button>
+                      )}
+                    </div>
+
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ borderCollapse: "separate", borderSpacing: "3px", minWidth: "100%" }}>
+                        <thead>
+                          <tr>
+                            <td style={{ width: 72 }} />
+                            {DAYS.map(d => (
+                              <th key={d} style={{ fontFamily: "'Bangers', cursive", fontSize: 12, letterSpacing: "0.04em", color: "#888", fontWeight: 900, textAlign: "center", paddingBottom: 4 }}>{d}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {AVAIL_TIMES.map(time => (
+                            <tr key={time}>
+                              <td style={{ fontSize: 11, fontWeight: 800, color: "#9b59b6", paddingRight: 6, whiteSpace: "nowrap", verticalAlign: "middle" }}>{time}</td>
+                              {DAYS.map(day => {
+                                const key = `${day}-${time}`;
+                                const on = !!person.slots[key];
+                                return (
+                                  <td key={day} style={{ textAlign: "center" }}>
+                                    <button type="button" className={`ai-avail-cell ${on ? "on" : ""}`} onClick={() => toggleSlot(personIdx, day, time)} title={`${day} ${time}`} />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="text"
+                    className="outsiders-ai-input"
+                    placeholder="Add a crew member's name"
+                    value={newCrewName}
+                    onChange={e => setNewCrewName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && addCrewMember()}
+                    style={{ flex: 1, minHeight: "auto", padding: "9px 12px", fontSize: 13 }}
+                  />
+                  <button type="button" onClick={addCrewMember} style={{ background: "#9b59b6", color: "#fff", border: "3px solid #1a1a2e", borderRadius: 10, padding: "9px 14px", fontFamily: "'Bangers', cursive", fontSize: 15, cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e", whiteSpace: "nowrap" }}>
+                    + Add
+                  </button>
+                </div>
+
+                <button type="button" className="ai-find-time-btn" onClick={handleFindBestCrewTime} disabled={availAiLoading}>
+                  {availAiLoading ? "Analyzing availability..." : "Find Best Time for Everyone 🗓"}
                 </button>
+
+                {availAiResult && (
+                  <div className={availAiResult.error ? "" : "ai-time-result"} style={availAiResult.error ? { color: "#ff6b6b", fontWeight: 900, fontSize: 13 } : {}}>
+                    {availAiResult.error ? availAiResult.error : renderMessageContent(availAiResult.text)}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
         ) : null}
 
