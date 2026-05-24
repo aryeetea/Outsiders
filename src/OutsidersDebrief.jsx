@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { isSupabaseConfigured, supabase } from "./supabase";
+import OutsidersSideNav from "./OutsidersSideNav";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -8,9 +9,11 @@ const STYLES = `
   .root { font-family: 'Nunito', sans-serif; background: #f5f3ee; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
   .root::before { content: ''; position: fixed; inset: 0; background-image: radial-gradient(circle, #1a1a2e 1px, transparent 1px); background-size: 24px 24px; opacity: 0.03; pointer-events: none; z-index: 0; }
   .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
-  .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf9; border-bottom: 4px solid #1a1a2e; box-shadow: 0 4px 0 #1a1a2e; }
-  .logo-mark { width: 36px; height: 36px; background: #ff6b6b; border: 3px solid #1a1a2e; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 3px 3px 0 #1a1a2e; }
+  .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf7; border-bottom: 4px solid #17151f; box-shadow: 0 4px 0 #17151f; }
+  .logo-mark { width: 46px; height: 46px; background: #ff7a59; border: 3px solid #17151f; border-radius: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 4px 4px 0 #17151f; transform: rotate(-7deg); }
   .logo-link { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; padding: 0; cursor: pointer; }
+  .chip-btn { border: 3px solid #17151f; background: #fff3c8; color: #17151f; padding: 9px 14px; border-radius: 999px; cursor: pointer; font: 400 14px 'Bangers', cursive; letter-spacing: 0.06em; box-shadow: 3px 3px 0 #17151f; transition: transform 160ms ease, box-shadow 160ms ease; }
+  .chip-btn:hover { transform: translate(-1px, -2px); box-shadow: 5px 5px 0 #17151f; }
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
   .sidebar { width: 220px; flex-shrink: 0; background: #fffdf9; border-right: 4px solid #1a1a2e; padding: 24px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 68px; height: calc(100vh - 68px); overflow-y: auto; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #666; border: 2.5px solid transparent; transition: all 0.15s; }
@@ -40,6 +43,14 @@ const STYLES = `
   .profile-chip { display: flex; align-items: center; gap: 8px; background: #fff; border: 3px solid #1a1a2e; border-radius: 50px; padding: 4px 14px 4px 4px; box-shadow: 3px 3px 0 #1a1a2e; cursor: pointer; }
   .notif-dot { width: 8px; height: 8px; background: #ff6b6b; border: 2px solid #1a1a2e; border-radius: 50%; position: absolute; top: -2px; right: -2px; }
   .comic-tag { display: inline-block; background: #ffd93d; border: 2px solid #1a1a2e; border-radius: 6px; padding: 1px 10px; font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.06em; box-shadow: 2px 2px 0 #1a1a2e; transform: rotate(-2deg); }
+  .debrief-layout-grid { grid-template-columns: minmax(260px, 300px) minmax(0, 1fr); }
+  @media (max-width: 1024px) {
+    .main { padding: 24px 20px; }
+    .debrief-layout-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .main { padding: 18px 14px; }
+  }
 `;
 
 const NAV_ITEMS = [
@@ -376,42 +387,13 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
     setNotice(nextStatus === "Resolved" ? "Case closed for now." : "Case reopened.");
   }
 
+  const profileName = appData?.profile?.name || appData?.profile?.username || "You";
+
   return (
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <nav className="top-nav">
-          <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
-              <div className="logo-mark"><IconLogoMark /></div>
-              <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <button
-                onClick={() => onNavigate?.("landing")}
-                style={{ background: "#ffd93d", color: "#1a1a2e", border: "3px solid #1a1a2e", borderRadius: 10, padding: "8px 14px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.05em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
-              >
-                Log Out
-              </button>
-              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div className="avatar" style={{ width: 30, height: 30, background: "#ff6b6b", fontSize: 11 }}>{getInitials(currentDisplayName)}</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>{currentDisplayName}</span>
-              </div>
-            </div>
-          </div>
-        </nav>
-
-        <div className="layout">
-          <aside className="sidebar">
-            <p className="nav-section-label">Menu</p>
-            {NAV_ITEMS.map((item) => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
-                <span>{item.icon}</span> {item.label}
-              </div>
-            ))}
-          </aside>
-
+        <OutsidersSideNav activeLabel="Debrief" onNavigate={onNavigate} profileName={profileName}>
           <main className="main">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
               <div>
@@ -436,7 +418,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                 <button className="btn-secondary" onClick={() => onNavigate?.("friend-groups")}>Go To My Crew</button>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24 }}>
+              <div className="debrief-layout-grid" style={{ display: "grid", gap: 24 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <div className="card">
                     <p className="bangers" style={{ fontSize: 14, margin: "0 0 10px", color: "#888", letterSpacing: "0.08em", textTransform: "uppercase" }}>Choose crew</p>
@@ -645,7 +627,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
               </div>
             )}
           </main>
-        </div>
+        </OutsidersSideNav>
 
         {showNewModal ? (
           <div className="modal-overlay" onClick={() => setShowNewModal(false)}>

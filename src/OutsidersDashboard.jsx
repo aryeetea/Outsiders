@@ -1,3 +1,5 @@
+import OutsidersSideNav from "./OutsidersSideNav";
+
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
@@ -231,30 +233,14 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const profile = appData?.profile || {};
   const displayName = profile.name || profile.username || "You";
+  const profileName = displayName;
 
   return (
     <>
       <style>{STYLES}</style>
       <div className="dash-root">
+        <OutsidersSideNav activeLabel="Dashboard" onNavigate={onNavigate} profileName={profileName}>
         <div className="dash-shell">
-          <div className="glass">
-            <button type="button" className="brand-btn" onClick={() => onNavigate?.("dashboard")}>
-              <div className="logo">
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
-              </div>
-              <div>
-                <div className="bangers" style={{ fontSize: 24 }}>Outsiders</div>
-                <div style={{ fontSize: 12, color: "#7a8294" }}>Command center</div>
-              </div>
-            </button>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="chip-btn" onClick={() => onNavigate?.("profile")}>Availability</button>
-              <button type="button" className="chip-btn" onClick={() => onNavigate?.("profile")}>{unreadNotifications.length} notifications</button>
-              <button type="button" className="chip-btn" onClick={() => onNavigate?.("friend-groups")}>{groups.length} crews</button>
-              <button type="button" className="chip-btn" onClick={() => onNavigate?.("landing")}>Log out</button>
-            </div>
-          </div>
-
           <section className="glass hero">
             <div className="hero-grid">
               <div>
@@ -358,6 +344,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
             </div>
           </section>
         </div>
+        </OutsidersSideNav>
       </div>
     </>
   );

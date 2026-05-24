@@ -1,4 +1,5 @@
 import { useState } from "react";
+import OutsidersSideNav from "./OutsidersSideNav";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -7,9 +8,11 @@ const STYLES = `
   .root { font-family: 'Nunito', sans-serif; background: #f5f3ee; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
   .root::before { content: ''; position: fixed; inset: 0; background-image: radial-gradient(circle, #1a1a2e 1px, transparent 1px); background-size: 24px 24px; opacity: 0.03; pointer-events: none; z-index: 0; }
   .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
-  .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf9; border-bottom: 4px solid #1a1a2e; box-shadow: 0 4px 0 #1a1a2e; }
-  .logo-mark { width: 36px; height: 36px; background: #ff6b6b; border: 3px solid #1a1a2e; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 3px 3px 0 #1a1a2e; }
+  .top-nav { position: sticky; top: 0; z-index: 50; background: #fffdf7; border-bottom: 4px solid #17151f; box-shadow: 0 4px 0 #17151f; }
+  .logo-mark { width: 46px; height: 46px; background: #ff7a59; border: 3px solid #17151f; border-radius: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 4px 4px 0 #17151f; transform: rotate(-7deg); }
   .logo-link { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; padding: 0; cursor: pointer; }
+  .chip-btn { border: 3px solid #17151f; background: #fff3c8; color: #17151f; padding: 9px 14px; border-radius: 999px; cursor: pointer; font: 400 14px 'Bangers', cursive; letter-spacing: 0.06em; box-shadow: 3px 3px 0 #17151f; transition: transform 160ms ease, box-shadow 160ms ease; }
+  .chip-btn:hover { transform: translate(-1px, -2px); box-shadow: 5px 5px 0 #17151f; }
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
   .sidebar { width: 220px; flex-shrink: 0; background: #fffdf9; border-right: 4px solid #1a1a2e; padding: 24px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 68px; height: calc(100vh - 68px); overflow-y: auto; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #666; border: 2.5px solid transparent; transition: all 0.15s; }
@@ -35,6 +38,15 @@ const STYLES = `
   .tab.active { background: #fff; color: #1a1a2e; border-color: #1a1a2e; box-shadow: 3px 3px 0 #1a1a2e; }
   @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
   .pop { animation: pop 0.3s ease; }
+  .rating-layout-grid { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr); }
+  .rating-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 1024px) {
+    .main { padding: 24px 20px; }
+    .rating-layout-grid, .rating-summary-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .main { padding: 18px 14px; }
+  }
 `;
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
@@ -178,6 +190,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
   const categories = CATEGORY_SETS[currentType];
   const pageCopy = getTypeCopy(currentType);
   const alreadyRated = selectedOuting?.ratings.some(r => r.member === 0);
+  const profileName = appData?.profile?.name || appData?.profile?.username || "You";
 
   const updateSelectedFromAppData = (updatedItem) => {
     setSelectedOuting(updatedItem);
@@ -207,38 +220,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <nav className="top-nav">
-          <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
-              <div className="logo-mark"><IconLogoMark /></div>
-              <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <button
-                onClick={() => onNavigate?.("landing")}
-                style={{ background: "#ffd93d", color: "#1a1a2e", border: "3px solid #1a1a2e", borderRadius: 10, padding: "8px 14px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.05em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
-              >
-                Log Out
-              </button>
-              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
-              </div>
-            </div>
-          </div>
-        </nav>
-
-        <div className="layout">
-          <aside className="sidebar">
-            <p className="nav-section-label">Menu</p>
-            {NAV_ITEMS.map(item => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
-                {item.icon} {item.label}
-              </div>
-            ))}
-          </aside>
-
+        <OutsidersSideNav activeLabel="Ratings" onNavigate={onNavigate} profileName={profileName}>
           <main className="main">
             <div style={{ marginBottom: 24 }}>
               <span className="comic-tag">{pageCopy.tag}</span>
@@ -246,7 +228,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
               <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>{pageCopy.subtitle}</p>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24 }}>
+            <div className="rating-layout-grid" style={{ display: "grid", gap: 24 }}>
 
               {/* Outing list */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -336,7 +318,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                           </div>
 
                           {/* Category ratings */}
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                          <div className="rating-summary-grid" style={{ display: "grid", gap: 14 }}>
                             {categories.map(cat => (
                               <div key={cat.key} className="category-card">
                                 <p className="bangers" style={{ fontSize: 15, margin: "0 0 10px" }}>{cat.emoji} {cat.label}</p>
@@ -400,7 +382,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
               )}
             </div>
           </main>
-        </div>
+        </OutsidersSideNav>
       </div>
     </>
   );

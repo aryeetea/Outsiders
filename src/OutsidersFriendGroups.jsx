@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName } from "./appState";
+import OutsidersSideNav from "./OutsidersSideNav";
 import { buildGroupInviteLink } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
 
@@ -124,6 +125,24 @@ const STYLES = `
   .bangers {
     font-family: 'Bangers', cursive;
     letter-spacing: 0.04em;
+  }
+  .chip-btn {
+    border: 3px solid #17151f;
+    background: #fff3c8;
+    color: #17151f;
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: 400 14px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    box-shadow: 3px 3px 0 #17151f;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+    position: relative;
+    z-index: 1;
+  }
+  .chip-btn:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: 5px 5px 0 #17151f;
   }
   .btn, .vote-btn, .tab-btn {
     border: none;
@@ -330,6 +349,7 @@ function pickWinner(options = [], votes = {}) {
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
   const groups = appData?.groups ?? [];
   const profile = appData?.profile || {};
+  const profileName = profile.name || profile.username || "You";
   const currentName = getDisplayName(profile);
   const currentUserKey = getCurrentUserKey(profile);
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
@@ -618,24 +638,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     <>
       <style>{STYLES}</style>
       <div className="root">
+        <OutsidersSideNav activeLabel="My Crew" onNavigate={onNavigate} profileName={profileName}>
         <div className="shell">
-          <div className="glass">
-            <button type="button" className="brand-btn" onClick={() => onNavigate?.("dashboard")}>
-              <div className="logo">
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
-              </div>
-              <div>
-                <div style={{ font: "800 22px 'Sora', sans-serif" }}>My Crew</div>
-                <div style={{ fontSize: 12, color: "#7a8294" }}>Proposal voting, invites, and roast board</div>
-              </div>
-            </button>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="btn ghost" onClick={() => onNavigate?.("dashboard")}>Dashboard</button>
-              <button type="button" className="btn ghost" onClick={() => onNavigate?.("profile")}>Availability</button>
-              <button type="button" className="btn ghost" onClick={() => onNavigate?.("create-hangout")}>New proposal</button>
-            </div>
-          </div>
-
           <section className="glass hero">
             <div style={{ display: "grid", gap: 12 }}>
               <div className="comic-kicker">Crew HQ</div>
@@ -956,6 +960,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
             </section>
           </div>
         </div>
+        </OutsidersSideNav>
       </div>
     </>
   );

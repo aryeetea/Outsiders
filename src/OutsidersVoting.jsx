@@ -1,4 +1,5 @@
 import { useState } from "react";
+import OutsidersSideNav from "./OutsidersSideNav";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -28,17 +29,18 @@ const STYLES = `
 
   .top-nav {
     position: sticky; top: 0; z-index: 50;
-    background: #fffdf9;
-    border-bottom: 4px solid #1a1a2e;
-    box-shadow: 0 4px 0 #1a1a2e;
+    background: #fffdf7;
+    border-bottom: 4px solid #17151f;
+    box-shadow: 0 4px 0 #17151f;
   }
 
   .logo-mark {
-    width: 36px; height: 36px;
-    background: #ff6b6b; border: 3px solid #1a1a2e;
-    border-radius: 10px;
+    width: 46px; height: 46px;
+    background: #ff7a59; border: 3px solid #17151f;
+    border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 3px 3px 0 #1a1a2e;
+    box-shadow: 4px 4px 0 #17151f;
+    transform: rotate(-7deg);
   }
 
   .logo-link {
@@ -49,6 +51,24 @@ const STYLES = `
     border: none;
     padding: 0;
     cursor: pointer;
+  }
+
+  .chip-btn {
+    border: 3px solid #17151f;
+    background: #fff3c8;
+    color: #17151f;
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: 400 14px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    box-shadow: 3px 3px 0 #17151f;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .chip-btn:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: 5px 5px 0 #17151f;
   }
 
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
@@ -226,6 +246,12 @@ const STYLES = `
     animation: float-up 0.8s ease forwards;
     z-index: 10;
   }
+  @media (max-width: 1024px) {
+    .main { padding: 24px 20px; }
+  }
+  @media (max-width: 640px) {
+    .main { padding: 18px 14px; }
+  }
 `;
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
@@ -386,7 +412,7 @@ const NAV_TARGETS = {
   "Debrief": "debrief",
 };
 
-export default function OutsidersVoting({ onNavigate }) {
+export default function OutsidersVoting({ onNavigate, appData }) {
   const [activeNav, setActiveNav] = useState("Hangouts");
   const [activeTab, setActiveTab] = useState("Location");
   const handleNav = (label) => {
@@ -408,48 +434,14 @@ export default function OutsidersVoting({ onNavigate }) {
   const timeWinner = [...timeOptions].sort((a, b) => b.hype - a.hype)[0];
   const totalLocationHype = locationOptions.reduce((s, o) => s + o.hype, 0);
   const totalTimeHype = timeOptions.reduce((s, o) => s + o.hype, 0);
+  const profileName = appData?.profile?.name || appData?.profile?.username || "You";
 
   return (
     <>
       <style>{STYLES}</style>
       <div className="root">
 
-        {/* Top Nav */}
-        <nav className="top-nav">
-          <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
-              <div className="logo-mark"><IconLogoMark /></div>
-              <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <button
-                onClick={() => onNavigate?.("landing")}
-                style={{ background: "#ffd93d", color: "#1a1a2e", border: "3px solid #1a1a2e", borderRadius: 10, padding: "8px 14px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.05em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
-              >
-                Log Out
-              </button>
-              <div style={{ position: "relative", cursor: "pointer" }}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip">
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
-              </div>
-            </div>
-          </div>
-        </nav>
-
-        <div className="layout">
-
-          {/* Sidebar */}
-          <aside className="sidebar">
-            <p className="nav-section-label">Menu</p>
-            {NAV_ITEMS.map((item) => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
-                {item.icon} {item.label}
-              </div>
-            ))}
-          </aside>
-
-          {/* Main */}
+        <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName}>
           <main className="main">
 
             {/* Header */}
@@ -504,7 +496,7 @@ export default function OutsidersVoting({ onNavigate }) {
             )}
 
           </main>
-        </div>
+        </OutsidersSideNav>
       </div>
     </>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import OutsidersSideNav from "./OutsidersSideNav";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -28,17 +29,18 @@ const STYLES = `
 
   .top-nav {
     position: sticky; top: 0; z-index: 50;
-    background: #fffdf9;
-    border-bottom: 4px solid #1a1a2e;
-    box-shadow: 0 4px 0 #1a1a2e;
+    background: #fffdf7;
+    border-bottom: 4px solid #17151f;
+    box-shadow: 0 4px 0 #17151f;
   }
 
   .logo-mark {
-    width: 36px; height: 36px;
-    background: #ff6b6b; border: 3px solid #1a1a2e;
-    border-radius: 10px;
+    width: 46px; height: 46px;
+    background: #ff7a59; border: 3px solid #17151f;
+    border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 3px 3px 0 #1a1a2e;
+    box-shadow: 4px 4px 0 #17151f;
+    transform: rotate(-7deg);
   }
 
   .logo-link {
@@ -49,6 +51,24 @@ const STYLES = `
     border: none;
     padding: 0;
     cursor: pointer;
+  }
+
+  .chip-btn {
+    border: 3px solid #17151f;
+    background: #fff3c8;
+    color: #17151f;
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: 400 14px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    box-shadow: 3px 3px 0 #17151f;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .chip-btn:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: 5px 5px 0 #17151f;
   }
 
   .layout { display: flex; flex: 1; position: relative; z-index: 1; }
@@ -301,6 +321,16 @@ const STYLES = `
     border-radius: 99px;
     transition: width 0.5s ease;
   }
+  .trip-layout-grid { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr); }
+  .trip-overview-grid, .trip-modal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trip-activity-grid { grid-template-columns: 100px 80px minmax(0, 1fr) auto; }
+  @media (max-width: 1024px) {
+    .main { padding: 24px 20px; }
+    .trip-layout-grid, .trip-overview-grid, .trip-modal-grid, .trip-activity-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .main { padding: 18px 14px; }
+  }
 `;
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
@@ -447,48 +477,14 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
   const totalPack = selectedTrip?.packingList.length || 0;
   const budgetPct = selectedTrip ? Math.min(Math.round((selectedTrip.spent / selectedTrip.budget) * 100), 100) : 0;
   const budgetColor = budgetPct > 80 ? "#ff6b6b" : budgetPct > 50 ? "#ff9a3c" : "#51cf66";
+  const profileName = appData?.profile?.name || appData?.profile?.username || "You";
 
   return (
     <>
       <style>{STYLES}</style>
       <div className="root">
 
-        {/* Top Nav */}
-        <nav className="top-nav">
-          <div style={{ padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button type="button" className="logo-link" onClick={() => onNavigate?.("dashboard")} aria-label="Go to home">
-              <div className="logo-mark"><IconLogoMark /></div>
-              <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <button
-                onClick={() => onNavigate?.("landing")}
-                style={{ background: "#ffd93d", color: "#1a1a2e", border: "3px solid #1a1a2e", borderRadius: 10, padding: "8px 14px", fontFamily: "'Bangers', cursive", fontSize: 14, letterSpacing: "0.05em", cursor: "pointer", boxShadow: "3px 3px 0 #1a1a2e" }}
-              >
-                Log Out
-              </button>
-              <div style={{ position: "relative", cursor: "pointer" }} onClick={() => onNavigate?.("profile")}><IconBell /><div className="notif-dot" /></div>
-              <div className="profile-chip" onClick={() => onNavigate?.("profile")}>
-                <div style={{ width: 30, height: 30, background: "#ff6b6b", border: "2px solid #1a1a2e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#fff" }}>YOU</div>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>You</span>
-              </div>
-            </div>
-          </div>
-        </nav>
-
-        <div className="layout">
-
-          {/* Sidebar */}
-          <aside className="sidebar">
-            <p className="nav-section-label">Menu</p>
-            {NAV_ITEMS.map((item) => (
-              <div key={item.label} className={`nav-item ${activeNav === item.label ? "active" : ""}`} onClick={() => handleNav(item.label)}>
-                {item.icon} {item.label}
-              </div>
-            ))}
-          </aside>
-
-          {/* Main */}
+        <OutsidersSideNav activeLabel="Trips" onNavigate={onNavigate} profileName={profileName}>
           <main className="main">
 
             {/* Header */}
@@ -503,7 +499,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
               </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24 }}>
+            <div className="trip-layout-grid" style={{ display: "grid", gap: 24 }}>
 
               {/* Trip list */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -600,7 +596,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
 
                   {/* Overview */}
                   {activeTab === "Overview" && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div className="trip-overview-grid" style={{ display: "grid", gap: 16 }}>
                       {[
                         { label: "Days", value: getDays(selectedTrip.startDate, selectedTrip.endDate), emoji: "🌙", color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
                         { label: "Going", value: selectedTrip.members.length, emoji: "👥", color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
@@ -641,7 +637,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                       {/* Add activity */}
                       <div style={{ background: "#fffdf9", border: "3px dashed #ccc", borderRadius: 12, padding: "16px" }}>
                         <p className="bangers" style={{ fontSize: 15, margin: "0 0 12px" }}>+ Add Activity</p>
-                        <div style={{ display: "grid", gridTemplateColumns: "100px 80px 1fr auto", gap: 10, alignItems: "end" }}>
+                        <div className="trip-activity-grid" style={{ display: "grid", gap: 10, alignItems: "end" }}>
                           <div>
                             <label className="form-label">Day</label>
                             <select className="form-input" value={newActivity.day} onChange={e => setNewActivity(p => ({ ...p, day: Number(e.target.value) }))} style={{ padding: "10px 12px" }}>
@@ -700,7 +696,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
               )}
             </div>
           </main>
-        </div>
+        </OutsidersSideNav>
 
         {/* Create Trip Modal */}
         {showCreateModal && (
@@ -721,7 +717,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                   <label className="form-label">Destination *</label>
                   <input className="form-input" type="text" placeholder="e.g. Miami, Florida" value={newTripForm.destination} onChange={e => setNewTripForm(p => ({ ...p, destination: e.target.value }))} />
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div className="trip-modal-grid" style={{ display: "grid", gap: 14 }}>
                   <div>
                     <label className="form-label">Start Date *</label>
                     <input className="form-input" type="date" value={newTripForm.startDate} onChange={e => setNewTripForm(p => ({ ...p, startDate: e.target.value }))} />

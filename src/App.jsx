@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROFILE, normalizeAppData, persistStoredProfile, profileNeedsAvailability } from "./appState";
 import OutsidersAssistant from "./OutsidersAssistant";
 import OutsidersBillSplit from "./OutsidersBillSplit";
@@ -71,6 +71,8 @@ export default function App() {
   const [appData, setAppData] = useState(getInitialAppData);
   const [sessionReady, setSessionReady] = useState(!isSupabaseConfigured);
   const [currentSession, setCurrentSession] = useState(null);
+  const groupsHydratedRef = useRef(false);
+  const lastSyncedGroupsRef = useRef("");
 
   useEffect(() => {
     const handleHashChange = () => setRoute(getRouteFromLocation());
@@ -110,6 +112,7 @@ export default function App() {
 
     async function loadProfileFromAccount() {
       const user = currentSession.user;
+      const metadataGroups = Array.isArray(user.user_metadata?.joined_groups) ? user.user_metadata.joined_groups : null;
       const { data: profileRow } = await supabase
         .from("profiles")
         .select("full_name, username, email, availability")
@@ -120,6 +123,7 @@ export default function App() {
 
       setAppData((prev) => normalizeAppData({
         ...prev,
+        groups: metadataGroups && metadataGroups.length ? metadataGroups : prev.groups,
         profile: {
           ...prev.profile,
           name: profileRow?.full_name || user.user_metadata?.full_name || prev.profile?.name || "",
@@ -130,6 +134,8 @@ export default function App() {
           availability: profileRow?.availability || user.user_metadata?.availability || prev.profile?.availability,
         },
       }));
+      groupsHydratedRef.current = true;
+      lastSyncedGroupsRef.current = metadataGroups ? JSON.stringify(metadataGroups) : "";
     }
 
     loadProfileFromAccount();
@@ -137,6 +143,34 @@ export default function App() {
       active = false;
     };
   }, [currentSession, sessionReady]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !sessionReady || !currentSession?.user || !groupsHydratedRef.current) return;
+
+    const nextSerializedGroups = JSON.stringify(appData.groups || []);
+    if (lastSyncedGroupsRef.current === nextSerializedGroups) return;
+
+    let cancelled = false;
+
+    async function persistJoinedGroups() {
+      const currentMetadata = currentSession.user.user_metadata || {};
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          ...currentMetadata,
+          joined_groups: appData.groups || [],
+        },
+      });
+
+      if (!cancelled && !error) {
+        lastSyncedGroupsRef.current = nextSerializedGroups;
+      }
+    }
+
+    persistJoinedGroups();
+    return () => {
+      cancelled = true;
+    };
+  }, [appData.groups, currentSession, sessionReady]);
 
   useEffect(() => {
     window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData));

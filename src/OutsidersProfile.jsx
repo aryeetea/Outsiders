@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE } from "./appState";
+import OutsidersSideNav from "./OutsidersSideNav";
 import { availabilityToText, hasAvailability } from "./scheduling";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
@@ -53,6 +54,24 @@ const STYLES = `
     padding: 18px 22px;
   }
 
+  .chip-btn {
+    border: 3px solid #1a1a2e;
+    background: #fff3c8;
+    color: #1a1a2e;
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: 400 14px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    box-shadow: 3px 3px 0 #1a1a2e;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+    position: relative;
+    z-index: 1;
+  }
+  .chip-btn:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: 5px 5px 0 #1a1a2e;
+  }
   .brand-btn, .nav-btn, .action-btn, .ghost-btn, .slot-chip {
     transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
   }
@@ -68,15 +87,16 @@ const STYLES = `
   }
 
   .logo-mark {
-    width: 42px;
-    height: 42px;
-    background: #ff6b6b;
+    width: 46px;
+    height: 46px;
+    background: #ff7a59;
     border: 3px solid #1a1a2e;
-    border-radius: 12px;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 3px 3px 0 #1a1a2e;
+    box-shadow: 4px 4px 0 #1a1a2e;
+    transform: rotate(-7deg);
   }
 
   .nav-row {
@@ -301,6 +321,7 @@ function weekSummary(availability) {
 
 export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
   const profile = appData?.profile || DEFAULT_PROFILE;
+  const profileName = profile.name || profile.username || "You";
   const notifications = appData?.notifications || [];
   const [draft, setDraft] = useState(() => profile);
   const [saved, setSaved] = useState(false);
@@ -404,26 +425,8 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
     <>
       <style>{STYLES}</style>
       <div className="profile-root">
+        <OutsidersSideNav activeLabel="Profile" onNavigate={onNavigate} profileName={profileName}>
         <div className="profile-shell">
-          <div className="topbar">
-            <button type="button" className="brand-btn" onClick={() => onNavigate?.("dashboard")}>
-              <div className="logo-mark">
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
-              </div>
-              <div>
-                <div style={{ font: "800 22px 'Sora', sans-serif" }}>Outsiders</div>
-                <div style={{ fontSize: 12, color: "#7a8294" }}>Profile and availability</div>
-              </div>
-            </button>
-            <div className="nav-row">
-              {NAV_ITEMS.map(([label, target]) => (
-                <button key={label} type="button" className={`nav-btn ${label === "Dashboard" ? "" : ""}`} onClick={() => onNavigate?.(target)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="hero-grid">
             <section className="panel profile-card">
             <span className="eyebrow">{availabilityReady ? "Availability live" : "Availability missing"}</span>
@@ -541,6 +544,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
             </div>
           </section>
         </div>
+        </OutsidersSideNav>
       </div>
     </>
   );
