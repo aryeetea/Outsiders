@@ -103,13 +103,13 @@ const STYLES = `
 
   .main {
     flex: 1;
-    padding: clamp(32px, 5vw, 72px) clamp(18px, 4vw, 56px);
+    padding: clamp(28px, 4vw, 56px) clamp(18px, 4vw, 56px) clamp(44px, 6vw, 80px);
     overflow-y: auto;
     position: relative;
     isolation: isolate;
     min-height: 100vh;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
   }
 
@@ -137,6 +137,7 @@ const STYLES = `
     width: min(100%, 1120px);
     position: relative;
     z-index: 1;
+    margin-top: clamp(18px, 5vh, 54px);
     animation: tripHeroFade 520ms ease both;
   }
 
@@ -146,8 +147,8 @@ const STYLES = `
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 16px;
-    margin: 0 auto clamp(28px, 4vw, 42px);
+    gap: 18px;
+    margin: 0 auto clamp(24px, 3vw, 34px);
   }
 
   .trip-title-group {
@@ -175,6 +176,40 @@ const STYLES = `
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: min(100%, 430px);
+    justify-self: center;
+    text-align: center;
+  }
+
+  .trip-list-column .trip-card {
+    text-align: left;
+  }
+
+  .trip-empty-card,
+  .trip-new-prompt {
+    border: 3px dashed #ccc;
+    border-radius: 14px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+
+  .trip-new-prompt {
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.15s ease;
+  }
+
+  .trip-new-prompt:hover {
+    border-color: #ff6b6b;
+    transform: translate(-1px, -2px);
+    box-shadow: 4px 4px 0 rgba(26, 26, 46, 0.14);
+  }
+
+  .trip-detail-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: min(100%, 820px);
+    justify-self: center;
   }
 
   @keyframes tripWordFloat {
@@ -406,9 +441,10 @@ const STYLES = `
     transition: width 0.5s ease;
   }
   .trip-layout-grid {
-    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
     justify-content: center;
+    justify-items: center;
   }
   .trip-overview-grid, .trip-modal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .trip-activity-grid { grid-template-columns: 100px 80px minmax(0, 1fr) auto; }
@@ -416,6 +452,9 @@ const STYLES = `
     .main {
       align-items: flex-start;
       padding: 34px 20px;
+    }
+    .trip-hero-shell {
+      margin-top: 0;
     }
     .trip-layout-grid, .trip-overview-grid, .trip-modal-grid, .trip-activity-grid { grid-template-columns: 1fr; }
     .trip-bg-word {
@@ -429,7 +468,7 @@ const STYLES = `
     }
     .trip-hero-header {
       gap: 14px;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
     .trip-title {
       font-size: 42px;
@@ -585,7 +624,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
               <div className="trip-list-column">
                 <p className="bangers" style={{ fontSize: 13, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Your Trips</p>
                 {trips.length === 0 && (
-                  <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "16px", textAlign: "center" }}>
+                  <div className="trip-empty-card">
                     <p className="bangers" style={{ fontSize: 15, color: "#aaa", margin: "0 0 6px" }}>No trips yet</p>
                     <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Plan your first trip when you’re ready.</p>
                   </div>
@@ -621,10 +660,8 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
 
                 {/* New trip prompt */}
                 <div
+                  className="trip-new-prompt"
                   onClick={() => setShowCreateModal(true)}
-                  style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "16px", textAlign: "center", cursor: "pointer", transition: "border-color 0.2s" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = "#ff6b6b"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = "#ccc"}
                 >
                   <p className="bangers" style={{ fontSize: 15, color: "#aaa", margin: 0 }}>+ Plan New Trip</p>
                 </div>
@@ -632,7 +669,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
 
               {/* Trip detail */}
               {selectedTrip && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <div className="trip-detail-column">
 
                   {/* Trip header */}
                   <div className="card" style={{ background: selectedTrip.color.bg, borderColor: selectedTrip.color.border, boxShadow: `5px 5px 0 ${selectedTrip.color.border}` }}>
