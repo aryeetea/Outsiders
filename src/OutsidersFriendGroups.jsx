@@ -562,6 +562,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const [joinCode, setJoinCode] = useState(inviteCodeFromLink);
   const [billChecklistDraft, setBillChecklistDraft] = useState("");
   const [editingProposalId, setEditingProposalId] = useState(null);
+  const [generatedInvite, setGeneratedInvite] = useState({ groupId: "", link: "" });
   const [editDraft, setEditDraft] = useState({
     name: "",
     description: "",
@@ -582,7 +583,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
   const myBillWatchVote = selectedBillWatch.votes?.[currentUserKey] || "";
   const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
-  const selectedGroupInviteLink = selectedGroup?.code ? buildGroupInviteLink(selectedGroup.code) : "";
+  const generatedInviteLink = generatedInvite.groupId === selectedGroup?.id ? generatedInvite.link : "";
 
   useEffect(() => {
     if (!hasAvailability(profile.availability)) return;
@@ -681,7 +682,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       return;
     }
     const username = inviteUsername.startsWith("@") ? inviteUsername : `@${inviteUsername}`;
-    const inviteLink = selectedGroupInviteLink;
+    const inviteLink = buildGroupInviteLink(selectedGroup.code);
     setAppData?.((prev) => ({
       ...prev,
       groups: prev.groups.map((group) => (
@@ -719,10 +720,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       return;
     }
 
-    const inviteLink = selectedGroupInviteLink;
+    const inviteLink = buildGroupInviteLink(selectedGroup.code);
+    setGeneratedInvite({ groupId: selectedGroup.id, link: inviteLink });
     try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(inviteLink);
+      if (window.navigator?.clipboard && window.isSecureContext) {
+        await window.navigator.clipboard.writeText(inviteLink);
       } else {
         const textArea = document.createElement("textarea");
         textArea.value = inviteLink;
@@ -731,12 +733,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
         textArea.style.left = "-9999px";
         document.body.appendChild(textArea);
         textArea.select();
-        document.execCommand("copy");
+        const copied = document.execCommand("copy");
         document.body.removeChild(textArea);
+        if (!copied) throw new Error("Clipboard copy was blocked.");
       }
-      setNotice(`Invite link copied for ${selectedGroup.name}.`);
+      setNotice(`Invite link generated and copied for ${selectedGroup.name}.`);
     } catch {
-      setNotice(`Copy blocked. Share this code instead: ${selectedGroup.code}`);
+      setNotice("Invite link generated. Copy it from the box below.");
     }
   };
 
@@ -1398,12 +1401,12 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
                         <button type="button" className="btn primary" onClick={inviteMember}>Add pending invite</button>
-                        <button type="button" className="btn ghost" onClick={copyCrewInviteLink}>Copy invite link</button>
+                        <button type="button" className="btn ghost" onClick={copyCrewInviteLink}>Generate & copy invite link</button>
                       </div>
-                      {selectedGroupInviteLink ? (
+                      {generatedInviteLink ? (
                         <div className="invite-link-box">
                           <strong>Share this crew invite link</strong>
-                          <div className="invite-link-value">{selectedGroupInviteLink}</div>
+                          <div className="invite-link-value">{generatedInviteLink}</div>
                           <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
                             Send this link to someone so they can open Outsiders with this crew code ready to join.
                           </p>
