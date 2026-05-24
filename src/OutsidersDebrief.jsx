@@ -21,6 +21,106 @@ const STYLES = `
   .nav-item.active { background: #fff; color: #1a1a2e; border: 2.5px solid #1a1a2e; box-shadow: 3px 3px 0 #1a1a2e; }
   .nav-section-label { font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.1em; color: #bbb; padding: 8px 14px 4px; text-transform: uppercase; }
   .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
+  .debrief-shell {
+    background:
+      radial-gradient(circle, rgba(201, 179, 104, 0.42) 1.4px, transparent 1.5px),
+      linear-gradient(180deg, #fff9ea 0%, #fff6df 100%);
+    background-size: 36px 36px, 100% 100%;
+    border: 5px solid #1a1a2e;
+    border-radius: 28px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.45) inset;
+    padding: 36px 42px 54px;
+    position: relative;
+    overflow: hidden;
+  }
+  .debrief-shell::before {
+    content: '';
+    position: absolute;
+    inset: 16px;
+    border: 2px solid rgba(26, 26, 46, 0.08);
+    border-radius: 22px;
+    pointer-events: none;
+  }
+  .debrief-hero {
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    text-align: center;
+    margin-bottom: 30px;
+    position: relative;
+    z-index: 1;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .debrief-kicker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-width: min(100%, 360px);
+    padding: 12px 24px;
+    background: #ffd54d;
+    border: 5px solid #1a1a2e;
+    border-radius: 12px;
+    box-shadow: 0 6px 0 #1a1a2e;
+    transform: rotate(-1.5deg);
+    font: 400 clamp(18px, 2.2vw, 28px) 'Bangers', cursive;
+    letter-spacing: 0.08em;
+  }
+  .debrief-title {
+    margin: 0;
+    font: 400 clamp(52px, 9vw, 96px) 'Bangers', cursive;
+    line-height: 0.92;
+    letter-spacing: 0.05em;
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
+  }
+  .debrief-subtitle {
+    position: relative;
+    background: #fff;
+    border: 5px solid #1a1a2e;
+    border-radius: 999px;
+    box-shadow: 6px 6px 0 #1a1a2e;
+    padding: 16px 32px;
+    font: 800 clamp(18px, 2vw, 26px) 'Nunito', sans-serif;
+  }
+  .debrief-subtitle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -16px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-right: 5px solid #1a1a2e;
+    border-bottom: 5px solid #1a1a2e;
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .debrief-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .debrief-section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 18px;
+    color: #888a95;
+    font: 400 22px 'Bangers', cursive;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .debrief-section-label::before { content: "▸"; font-size: 18px; }
+  .debrief-column-card {
+    background: rgba(255,255,255,0.72);
+    border: 3px solid rgba(26,26,46,0.14);
+    border-radius: 22px;
+    padding: 20px;
+    box-shadow: 0 10px 24px rgba(26,26,46,0.06);
+  }
   .card { background: #fff; border: 3px solid #1a1a2e; border-radius: 16px; box-shadow: 5px 5px 0 #1a1a2e; padding: 22px 24px; }
   .btn-primary { background: #ff6b6b; color: #fff; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 16px; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px; }
   .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
@@ -47,9 +147,12 @@ const STYLES = `
   @media (max-width: 1024px) {
     .main { padding: 24px 20px; }
     .debrief-layout-grid { grid-template-columns: 1fr; }
+    .debrief-shell { padding: 28px 22px 36px; }
   }
   @media (max-width: 640px) {
     .main { padding: 18px 14px; }
+    .debrief-kicker { min-width: 0; width: 100%; }
+    .debrief-subtitle { padding: 14px 20px; }
   }
 `;
 
@@ -416,13 +519,18 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
       <div className="root">
         <OutsidersSideNav activeLabel="Debrief" onNavigate={onNavigate} profileName={profileName}>
           <main className="main">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
-              <div>
-                <span className="comic-tag">Anonymous court room ⚖️</span>
-                <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>Debrief Court</h1>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>File a case anonymously, bring your crew into session, and let the named person answer, clap back, or apologize.</p>
+            <section className="debrief-shell">
+            <div className="debrief-hero">
+              <div className="debrief-kicker">
+                <span>⚖️</span>
+                <span>Anonymous Court Room</span>
+                <span>⚖️</span>
               </div>
-              <button className="btn-primary" onClick={() => setShowNewModal(true)}>+ File A Case</button>
+              <h1 className="debrief-title">Debrief Court</h1>
+              <div className="debrief-subtitle">Bring the crew into session, file the case, and give people one place to answer, apologize, or push back.</div>
+              <div className="debrief-actions">
+                <button className="btn-primary" onClick={() => setShowNewModal(true)}>+ File A Case</button>
+              </div>
             </div>
 
             {notice ? (
@@ -439,8 +547,10 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                 <button className="btn-secondary" onClick={() => onNavigate?.("friend-groups")}>Go To My Crew</button>
               </div>
             ) : (
+              <>
+              <div className="debrief-section-label">Case Rooms</div>
               <div className="debrief-layout-grid" style={{ display: "grid", gap: 24 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div className="debrief-column-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <div className="card">
                     <p className="bangers" style={{ fontSize: 14, margin: "0 0 10px", color: "#888", letterSpacing: "0.08em", textTransform: "uppercase" }}>Choose crew</p>
                     <select className="form-input" value={selectedGroup?.id || ""} onChange={(event) => { setActiveGroupId(event.target.value); setSelectedCaseId(""); }} style={{ padding: "10px 14px" }}>
@@ -559,7 +669,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                 </div>
 
                 {selectedGroup && selectedCase ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div className="debrief-column-card" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                     <div className="card" style={{ background: "#fffdf9" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                         <div>
@@ -641,14 +751,18 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                     </div>
                   </div>
                 ) : (
+                  <div className="debrief-column-card">
                   <div className="card" style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 38, margin: "0 0 10px" }}>🕳️</p>
                   <p className="bangers" style={{ fontSize: 22, margin: "0 0 8px" }}>Pick a case room</p>
                     <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: 0 }}>Select a visible case on the left to read it, clap back, or apologize.</p>
                   </div>
+                  </div>
                 )}
               </div>
+              </>
             )}
+            </section>
           </main>
         </OutsidersSideNav>
 

@@ -28,6 +28,109 @@ const STYLES = `
     position: relative;
     z-index: 1;
   }
+  .dashboard-board {
+    background:
+      radial-gradient(circle, rgba(201, 179, 104, 0.45) 1.4px, transparent 1.5px),
+      linear-gradient(180deg, #fff9ea 0%, #fff4d6 100%);
+    background-size: 36px 36px, 100% 100%;
+    border: 5px solid #17151f;
+    border-radius: 28px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.45) inset;
+    padding: 36px 34px 42px;
+    position: relative;
+    overflow: hidden;
+  }
+  .dashboard-board::before {
+    content: '';
+    position: absolute;
+    inset: 16px;
+    border: 2px solid rgba(23, 21, 31, 0.08);
+    border-radius: 22px;
+    pointer-events: none;
+  }
+  .dashboard-hero {
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    text-align: center;
+    margin-bottom: 30px;
+    position: relative;
+    z-index: 1;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .dashboard-kicker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-width: min(100%, 340px);
+    padding: 12px 24px;
+    background: #ffd54d;
+    border: 5px solid #17151f;
+    border-radius: 12px;
+    box-shadow: 0 6px 0 #17151f;
+    transform: rotate(-1.5deg);
+    font: 400 clamp(18px, 2.2vw, 28px) 'Bangers', cursive;
+    letter-spacing: 0.08em;
+  }
+  .dashboard-title {
+    margin: 0;
+    font: 400 clamp(52px, 9vw, 96px) 'Bangers', cursive;
+    line-height: 0.92;
+    letter-spacing: 0.05em;
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #17151f, 12px 0 0 rgba(255, 107, 107, 0.18);
+  }
+  .dashboard-subtitle {
+    position: relative;
+    background: #fff;
+    border: 5px solid #17151f;
+    border-radius: 999px;
+    box-shadow: 6px 6px 0 #17151f;
+    padding: 16px 32px;
+    font: 800 clamp(18px, 2vw, 26px) 'Nunito', sans-serif;
+  }
+  .dashboard-subtitle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -16px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-right: 5px solid #17151f;
+    border-bottom: 5px solid #17151f;
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .dashboard-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .dashboard-section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 18px;
+    color: #888a95;
+    font: 400 22px 'Bangers', cursive;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .dashboard-section-label::before {
+    content: "▸";
+    font-size: 18px;
+  }
+  .dashboard-column-card {
+    background: rgba(255,255,255,0.72);
+    border: 3px solid rgba(23, 21, 31, 0.14);
+    border-radius: 22px;
+    padding: 20px;
+    box-shadow: 0 10px 24px rgba(23,21,31,0.06);
+  }
   .glass, .card {
     border: 4px solid #17151f;
     background: #fffdf7;
@@ -207,6 +310,8 @@ const STYLES = `
     .dash-shell { padding: 16px 12px 36px; }
     .hero, .card, .glass { padding: 18px; border-radius: 24px; }
     .quick-grid { grid-template-columns: 1fr; }
+    .dashboard-board { padding: 24px 18px 28px; }
+    .dashboard-kicker { min-width: 0; width: 100%; }
   }
 `;
 
@@ -241,22 +346,22 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
       <div className="dash-root">
         <OutsidersSideNav activeLabel="Dashboard" onNavigate={onNavigate} profileName={profileName}>
         <div className="dash-shell">
-          <section className="glass hero">
-            <div className="hero-grid">
-              <div>
-                <div className="comic-kicker">Welcome Back</div>
-                <h1 className="bangers" style={{ margin: "14px 0 10px", fontSize: 46, lineHeight: 1 }}>Plan the next move for {displayName} and the crew.</h1>
-                <p style={{ margin: 0, maxWidth: 720, color: "#556077", fontSize: 16, lineHeight: 1.6 }}>
-                  Hangout voting, availability-aware planning, crew invites, notifications, and the roast board all now live inside your crew spaces where they belong.
-                </p>
-              </div>
-              <div className="cta-stack">
-                <button type="button" className="cta-btn primary" onClick={() => onNavigate?.("create-hangout")}>Start a hangout</button>
-                <button type="button" className="cta-btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open my crew</button>
-              </div>
+          <section className="dashboard-board">
+          <div className="dashboard-hero">
+            <div className="dashboard-kicker">
+              <span>⚡</span>
+              <span>Welcome Back</span>
+              <span>⚡</span>
             </div>
-          </section>
+            <h1 className="dashboard-title">Plan The Next Move.</h1>
+            <div className="dashboard-subtitle">Keep {displayName}, the crew, and every next step in one comic-style home base.</div>
+            <div className="dashboard-actions">
+              <button type="button" className="cta-btn primary" onClick={() => onNavigate?.("create-hangout")}>Start a hangout</button>
+              <button type="button" className="cta-btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open my crew</button>
+            </div>
+          </div>
 
+          <div className="dashboard-section-label">At A Glance</div>
           <section className="stats-grid">
             {[
               ["Live hangouts", proposals.length, "#ff8f7a"],
@@ -272,8 +377,9 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
             ))}
           </section>
 
+          <div className="dashboard-section-label">Crew Flow</div>
           <section className="content-grid">
-            <div className="card">
+            <div className="dashboard-column-card">
               <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
                 <div>
                   <h2 className="section-title">Crew Hangouts</h2>
@@ -313,7 +419,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
             </div>
 
             <div style={{ display: "grid", gap: 16 }}>
-              <div className="card">
+              <div className="dashboard-column-card">
                 <h2 className="section-title" style={{ marginBottom: 14 }}>Quick Actions</h2>
                 <div className="quick-grid">
                   {QUICK_ACTIONS.map(([label, target, description]) => (
@@ -325,7 +431,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                 </div>
               </div>
 
-              <div className="card">
+              <div className="dashboard-column-card">
                 <h2 className="section-title" style={{ marginBottom: 14 }}>Notifications</h2>
                 <div style={{ display: "grid", gap: 10 }}>
                   {notifications.length ? notifications.slice(0, 5).map((notification) => (
@@ -342,6 +448,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                 </div>
               </div>
             </div>
+          </section>
           </section>
         </div>
         </OutsidersSideNav>

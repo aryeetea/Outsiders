@@ -102,6 +102,97 @@ const STYLES = `
   }
 
   .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
+  .voting-shell {
+    background:
+      radial-gradient(circle, rgba(201, 179, 104, 0.42) 1.4px, transparent 1.5px),
+      linear-gradient(180deg, #fff9ea 0%, #fff6df 100%);
+    background-size: 36px 36px, 100% 100%;
+    border: 5px solid #1a1a2e;
+    border-radius: 28px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.45) inset;
+    padding: 36px 42px 54px;
+    position: relative;
+    overflow: hidden;
+  }
+  .voting-shell::before {
+    content: '';
+    position: absolute;
+    inset: 16px;
+    border: 2px solid rgba(26, 26, 46, 0.08);
+    border-radius: 22px;
+    pointer-events: none;
+  }
+  .voting-hero {
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    text-align: center;
+    margin-bottom: 30px;
+    position: relative;
+    z-index: 1;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .voting-kicker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-width: min(100%, 320px);
+    padding: 12px 24px;
+    background: #ffd54d;
+    border: 5px solid #1a1a2e;
+    border-radius: 12px;
+    box-shadow: 0 6px 0 #1a1a2e;
+    transform: rotate(-1.5deg);
+    font: 400 clamp(18px, 2.2vw, 28px) 'Bangers', cursive;
+    letter-spacing: 0.08em;
+  }
+  .voting-title {
+    margin: 0;
+    font: 400 clamp(52px, 9vw, 94px) 'Bangers', cursive;
+    line-height: 0.92;
+    letter-spacing: 0.05em;
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
+  }
+  .voting-subtitle {
+    position: relative;
+    background: #fff;
+    border: 5px solid #1a1a2e;
+    border-radius: 999px;
+    box-shadow: 6px 6px 0 #1a1a2e;
+    padding: 16px 32px;
+    font: 800 clamp(18px, 2vw, 26px) 'Nunito', sans-serif;
+  }
+  .voting-subtitle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -16px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-right: 5px solid #1a1a2e;
+    border-bottom: 5px solid #1a1a2e;
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .voting-section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 18px;
+    color: #888a95;
+    font: 400 22px 'Bangers', cursive;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .voting-section-label::before {
+    content: "▸";
+    font-size: 18px;
+  }
+  .voting-summary-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 20px; }
 
   .card {
     background: #fff;
@@ -248,9 +339,14 @@ const STYLES = `
   }
   @media (max-width: 1024px) {
     .main { padding: 24px 20px; }
+    .voting-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .voting-shell { padding: 28px 22px 36px; }
   }
   @media (max-width: 640px) {
     .main { padding: 18px 14px; }
+    .voting-kicker { min-width: 0; width: 100%; }
+    .voting-subtitle { padding: 14px 20px; }
+    .voting-summary-grid { grid-template-columns: 1fr; }
   }
 `;
 
@@ -443,17 +539,20 @@ export default function OutsidersVoting({ onNavigate, appData }) {
 
         <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName}>
           <main className="main">
+            <section className="voting-shell">
 
-            {/* Header */}
-            <div style={{ marginBottom: 24 }}>
-              <span className="comic-tag">Hype it up! ⚡</span>
-              <h1 className="bangers" style={{ fontSize: 34, margin: "8px 0 4px", color: "#1a1a2e" }}>{HANGOUT.name}</h1>
-              <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: "0 0 20px" }}>
-                {HANGOUT.group} · Slam the button to hype your favourite option!
-              </p>
+            <div className="voting-hero">
+              <div className="voting-kicker">
+                <span>⚡</span>
+                <span>Hype It Up</span>
+                <span>⚡</span>
+              </div>
+              <h1 className="voting-title">{HANGOUT.name}</h1>
+              <div className="voting-subtitle">{HANGOUT.group} · Slam the button to back your favorite option.</div>
+            </div>
 
-              {/* Stats row */}
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+              <div className="voting-section-label">Vote Board</div>
+              <div className="voting-summary-grid">
                 {[
                   { label: "Total Location Hype", value: totalLocationHype, color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
                   { label: "Total Time Hype", value: totalTimeHype, color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
@@ -467,7 +566,7 @@ export default function OutsidersVoting({ onNavigate, appData }) {
                 ))}
               </div>
 
-              {/* Tabs */}
+              <div className="voting-section-label">Choose A Lane</div>
               <div style={{ display: "flex", gap: 8, background: "#f5f3ee", padding: 6, borderRadius: 12, border: "3px solid #1a1a2e", width: "fit-content", boxShadow: "3px 3px 0 #1a1a2e" }}>
                 {["Location", "Time"].map(t => (
                   <button key={t} className={`tab ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>
@@ -475,7 +574,8 @@ export default function OutsidersVoting({ onNavigate, appData }) {
                   </button>
                 ))}
               </div>
-            </div>
+            
+            <div style={{ marginTop: 20 }}>
 
             {activeTab === "Location" && (
               <HypeSection
@@ -494,6 +594,8 @@ export default function OutsidersVoting({ onNavigate, appData }) {
                 onHype={handleTimeHype}
               />
             )}
+            </div>
+            </section>
 
           </main>
         </OutsidersSideNav>
