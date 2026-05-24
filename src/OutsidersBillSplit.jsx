@@ -307,7 +307,7 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
               </div>
               <h1 className="bill-title">Bill Split</h1>
               <div className="bill-subtitle">
-                {selectedGroup ? `Track ${selectedGroup.name}'s spending, payouts, and who still owes what.` : "No expenses are loaded until you add them."}
+                {selectedGroup ? "Track spending, payouts, and who still owes what." : "No expenses are loaded until you add them."}
               </div>
               <div className="bill-actions">
                 <button className="btn-primary" onClick={() => setShowModal(true)}><IconPlus /> Add Expense</button>
