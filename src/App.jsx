@@ -209,6 +209,25 @@ export default function App() {
     }
   }, [route]);
 
+  // Auth guard: if session check is done and user is on a private screen without a session, send them to landing
+  useEffect(() => {
+    if (!sessionReady) return;
+    if (PUBLIC_SCREENS.has(route.screen)) return;
+
+    const isAuthenticated = isSupabaseConfigured
+      ? !!currentSession
+      : !!(appData.profile?.name?.trim() || appData.profile?.username?.trim());
+
+    if (!isAuthenticated) {
+      window.localStorage.removeItem(LAST_APP_ROUTE_STORAGE_KEY);
+      if (window.location.hash) {
+        window.location.hash = "";
+      } else {
+        setRoute({ screen: DEFAULT_SCREEN, params: {} });
+      }
+    }
+  }, [sessionReady, currentSession, route.screen, appData.profile?.name, appData.profile?.username]);
+
   const logout = async () => {
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();

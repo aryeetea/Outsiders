@@ -247,7 +247,7 @@ function getPasswordStrength(pw) {
   return { score, ...map[score] };
 }
 
-export default function OutsidersSignUp({ onNavigate, routeParams }) {
+export default function OutsidersSignUp({ onNavigate, setAppData, routeParams }) {
   const [avatar, setAvatar] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
@@ -342,6 +342,19 @@ export default function OutsidersSignUp({ onNavigate, routeParams }) {
       onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams });
       return;
     }
+
+    // Immediately apply the signup profile data so the availability gate never flashes
+    setAppData?.((prev) => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        name: form.name.trim(),
+        username: cleanUsername,
+        email: form.email.trim(),
+        availability,
+      },
+      avatar: avatar || prev.avatar || null,
+    }));
 
     onNavigate?.(postAuthScreen, inviteParams);
   };
