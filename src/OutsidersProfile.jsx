@@ -1,6 +1,6 @@
 import { useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
-import { DEFAULT_PROFILE } from "./appState";
+import { DEFAULT_PROFILE, getDisplayName } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { availabilityToText, hasAvailability } from "./scheduling";
 import { isSupabaseConfigured, supabase } from "./supabase";
@@ -455,11 +455,14 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
       },
       groups: (prev.groups || []).map((group) => ({
         ...group,
-        members: (group.members || []).map((member) => (
-          member.name === prev.profile?.name || member.username === (prev.profile?.username ? `@${prev.profile.username}` : "")
+        members: (group.members || []).map((member) => {
+          const prevDisplayName = getDisplayName(prev.profile);
+          const isMe = member.name === prevDisplayName
+            || (prev.profile?.username && member.username === `@${prev.profile.username}`);
+          return isMe
             ? {
                 ...member,
-                name: nextProfile.name || member.name,
+                name: nextProfile.name?.trim() || prevDisplayName,
                 username: cleanUsername ? `@${cleanUsername}` : member.username,
                 bio: nextProfile.bio,
                 location: nextProfile.location,
@@ -467,8 +470,8 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
                 initials: initialsFor(nextProfile),
                 availability: nextProfile.availability,
               }
-            : member
-        )),
+            : member;
+        }),
       })),
     }));
 

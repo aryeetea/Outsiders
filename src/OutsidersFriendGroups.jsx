@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createId, getCurrentUserKey, getDisplayName } from "./appState";
+import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildGroupInviteLink } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
@@ -551,9 +551,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const currentUserKey = getCurrentUserKey(profile);
   const inviteCodeFromLink = String(routeParams?.groupCode || "").toUpperCase();
   const allGroups = useMemo(() => appData?.groups ?? [], [appData?.groups]);
-  const groups = allGroups.filter((group) =>
-    (group.members || []).some((m) => m.name === currentName || m.username === `@${profile.username}`)
-  );
+  const groups = useMemo(() => getVisibleGroupsForProfile(allGroups, profile), [allGroups, profile]);
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
   const [activeTab, setActiveTab] = useState("Hangouts");
   const [newGroupName, setNewGroupName] = useState("");
@@ -586,13 +584,21 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const generatedInviteLink = generatedInvite.groupId === selectedGroup?.id ? generatedInvite.link : "";
 
   useEffect(() => {
-    if (!hasAvailability(profile.availability)) return;
     setAppData?.((prev) => {
+      const usernameTag = profile.username ? `@${profile.username}` : "";
+      const isMeCheck = (m) =>
+        m.name === currentName
+        || (usernameTag && m.username === usernameTag)
+        || (!usernameTag && !m.username && m.name === "You" && currentName !== "You");
+
       const needsSync = (prev.groups || []).some((group) =>
-        (group.members || []).some((m) => {
-          const isMe = m.name === currentName || m.username === `@${profile.username}`;
-          return isMe && availabilityToText(m.availability) !== availabilityToText(profile.availability);
-        })
+        (group.members || []).some((m) =>
+          isMeCheck(m) && (
+            m.name !== currentName
+            || (usernameTag && m.username !== usernameTag)
+            || (hasAvailability(profile.availability) && availabilityToText(m.availability) !== availabilityToText(profile.availability))
+          )
+        )
       );
       if (!needsSync) return prev;
       return {
@@ -600,8 +606,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
         groups: (prev.groups || []).map((group) => ({
           ...group,
           members: (group.members || []).map((member) => {
-            const isMe = member.name === currentName || member.username === `@${profile.username}`;
-            return isMe ? { ...member, availability: profile.availability } : member;
+            if (!isMeCheck(member)) return member;
+            return {
+              ...member,
+              name: currentName,
+              username: usernameTag || member.username,
+              ...(hasAvailability(profile.availability) ? { availability: profile.availability } : {}),
+            };
           }),
         })),
       };

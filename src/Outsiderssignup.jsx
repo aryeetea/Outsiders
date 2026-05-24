@@ -1,7 +1,5 @@
 import { useState, useRef } from "react";
-import AvailabilitySheet from "./AvailabilitySheet";
 import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
-import { DEFAULT_AVAILABILITY, availabilityToText, hasAvailability } from "./scheduling";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&family=Caveat:wght@600;700&display=swap');
@@ -251,7 +249,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
   const [avatar, setAvatar] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
-  const [availability, setAvailability] = useState(DEFAULT_AVAILABILITY);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -259,7 +256,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
   const strength = getPasswordStrength(form.password);
   const inviteParams = routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {};
   const postAuthScreen = routeParams?.redirect || "dashboard";
-  const availabilitySummary = availabilityToText(availability);
 
   const handleAvatar = (e) => {
     const file = e.target.files[0];
@@ -283,7 +279,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = "That doesn't look like an email!";
     if (!form.password) errs.password = "Password is required!";
     else if (form.password.length < 8) errs.password = "At least 8 characters!";
-    if (!hasAvailability(availability)) errs.availability = "Add at least one day and time you are free!";
     return errs;
   };
   const handleSubmit = async () => {
@@ -305,7 +300,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
         data: {
           full_name: form.name.trim(),
           username: cleanUsername,
-          availability,
         },
       },
     });
@@ -322,7 +316,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
         full_name: form.name.trim(),
         username: cleanUsername,
         email: form.email.trim(),
-        availability,
       });
 
       if (profileError) {
@@ -343,7 +336,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
       return;
     }
 
-    // Immediately apply the signup profile data so the availability gate never flashes
     setAppData?.((prev) => ({
       ...prev,
       profile: {
@@ -351,12 +343,11 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
         name: form.name.trim(),
         username: cleanUsername,
         email: form.email.trim(),
-        availability,
       },
       avatar: avatar || prev.avatar || null,
     }));
 
-    onNavigate?.(postAuthScreen, inviteParams);
+    onNavigate?.("profile", { onboarding: "availability", next: postAuthScreen, ...inviteParams });
   };
 
   return (
@@ -392,7 +383,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
                 Join The Crew 🎉
               </h1>
               <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>
-                Set up your profile and find your people.
+                Create your account first, then add your availability on your profile.
               </p>
             </div>
 
@@ -454,21 +445,9 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
                 {errors.password && <p className="error-msg">{errors.password}</p>}
               </div>
 
-              <AvailabilitySheet
-                value={availability}
-                onChange={(nextAvailability) => {
-                  setAvailability(nextAvailability);
-                  setErrors((prev) => ({ ...prev, availability: "" }));
-                }}
-                title="Set your availability before you join"
-                subtitle="Signing up users get their own dedicated availability section too. Fill this out now so your crew can vote and plan around your real schedule from day one."
-                required
-                compact
-              />
-              {errors.availability && <p className="error-msg">{errors.availability}</p>}
               <div style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 12, padding: "12px 14px", boxShadow: "3px 3px 0 #1a1a2e", fontSize: 13, fontWeight: 800, color: "#555" }}>
-                <span className="bangers" style={{ display: "block", fontSize: 13, color: "#4ecdc4", marginBottom: 4 }}>Saved to your profile</span>
-                {availabilitySummary}
+                <span className="bangers" style={{ display: "block", fontSize: 13, color: "#4ecdc4", marginBottom: 4 }}>Next step after sign up</span>
+                We will send you to your profile so you can fill out your weekly availability before you start planning with your crew.
               </div>
 
               {errors.submit && <p className="error-msg" style={{ margin: 0 }}>{errors.submit}</p>}
