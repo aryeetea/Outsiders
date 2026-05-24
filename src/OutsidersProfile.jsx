@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE, getDisplayName } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
@@ -227,6 +227,20 @@ const STYLES = `
     place-items: center;
     font: 900 28px 'Nunito', sans-serif;
     box-shadow: 5px 5px 0 #1a1a2e;
+    overflow: hidden;
+  }
+
+  .avatar-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-tools {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
   }
 
   .eyebrow {
@@ -409,6 +423,7 @@ function findViewableMember(groups, memberKey, groupId) {
 export default function OutsidersProfile({ onNavigate, appData, setAppData, routeParams = {} }) {
   const profile = appData?.profile || DEFAULT_PROFILE;
   const groups = appData?.groups || [];
+  const fileRef = useRef(null);
   const viewedMember = findViewableMember(groups, routeParams.memberKey, routeParams.groupId);
   const isViewingOtherProfile = Boolean(viewedMember);
   const sourceProfile = isViewingOtherProfile
@@ -425,15 +440,34 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
   const profileName = profile.name || profile.username || "You";
   const notifications = appData?.notifications || [];
   const [draft, setDraft] = useState(() => sourceProfile);
+  const [draftAvatar, setDraftAvatar] = useState(undefined);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
   const availabilitySummary = weekSummary(draft.availability);
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const availabilityReady = hasAvailability(draft.availability);
+  const avatarPreview = isViewingOtherProfile
+    ? viewedMember?.avatar
+    : (draftAvatar === undefined ? appData?.avatar : draftAvatar);
+  const avatarToSave = draftAvatar === undefined ? appData?.avatar : draftAvatar;
 
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleAvatarUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setDraftAvatar(reader.result);
+        setSaved(false);
+      }
+    };
+    reader.onerror = () => setSaveError("Could not read that photo. Try another image.");
+    reader.readAsDataURL(file);
   };
 
   const saveProfile = async () => {
@@ -453,6 +487,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
         ...prev.profile,
         ...nextProfile,
       },
+      avatar: avatarToSave || null,
       groups: (prev.groups || []).map((group) => ({
         ...group,
         members: (group.members || []).map((member) => {
@@ -469,6 +504,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
                 email: nextProfile.email,
                 initials: initialsFor(nextProfile),
                 availability: nextProfile.availability,
+                avatar: avatarToSave || "",
               }
             : member;
         }),
@@ -485,6 +521,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
           full_name: nextProfile.name.trim() || user.user_metadata?.full_name || user.email?.split("@")[0] || "You",
           username: cleanUsername || user.user_metadata?.username || user.email?.split("@")[0] || `user-${user.id.slice(0, 8)}`,
           email: nextProfile.email.trim() || user.email || "",
+          avatar_url: avatarToSave || null,
         });
 
         if (profileError) {
@@ -510,6 +547,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
             bio: nextProfile.bio.trim(),
             location: nextProfile.location.trim(),
             availability: nextProfile.availability,
+            avatar_url: avatarToSave || null,
           },
         });
 
@@ -549,7 +587,9 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
             <section className="panel profile-card">
             <span className="eyebrow">{availabilityReady ? "Availability live" : "Availability missing"}</span>
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 16 }}>
-                <div className="avatar-circle">{initialsFor(draft)}</div>
+                <div className="avatar-circle">
+                  {avatarPreview ? <img src={avatarPreview} alt={`${draft.name || "Profile"} avatar`} /> : initialsFor(draft)}
+                </div>
                 <div>
                   <h1 className="bangers" style={{ margin: "0 0 6px", fontSize: 34 }}>{draft.name || "Set up your profile"}</h1>
                   <p style={{ margin: "0 0 8px", color: "#667085", fontWeight: 700 }}>
@@ -558,6 +598,13 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
                   <p style={{ margin: 0, color: "#475467", lineHeight: 1.6 }}>
                     {draft.bio || (isViewingOtherProfile ? "No bio added yet." : "Tell the crew a little about yourself, then fill out the availability sheet so planning can work around your week.")}
                   </p>
+                  {!isViewingOtherProfile ? (
+                    <div className="avatar-tools">
+                      <button type="button" className="ghost-btn" onClick={() => fileRef.current?.click()}>Upload photo</button>
+                      {avatarPreview ? <button type="button" className="ghost-btn" onClick={() => setDraftAvatar("")}>Remove photo</button> : null}
+                      <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

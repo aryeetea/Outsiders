@@ -545,7 +545,7 @@ function getLeaderFromMemberVotes(members = [], votes = {}) {
 }
 
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams }) {
-  const profile = appData?.profile || {};
+  const profile = useMemo(() => appData?.profile || {}, [appData?.profile]);
   const profileName = profile.name || profile.username || "You";
   const currentName = getDisplayName(profile);
   const currentUserKey = getCurrentUserKey(profile);
@@ -638,6 +638,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
         location: profile.location || "",
         email: profile.email || "",
         availability: profile.availability,
+        avatar: appData?.avatar || "",
       }],
       pending: [],
       hangoutProposals: [],
@@ -677,6 +678,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                 location: profile.location || "",
                 email: profile.email || "",
                 availability: profile.availability,
+                avatar: appData?.avatar || "",
               }],
             }
           : group

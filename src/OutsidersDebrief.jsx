@@ -157,26 +157,6 @@ const STYLES = `
   }
 `;
 
-const NAV_ITEMS = [
-  { icon: "🏠", label: "Dashboard" },
-  { icon: "🗓", label: "Hangouts" },
-  { icon: "👥", label: "My Crew" },
-  { icon: "✈️", label: "Trips" },
-  { icon: "💸", label: "Bill Split" },
-  { icon: "⭐", label: "Ratings" },
-  { icon: "❤️", label: "Debrief" },
-];
-
-const NAV_TARGETS = {
-  Dashboard: "dashboard",
-  Hangouts: "create-hangout",
-  "My Crew": "friend-groups",
-  Trips: "trip-planning",
-  "Bill Split": "bill-split",
-  Ratings: "rate-outing",
-  Debrief: "debrief",
-};
-
 function getInitials(name) {
   const cleaned = (name || "").replace(/^@/, "").trim();
   if (!cleaned) return "??";
@@ -229,11 +209,7 @@ function getResponseTone(kind) {
   return { bg: "#e8f4fd", border: "#4ecdc4", shadow: "#4ecdc4", label: "Response" };
 }
 
-const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
-const IconBell = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
-
 export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
-  const [activeNav, setActiveNav] = useState("Debrief");
   const [showNewModal, setShowNewModal] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState("");
   const [selectedCaseId, setSelectedCaseId] = useState("");
@@ -251,7 +227,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
     details: "",
   });
 
-  const fallbackProfile = appData?.profile || {};
+  const fallbackProfile = useMemo(() => appData?.profile || {}, [appData?.profile]);
   const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], fallbackProfile), [appData?.groups, fallbackProfile]);
 
   useEffect(() => {
@@ -307,17 +283,6 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
   const selectedGroup = useMemo(() => {
     return groups.find((group) => String(group.id) === String(activeGroupId)) || groups[0] || null;
   }, [activeGroupId, groups]);
-  useEffect(() => {
-    if (!groups.length) {
-      setActiveGroupId("");
-      setSelectedCaseId("");
-      return;
-    }
-    if (!activeGroupId || !groups.some((group) => String(group.id) === String(activeGroupId))) {
-      setActiveGroupId(String(groups[0].id));
-      setSelectedCaseId("");
-    }
-  }, [activeGroupId, groups]);
 
   const groupMembers = useMemo(() => {
     return selectedGroup?.members || [];
@@ -366,11 +331,6 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
       !isCurrentMember(member, currentUser?.id, currentUsername, currentDisplayName)
     ));
   }, [currentDisplayName, currentUser, currentUsername, groups, newCaseForm.groupId, newCaseForm.targetMemberName, selectedGroup]);
-
-  const handleNav = (label) => {
-    setActiveNav(label);
-    onNavigate?.(NAV_TARGETS[label] || "debrief");
-  };
 
   async function persistGroupPatch(groupId, uiPatch, dbPatch = uiPatch) {
     const nextGroups = groups.map((group) => (

@@ -247,7 +247,6 @@ function getPasswordStrength(pw) {
 
 export default function OutsidersSignUp({ onNavigate, setAppData, routeParams }) {
   const [avatar, setAvatar] = useState(null);
-  const [avatarFile, setAvatarFile] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -260,9 +259,13 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
   const handleAvatar = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setAvatarFile(file);
-      setAvatar(URL.createObjectURL(file));
-      setErrors(prev => ({ ...prev, avatar: "" }));
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAvatar(typeof reader.result === "string" ? reader.result : null);
+        setErrors(prev => ({ ...prev, avatar: "" }));
+      };
+      reader.onerror = () => setErrors(prev => ({ ...prev, avatar: "Could not read that photo. Try another image." }));
+      reader.readAsDataURL(file);
     }
   };
   const handleChange = (field) => (e) => {
@@ -300,6 +303,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
         data: {
           full_name: form.name.trim(),
           username: cleanUsername,
+          avatar_url: avatar,
         },
       },
     });
@@ -316,6 +320,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
         full_name: form.name.trim(),
         username: cleanUsername,
         email: form.email.trim(),
+        avatar_url: avatar,
       });
 
       if (profileError) {
@@ -323,10 +328,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
         setLoading(false);
         return;
       }
-    }
-
-    if (avatarFile) {
-      console.info("Avatar selected for future Supabase Storage upload:", avatarFile.name);
     }
 
     setLoading(false);

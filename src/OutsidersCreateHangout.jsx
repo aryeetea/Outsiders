@@ -380,7 +380,7 @@ function formatDurationHours(value) {
 }
 
 export default function OutsidersCreateHangout({ onNavigate, appData, setAppData }) {
-  const profile = appData?.profile || {};
+  const profile = useMemo(() => appData?.profile || {}, [appData?.profile]);
   const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], profile), [appData?.groups, profile]);
   const profileName = profile.name || profile.username || "You";
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
@@ -402,12 +402,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
   useEffect(() => {
-    if (!groups.length) {
-      setSelectedGroupId("");
+    if (!groups.length && selectedGroupId) {
+      queueMicrotask(() => setSelectedGroupId(""));
       return;
     }
-    if (!selectedGroupId || !groups.some((group) => String(group.id) === String(selectedGroupId))) {
-      setSelectedGroupId(groups[0].id);
+    if (groups.length && (!selectedGroupId || !groups.some((group) => String(group.id) === String(selectedGroupId)))) {
+      queueMicrotask(() => setSelectedGroupId(groups[0].id));
     }
   }, [groups, selectedGroupId]);
   const participants = useMemo(() => selectedGroup?.members ?? [], [selectedGroup]);

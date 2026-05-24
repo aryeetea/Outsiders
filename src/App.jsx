@@ -115,7 +115,7 @@ export default function App() {
       const metadataGroups = Array.isArray(user.user_metadata?.joined_groups) ? user.user_metadata.joined_groups : null;
       const { data: profileRow } = await supabase
         .from("profiles")
-        .select("full_name, username, email, availability")
+        .select("full_name, username, email, availability, avatar_url")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -133,6 +133,7 @@ export default function App() {
           location: user.user_metadata?.location || prev.profile?.location || "",
           availability: profileRow?.availability || user.user_metadata?.availability || prev.profile?.availability,
         },
+        avatar: profileRow?.avatar_url || user.user_metadata?.avatar_url || prev.avatar || null,
       }));
       groupsHydratedRef.current = true;
       lastSyncedGroupsRef.current = metadataGroups ? JSON.stringify(metadataGroups) : "";
@@ -197,7 +198,7 @@ export default function App() {
       if (window.location.hash) {
         window.location.hash = "";
       } else {
-        setRoute({ screen: DEFAULT_SCREEN, params: {} });
+        queueMicrotask(() => setRoute({ screen: DEFAULT_SCREEN, params: {} }));
       }
     }
   }, [sessionReady, currentSession, route.screen, appData.profile?.name, appData.profile?.username]);
