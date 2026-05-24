@@ -513,11 +513,11 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       finalizedChoice: null,
     };
 
-    const otherMembers = proposalParticipants.filter((member) => member.name !== getDisplayName(profile));
+    const otherMembers = selectedGroup.members.filter((member) => member.name !== getDisplayName(profile));
     const memberNotifications = otherMembers.map((member) => ({
       id: createId("note"),
-      type: "hangout-invite",
-      message: `${getDisplayName(profile)} invited you to ${proposal.name}.`,
+      type: "hangout-proposal",
+      message: `${getDisplayName(profile)} proposed a hangout: ${proposal.name}.`,
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       proposalId: proposal.id,
