@@ -381,6 +381,28 @@ const STYLES = `
     min-height: 116px;
     resize: vertical;
   }
+  .invite-link-box {
+    display: grid;
+    gap: 10px;
+    margin-top: 16px;
+    border-radius: 14px;
+    border: 3px solid #17151f;
+    background: #fff7e4;
+    box-shadow: 4px 4px 0 #17151f;
+    padding: 14px;
+  }
+  .invite-link-value {
+    width: 100%;
+    min-width: 0;
+    border-radius: 10px;
+    border: 2px dashed rgba(23, 21, 31, 0.42);
+    background: #fffdf7;
+    padding: 10px 12px;
+    color: #475467;
+    font: 800 13px 'Nunito', sans-serif;
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
   .edit-modal-overlay {
     position: fixed;
     inset: 0;
@@ -560,6 +582,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
   const myBillWatchVote = selectedBillWatch.votes?.[currentUserKey] || "";
   const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
+  const selectedGroupInviteLink = selectedGroup?.code ? buildGroupInviteLink(selectedGroup.code) : "";
 
   useEffect(() => {
     if (!hasAvailability(profile.availability)) return;
@@ -658,7 +681,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       return;
     }
     const username = inviteUsername.startsWith("@") ? inviteUsername : `@${inviteUsername}`;
-    const inviteLink = buildGroupInviteLink(selectedGroup.code);
+    const inviteLink = selectedGroupInviteLink;
     setAppData?.((prev) => ({
       ...prev,
       groups: prev.groups.map((group) => (
@@ -696,7 +719,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       return;
     }
 
-    const inviteLink = buildGroupInviteLink(selectedGroup.code);
+    const inviteLink = selectedGroupInviteLink;
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(inviteLink);
@@ -1377,6 +1400,15 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         <button type="button" className="btn primary" onClick={inviteMember}>Add pending invite</button>
                         <button type="button" className="btn ghost" onClick={copyCrewInviteLink}>Copy invite link</button>
                       </div>
+                      {selectedGroupInviteLink ? (
+                        <div className="invite-link-box">
+                          <strong>Share this crew invite link</strong>
+                          <div className="invite-link-value">{selectedGroupInviteLink}</div>
+                          <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
+                            Send this link to someone so they can open Outsiders with this crew code ready to join.
+                          </p>
+                        </div>
+                      ) : null}
                       <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
                         {selectedGroup.pending?.length ? selectedGroup.pending.map((invite) => (
                           <div key={invite.username} className="pending-row">
