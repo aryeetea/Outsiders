@@ -933,6 +933,34 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     setNotice("Hangout updated.");
   };
 
+  const deleteProposal = (proposal) => {
+    if (!selectedGroup || !proposal) return;
+    const canManageProposal = proposal.proposerName === currentName || isCurrentMemberAdmin;
+    if (!canManageProposal) return;
+
+    const confirmed = window.confirm(`Delete ${proposal.name}? This removes the planned hangout, votes, invite code, and related notifications.`);
+    if (!confirmed) return;
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id
+          ? {
+              ...group,
+              hangoutProposals: (group.hangoutProposals || []).filter((item) => item.id !== proposal.id),
+            }
+          : group
+      )),
+      hangouts: (prev.hangouts || []).filter((item) => item.id !== proposal.id),
+      notifications: (prev.notifications || []).filter((notification) => notification.proposalId !== proposal.id),
+    }));
+
+    if (editingProposalId === proposal.id) {
+      closeEditProposal();
+    }
+    setNotice(`${proposal.name} was deleted.`);
+  };
+
   const leaveGroup = (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
     const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
@@ -1145,9 +1173,19 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
                                   <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
                                   {(proposal.proposerName === currentName || isCurrentMemberAdmin) ? (
-                                    <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => startEditingProposal(proposal)}>
-                                      Edit hangout
-                                    </button>
+                                    <>
+                                      <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => startEditingProposal(proposal)}>
+                                        Edit hangout
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn"
+                                        style={{ padding: "8px 12px", fontSize: 13, background: "#b42318", color: "#fff", borderColor: "#7a1610", boxShadow: "3px 3px 0 #7a1610" }}
+                                        onClick={() => deleteProposal(proposal)}
+                                      >
+                                        Delete hangout
+                                      </button>
+                                    </>
                                   ) : null}
                                 </div>
                               </div>
