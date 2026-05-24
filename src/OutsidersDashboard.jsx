@@ -344,7 +344,7 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
     <>
       <style>{STYLES}</style>
       <div className="dash-root">
-        <OutsidersSideNav activeLabel="Dashboard" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="Dashboard" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
         <div className="dash-shell">
           <section className="dashboard-board">
           <div className="dashboard-hero">

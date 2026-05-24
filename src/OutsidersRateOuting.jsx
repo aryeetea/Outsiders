@@ -400,7 +400,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Ratings" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="Ratings" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
           <main className="main">
             <section className="rating-shell">
               <div className="rating-hero">

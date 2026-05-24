@@ -296,7 +296,7 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Bill Split" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="Bill Split" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
           <main className="main">
             <section className="bill-shell">
             <div className="bill-hero">

@@ -517,7 +517,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Debrief" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="Debrief" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
           <main className="main">
             <section className="debrief-shell">
             <div className="debrief-hero">

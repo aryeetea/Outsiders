@@ -747,7 +747,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
       <style>{STYLES}</style>
       <div className="root">
 
-        <OutsidersSideNav activeLabel="Trips" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="Trips" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
           <main className="main">
             <section className="trip-planning-shell">
               <div className="trip-hero">

@@ -564,7 +564,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
         <div className="shell">
           {!createdProposal ? (
             <section className="planner-board">
