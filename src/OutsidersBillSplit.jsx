@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getVisibleGroupsForProfile } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
 
 const STYLES = `
@@ -252,7 +253,8 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
   const [activeNav, setActiveNav] = useState("Bill Split");
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
   const [showModal, setShowModal] = useState(false);
-  const groups = useMemo(() => appData?.groups || [], [appData]);
+  const profile = appData?.profile || {};
+  const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], profile), [appData?.groups, profile]);
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
   const handleNav = (label) => {
     setActiveNav(label);
@@ -265,6 +267,15 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
     () => groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null,
     [groups, selectedGroupId]
   );
+  useEffect(() => {
+    if (!groups.length) {
+      setSelectedGroupId("");
+      return;
+    }
+    if (!selectedGroupId || !groups.some((group) => String(group.id) === String(selectedGroupId))) {
+      setSelectedGroupId(groups[0].id);
+    }
+  }, [groups, selectedGroupId]);
   const members = useMemo(
     () => (selectedGroup?.members?.length ? selectedGroup.members.map((member) => ({
       initials: member.initials || member.name?.slice(0, 3)?.toUpperCase() || "??",
@@ -290,7 +301,7 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
 
   const settleUp = (expId) => setExpenses(prev => prev.map(e => e.id === expId ? { ...e, settled: true } : e));
   const toggleSplit = (i) => setForm(prev => ({ ...prev, splitWith: prev.splitWith.includes(i) ? prev.splitWith.filter(x => x !== i) : [...prev.splitWith, i] }));
-  const profileName = appData?.profile?.name || appData?.profile?.username || "You";
+  const profileName = profile.name || profile.username || "You";
 
   return (
     <>

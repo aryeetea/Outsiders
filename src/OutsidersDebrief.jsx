@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getVisibleGroupsForProfile } from "./appState";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import OutsidersSideNav from "./OutsidersSideNav";
 
@@ -250,7 +251,8 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
     details: "",
   });
 
-  const groups = useMemo(() => appData?.groups || [], [appData]);
+  const fallbackProfile = appData?.profile || {};
+  const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], fallbackProfile), [appData?.groups, fallbackProfile]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -304,6 +306,17 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
 
   const selectedGroup = useMemo(() => {
     return groups.find((group) => String(group.id) === String(activeGroupId)) || groups[0] || null;
+  }, [activeGroupId, groups]);
+  useEffect(() => {
+    if (!groups.length) {
+      setActiveGroupId("");
+      setSelectedCaseId("");
+      return;
+    }
+    if (!activeGroupId || !groups.some((group) => String(group.id) === String(activeGroupId))) {
+      setActiveGroupId(String(groups[0].id));
+      setSelectedCaseId("");
+    }
   }, [activeGroupId, groups]);
 
   const groupMembers = useMemo(() => {

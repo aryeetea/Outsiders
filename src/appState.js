@@ -25,6 +25,19 @@ export function getDisplayName(profile = {}) {
   return profile?.name?.trim() || profile?.username?.replace(/^@/, "") || "You";
 }
 
+export function isProfileMemberOfGroup(group = {}, profile = {}) {
+  const displayName = getDisplayName(profile);
+  const username = profile?.username ? `@${String(profile.username).replace(/^@/, "")}` : "";
+  return (group?.members || []).some((member) => (
+    member?.name === displayName
+    || (username && member?.username === username)
+  ));
+}
+
+export function getVisibleGroupsForProfile(groups = [], profile = {}) {
+  return (Array.isArray(groups) ? groups : []).filter((group) => isProfileMemberOfGroup(group, profile));
+}
+
 export function readStoredProfile() {
   if (typeof window === "undefined") {
     return { profile: DEFAULT_PROFILE, avatar: null };

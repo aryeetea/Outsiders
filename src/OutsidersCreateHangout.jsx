@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { createId, getCurrentUserKey, getDisplayName } from "./appState";
+import { useEffect, useMemo, useState } from "react";
+import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildHangoutInviteLink } from "./siteConfig";
 import { availabilityToText, formatTimeLabel, recommendHangoutTimes } from "./scheduling";
@@ -380,8 +380,8 @@ function formatDurationHours(value) {
 }
 
 export default function OutsidersCreateHangout({ onNavigate, appData, setAppData }) {
-  const groups = appData?.groups || [];
   const profile = appData?.profile || {};
+  const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], profile), [appData?.groups, profile]);
   const profileName = profile.name || profile.username || "You";
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
   const [form, setForm] = useState({
@@ -401,6 +401,15 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   const [error, setError] = useState("");
 
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
+  useEffect(() => {
+    if (!groups.length) {
+      setSelectedGroupId("");
+      return;
+    }
+    if (!selectedGroupId || !groups.some((group) => String(group.id) === String(selectedGroupId))) {
+      setSelectedGroupId(groups[0].id);
+    }
+  }, [groups, selectedGroupId]);
   const participants = useMemo(() => selectedGroup?.members ?? [], [selectedGroup]);
   const participantPool = useMemo(() => {
     const chosenKeys = selectedMembers.length ? selectedMembers : participants.map(memberKey);
