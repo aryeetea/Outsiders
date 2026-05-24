@@ -178,32 +178,6 @@ export default function App() {
   }, [appData]);
 
   useEffect(() => {
-    if (!sessionReady || !currentSession || !PUBLIC_SCREENS.has(route.screen)) return;
-
-    const saved = window.localStorage.getItem(LAST_APP_ROUTE_STORAGE_KEY);
-    let nextRoute = { screen: "dashboard", params: {} };
-
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (SCREEN_COMPONENTS[parsed?.screen] && !PUBLIC_SCREENS.has(parsed.screen)) {
-          nextRoute = { screen: parsed.screen, params: parsed.params || {} };
-        }
-      } catch {
-        nextRoute = { screen: "dashboard", params: {} };
-      }
-    }
-
-    const query = new URLSearchParams(
-      Object.entries(nextRoute.params).filter(([, value]) => value !== undefined && value !== null && value !== "")
-    ).toString();
-    const nextHash = `#/${nextRoute.screen}${query ? `?${query}` : ""}`;
-    if (window.location.hash !== nextHash) {
-      window.location.hash = nextHash;
-    }
-  }, [currentSession, route.screen, sessionReady]);
-
-  useEffect(() => {
     if (!PUBLIC_SCREENS.has(route.screen)) {
       window.localStorage.setItem(LAST_APP_ROUTE_STORAGE_KEY, JSON.stringify(route));
     }
