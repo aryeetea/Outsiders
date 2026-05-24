@@ -1094,49 +1094,24 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
               <div className="card">
                 <h2 className="panel-title">Your Crews</h2>
                 <div style={{ display: "grid", gap: 12 }}>
-                  {groups.map((group, index) => {
-                    const groupMember = group.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
-                    const isGroupAdmin = groupMember?.role === "Admin";
-                    return (
-                      <div key={group.id} style={{ display: "grid", gap: 6 }}>
-                        <div
-                          className={`crew-card ${selectedGroup?.id === group.id ? "active" : ""}`}
-                          onClick={() => setSelectedGroupId(group.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => e.key === "Enter" && setSelectedGroupId(group.id)}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                            <div>
-                              <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.emoji} {group.name}</strong>
-                              <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} hangouts</span>
-                            </div>
-                            <div style={{ width: 14, height: 14, borderRadius: 999, background: GROUP_COLORS[index % GROUP_COLORS.length] }} />
-                          </div>
+                  {groups.map((group, index) => (
+                    <div
+                      key={group.id}
+                      className={`crew-card ${selectedGroup?.id === group.id ? "active" : ""}`}
+                      onClick={() => setSelectedGroupId(group.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && setSelectedGroupId(group.id)}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                        <div>
+                          <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.emoji} {group.name}</strong>
+                          <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} hangouts</span>
                         </div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button
-                            type="button"
-                            className="btn ghost"
-                            style={{ flex: 1, fontSize: 13, padding: "8px 10px" }}
-                            onClick={() => leaveGroup(group)}
-                          >
-                            Leave crew
-                          </button>
-                          {isGroupAdmin ? (
-                            <button
-                              type="button"
-                              className="btn ghost"
-                              style={{ flex: 1, fontSize: 13, padding: "8px 10px", background: "#fff0f0", color: "#b42318", borderColor: "#b42318", boxShadow: "3px 3px 0 #b42318" }}
-                              onClick={() => deleteGroup(group)}
-                            >
-                              Delete crew
-                            </button>
-                          ) : null}
-                        </div>
+                        <div style={{ width: 14, height: 14, borderRadius: 999, background: GROUP_COLORS[index % GROUP_COLORS.length] }} />
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                   {!groups.length ? <p style={{ margin: 0, color: "#667085" }}>No crews yet. Create one below.</p> : null}
                 </div>
               </div>
