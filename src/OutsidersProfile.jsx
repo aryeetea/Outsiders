@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
@@ -37,6 +37,82 @@ const STYLES = `
     gap: 24px;
     position: relative;
     z-index: 1;
+  }
+  .profile-board {
+    background:
+      radial-gradient(circle, rgba(201, 179, 104, 0.42) 1.4px, transparent 1.5px),
+      linear-gradient(180deg, #fff9ea 0%, #fff6df 100%);
+    background-size: 36px 36px, 100% 100%;
+    border: 5px solid #1a1a2e;
+    border-radius: 28px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.45) inset;
+    padding: 36px 42px 54px;
+    position: relative;
+    overflow: hidden;
+  }
+  .profile-board::before {
+    content: '';
+    position: absolute;
+    inset: 16px;
+    border: 2px solid rgba(26, 26, 46, 0.08);
+    border-radius: 22px;
+    pointer-events: none;
+  }
+  .profile-hero {
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    text-align: center;
+    margin-bottom: 30px;
+    position: relative;
+    z-index: 1;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .profile-kicker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-width: min(100%, 340px);
+    padding: 12px 24px;
+    background: #ffd54d;
+    border: 5px solid #1a1a2e;
+    border-radius: 12px;
+    box-shadow: 0 6px 0 #1a1a2e;
+    transform: rotate(-1.5deg);
+    font: 400 clamp(18px, 2.2vw, 28px) 'Bangers', cursive;
+    letter-spacing: 0.08em;
+  }
+  .profile-title {
+    margin: 0;
+    font: 400 clamp(52px, 9vw, 96px) 'Bangers', cursive;
+    line-height: 0.92;
+    letter-spacing: 0.05em;
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
+  }
+  .profile-subtitle {
+    position: relative;
+    background: #fff;
+    border: 5px solid #1a1a2e;
+    border-radius: 999px;
+    box-shadow: 6px 6px 0 #1a1a2e;
+    padding: 16px 32px;
+    font: 800 clamp(18px, 2vw, 26px) 'Nunito', sans-serif;
+  }
+  .profile-subtitle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -16px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-right: 5px solid #1a1a2e;
+    border-bottom: 5px solid #1a1a2e;
+    transform: translateX(-50%) rotate(45deg);
   }
 
   .topbar, .panel, .sheet-panel {
@@ -292,6 +368,13 @@ const STYLES = `
     .profile-shell {
       padding: 16px 12px 40px;
     }
+    .profile-board {
+      padding: 24px 18px 28px;
+    }
+    .profile-kicker {
+      min-width: 0;
+      width: 100%;
+    }
     .panel, .sheet-panel {
       padding: 18px;
       border-radius: 24px;
@@ -309,11 +392,39 @@ function weekSummary(availability) {
   return text === "No availability saved" ? "No availability saved yet." : text;
 }
 
-export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
+function findViewableMember(groups, memberKey, groupId) {
+  const scopedGroups = groupId ? groups.filter((group) => String(group.id) === String(groupId)) : groups;
+  const loweredKey = String(memberKey || "").toLowerCase();
+  for (const group of scopedGroups) {
+    const match = (group.members || []).find((member) => {
+      const usernameKey = member.username ? `username:${String(member.username).replace(/^@/, "").toLowerCase()}` : "";
+      const nameKey = member.name ? `name:${String(member.name).trim().toLowerCase()}` : "";
+      return loweredKey === usernameKey || loweredKey === nameKey;
+    });
+    if (match) return { ...match, groupName: group.name };
+  }
+  return null;
+}
+
+export default function OutsidersProfile({ onNavigate, appData, setAppData, routeParams = {} }) {
   const profile = appData?.profile || DEFAULT_PROFILE;
+  const groups = appData?.groups || [];
+  const viewedMember = findViewableMember(groups, routeParams.memberKey, routeParams.groupId);
+  const isViewingOtherProfile = Boolean(viewedMember);
+  const sourceProfile = isViewingOtherProfile
+    ? {
+        ...DEFAULT_PROFILE,
+        name: viewedMember.name || "",
+        username: String(viewedMember.username || "").replace(/^@/, ""),
+        bio: viewedMember.bio || "",
+        location: viewedMember.location || "",
+        email: viewedMember.email || "",
+        availability: viewedMember.availability || DEFAULT_PROFILE.availability,
+      }
+    : profile;
   const profileName = profile.name || profile.username || "You";
   const notifications = appData?.notifications || [];
-  const [draft, setDraft] = useState(() => profile);
+  const [draft, setDraft] = useState(() => sourceProfile);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -321,11 +432,15 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const availabilityReady = hasAvailability(draft.availability);
 
+  useEffect(() => {
+    setDraft(sourceProfile);
+  }, [sourceProfile]);
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
   const saveProfile = async () => {
+    if (isViewingOtherProfile) return;
     setSaveError("");
     setSaving(true);
 
@@ -349,6 +464,9 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
                 ...member,
                 name: nextProfile.name || member.name,
                 username: cleanUsername ? `@${cleanUsername}` : member.username,
+                bio: nextProfile.bio,
+                location: nextProfile.location,
+                email: nextProfile.email,
                 initials: initialsFor(nextProfile),
                 availability: nextProfile.availability,
               }
@@ -413,6 +531,20 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
       <div className="profile-root">
         <OutsidersSideNav activeLabel="Profile" onNavigate={onNavigate} profileName={profileName}>
         <div className="profile-shell">
+          <section className="profile-board">
+          <div className="profile-hero">
+            <div className="profile-kicker">
+              <span>👤</span>
+              <span>{isViewingOtherProfile ? "Crew Profile" : "Your Profile"}</span>
+              <span>👤</span>
+            </div>
+            <h1 className="profile-title">{isViewingOtherProfile ? `${draft.name || "Crew Member"}` : "Profile"}</h1>
+            <div className="profile-subtitle">
+              {isViewingOtherProfile
+                ? `See ${draft.name || "this crew member"}'s profile, availability, and crew-facing details${viewedMember?.groupName ? ` from ${viewedMember.groupName}` : ""}.`
+                : "Keep your profile, availability, and crew-facing details polished in one place."}
+            </div>
+          </div>
           <div className="hero-grid">
             <section className="panel profile-card">
             <span className="eyebrow">{availabilityReady ? "Availability live" : "Availability missing"}</span>
@@ -424,7 +556,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
                     {draft.username ? `@${draft.username.replace(/^@/, "")}` : "Pick a username so your crew recognizes you."}
                   </p>
                   <p style={{ margin: 0, color: "#475467", lineHeight: 1.6 }}>
-                    {draft.bio || "Tell the crew a little about yourself, then fill out the availability sheet so planning can work around your week."}
+                    {draft.bio || (isViewingOtherProfile ? "No bio added yet." : "Tell the crew a little about yourself, then fill out the availability sheet so planning can work around your week.")}
                   </p>
                 </div>
               </div>
@@ -442,10 +574,10 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
               </div>
 
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
-                <button type="button" className="action-btn" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</button>
-                <button type="button" className="ghost-btn" onClick={() => onNavigate?.("friend-groups")}>Back To My Crew</button>
+                {!isViewingOtherProfile ? <button type="button" className="action-btn" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</button> : null}
+                <button type="button" className="ghost-btn" onClick={() => onNavigate?.("friend-groups")}>{isViewingOtherProfile ? "Back To Crew" : "Back To My Crew"}</button>
               </div>
-              {saved ? <p style={{ margin: "14px 0 0", color: "#0f766e", fontWeight: 700 }}>Profile saved and availability updated.</p> : null}
+              {saved && !isViewingOtherProfile ? <p style={{ margin: "14px 0 0", color: "#0f766e", fontWeight: 700 }}>Profile saved and availability updated.</p> : null}
               {saveError ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{saveError}</p> : null}
             </section>
 
@@ -453,30 +585,36 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
               <div className="details-grid">
                 <div className="field">
                   <label>Full Name</label>
-                  <input value={draft.name} onChange={(event) => updateField("name", event.target.value)} placeholder="Your name" />
+                  <input value={draft.name} readOnly={isViewingOtherProfile} onChange={(event) => updateField("name", event.target.value)} placeholder="Your name" />
                 </div>
                 <div className="field">
                   <label>Username</label>
-                  <input value={draft.username} onChange={(event) => updateField("username", event.target.value.replace(/^@/, ""))} placeholder="yourhandle" />
+                  <input value={draft.username} readOnly={isViewingOtherProfile} onChange={(event) => updateField("username", event.target.value.replace(/^@/, ""))} placeholder="yourhandle" />
                 </div>
                 <div className="field">
                   <label>Email</label>
-                  <input value={draft.email} onChange={(event) => updateField("email", event.target.value)} placeholder="you@example.com" />
+                  <input value={draft.email} readOnly={isViewingOtherProfile} onChange={(event) => updateField("email", event.target.value)} placeholder="you@example.com" />
                 </div>
                 <div className="field">
                   <label>Location</label>
-                  <input value={draft.location} onChange={(event) => updateField("location", event.target.value)} placeholder="Brooklyn, NY" />
+                  <input value={draft.location} readOnly={isViewingOtherProfile} onChange={(event) => updateField("location", event.target.value)} placeholder="Brooklyn, NY" />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <label>Bio</label>
-                  <textarea value={draft.bio} onChange={(event) => updateField("bio", event.target.value)} placeholder="What kind of hangouts are you into?" />
+                  <textarea value={draft.bio} readOnly={isViewingOtherProfile} onChange={(event) => updateField("bio", event.target.value)} placeholder="What kind of hangouts are you into?" />
                 </div>
               </div>
 
-              {!availabilityReady ? (
+              {!availabilityReady && !isViewingOtherProfile ? (
                 <div className="notice-card" style={{ marginTop: 18 }}>
                   <strong style={{ display: "block", marginBottom: 6 }}>Your weekly availability is required.</strong>
                   <span>Tap or drag across the schedule below to mark when you are free. The rest of the app stays locked until this sheet is filled in.</span>
+                </div>
+              ) : null}
+              {isViewingOtherProfile ? (
+                <div className="notice-card" style={{ marginTop: 18 }}>
+                  <strong style={{ display: "block", marginBottom: 6 }}>Viewing read-only crew profile.</strong>
+                  <span>This page shows the details that crew members can reference while planning together.</span>
                 </div>
               ) : null}
             </section>
@@ -485,12 +623,15 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
           <AvailabilitySheet
             value={draft.availability}
             onChange={(nextAvailability) => setDraft((prev) => ({ ...prev, availability: nextAvailability }))}
-            title="Weekly availability sheet"
-            subtitle="This is your dedicated availability section as a logged-in user. Mark every half-hour block when you would realistically say yes to a crew plan."
-            required
-            footerAction={<button type="button" className="availability-btn primary" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save availability"}</button>}
+            title={isViewingOtherProfile ? "Weekly availability" : "Weekly availability sheet"}
+            subtitle={isViewingOtherProfile ? "This member's saved availability helps the crew plan around real free time." : "This is your dedicated availability section as a logged-in user. Mark every half-hour block when you would realistically say yes to a crew plan."}
+            required={!isViewingOtherProfile}
+            readOnly={isViewingOtherProfile}
+            showClear={!isViewingOtherProfile}
+            footerAction={!isViewingOtherProfile ? <button type="button" className="availability-btn primary" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save availability"}</button> : null}
           />
 
+          {!isViewingOtherProfile ? (
           <section className="panel">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
               <div>
@@ -546,6 +687,8 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
                 </div>
               )}
             </div>
+          </section>
+          ) : null}
           </section>
         </div>
         </OutsidersSideNav>

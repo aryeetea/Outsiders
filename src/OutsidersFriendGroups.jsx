@@ -4,6 +4,13 @@ import OutsidersSideNav from "./OutsidersSideNav";
 import { buildGroupInviteLink } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
 
+function profileRouteParamsForMember(member, groupId) {
+  return {
+    groupId: groupId ? String(groupId) : "",
+    memberKey: member?.username ? `username:${String(member.username).replace(/^@/, "").toLowerCase()}` : `name:${String(member?.name || "").trim().toLowerCase()}`,
+  };
+}
+
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
@@ -585,6 +592,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
         initials: getInitials(currentName),
         role: "Admin",
         username: profile.username ? `@${profile.username}` : "",
+        bio: profile.bio || "",
+        location: profile.location || "",
+        email: profile.email || "",
         availability: profile.availability,
       }],
       pending: [],
@@ -621,6 +631,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                 initials: getInitials(currentName),
                 role: "Member",
                 username: profile.username ? `@${profile.username}` : "",
+                bio: profile.bio || "",
+                location: profile.location || "",
+                email: profile.email || "",
                 availability: profile.availability,
               }],
             }
@@ -1246,9 +1259,18 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                 <strong style={{ display: "block" }}>{member.name}</strong>
                                 <span style={{ color: "#667085", fontWeight: 700 }}>{member.role || "Member"} {member.username ? `· ${member.username}` : ""}</span>
                               </div>
-                              <span style={{ borderRadius: 999, padding: "8px 12px", background: hasAvailability(member.availability) ? "#eefdf5" : "#fff5e6", color: hasAvailability(member.availability) ? "#0f766e" : "#9a6700", fontWeight: 700 }}>
-                                {hasAvailability(member.availability) ? "Availability set" : "Availability missing"}
-                              </span>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                                <span style={{ borderRadius: 999, padding: "8px 12px", background: hasAvailability(member.availability) ? "#eefdf5" : "#fff5e6", color: hasAvailability(member.availability) ? "#0f766e" : "#9a6700", fontWeight: 700 }}>
+                                  {hasAvailability(member.availability) ? "Availability set" : "Availability missing"}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="btn ghost"
+                                  onClick={() => onNavigate?.("profile", profileRouteParamsForMember(member, selectedGroup.id))}
+                                >
+                                  View profile
+                                </button>
+                              </div>
                             </div>
                             <p style={{ margin: "10px 0 0", color: "#667085" }}>{availabilityToText(member.availability)}</p>
                           </div>

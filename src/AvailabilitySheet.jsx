@@ -261,6 +261,7 @@ export default function AvailabilitySheet({
   showClear = true,
   showSummary = true,
   footerAction,
+  readOnly = false,
 }) {
   const [dragMode, setDragMode] = useState(null);
   const dragTouchedKeys = useRef(new Set());
@@ -283,6 +284,7 @@ export default function AvailabilitySheet({
   }, [dragMode]);
 
   const setAvailabilityFromBlocks = (blocks) => {
+    if (readOnly) return;
     onChange?.(blocksToAvailability(blocks));
   };
 
@@ -296,6 +298,7 @@ export default function AvailabilitySheet({
   };
 
   const startDrag = (day, time) => {
+    if (readOnly) return;
     const key = `${day}-${time}`;
     const mode = activeBlocks.has(key) ? "remove" : "add";
     setDragMode(mode);
@@ -304,6 +307,7 @@ export default function AvailabilitySheet({
   };
 
   const continueDrag = (day, time) => {
+    if (readOnly) return;
     if (!dragMode) return;
     const key = `${day}-${time}`;
     if (dragTouchedKeys.current.has(key)) return;
@@ -312,6 +316,7 @@ export default function AvailabilitySheet({
   };
 
   const applyPresetToDay = (day, start, end, mode = "add") => {
+    if (readOnly) return;
     const next = new Set(activeBlocks);
     TIME_BLOCKS.forEach((time) => {
       if (time >= start && time < end) {
@@ -324,6 +329,7 @@ export default function AvailabilitySheet({
   };
 
   const toggleAllDay = (day) => {
+    if (readOnly) return;
     const hasAny = TIME_BLOCKS.some((time) => activeBlocks.has(`${day}-${time}`));
     applyPresetToDay(day, TIME_BLOCKS[0], TIME_BLOCKS[TIME_BLOCKS.length - 1] ? "23:00" : "23:00", hasAny ? "remove" : "add");
   };
@@ -340,7 +346,7 @@ export default function AvailabilitySheet({
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {showClear ? (
-              <button type="button" className="availability-btn" onClick={() => onChange?.({ slots: WEEK_DAYS.reduce((acc, day) => ({ ...acc, [day]: [] }), {}) })}>
+              <button type="button" className="availability-btn" disabled={readOnly} onClick={() => onChange?.({ slots: WEEK_DAYS.reduce((acc, day) => ({ ...acc, [day]: [] }), {}) })}>
                 Clear sheet
               </button>
             ) : null}
@@ -371,10 +377,10 @@ export default function AvailabilitySheet({
                         {preset.label}
                       </button>
                     ))}
-                    <button type="button" className="availability-mini-btn" onClick={() => toggleAllDay(day)}>
+                    <button type="button" className="availability-mini-btn" disabled={readOnly} onClick={() => toggleAllDay(day)}>
                       All day
                     </button>
-                    <button type="button" className="availability-mini-btn" onClick={() => applyPresetToDay(day, "08:00", "23:00", "remove")}>
+                    <button type="button" className="availability-mini-btn" disabled={readOnly} onClick={() => applyPresetToDay(day, "08:00", "23:00", "remove")}>
                       Clear
                     </button>
                   </div>
@@ -400,6 +406,7 @@ export default function AvailabilitySheet({
                 time={time}
                 activeBlocks={activeBlocks}
                 dragMode={dragMode}
+                readOnly={readOnly}
                 onMouseDown={startDrag}
                 onMouseEnter={(day) => continueDrag(day, time)}
               />
@@ -420,7 +427,7 @@ export default function AvailabilitySheet({
   );
 }
 
-function AvailabilityRow({ time, activeBlocks, dragMode, onMouseDown, onMouseEnter }) {
+function AvailabilityRow({ time, activeBlocks, dragMode, readOnly, onMouseDown, onMouseEnter }) {
   return (
     <>
       <div className="availability-time">{formatTimeLabel(time)}</div>
@@ -430,9 +437,10 @@ function AvailabilityRow({ time, activeBlocks, dragMode, onMouseDown, onMouseEnt
           <div
             key={key}
             className={`availability-slot ${activeBlocks.has(key) ? "active" : ""} ${dragMode ? "dragging" : ""}`}
-            onMouseDown={() => onMouseDown(day, time)}
-            onMouseEnter={() => onMouseEnter(day)}
-            onTouchStart={() => onMouseDown(day, time)}
+            style={{ cursor: readOnly ? "default" : "pointer" }}
+            onMouseDown={() => !readOnly && onMouseDown(day, time)}
+            onMouseEnter={() => !readOnly && onMouseEnter(day)}
+            onTouchStart={() => !readOnly && onMouseDown(day, time)}
           />
         );
       })}
