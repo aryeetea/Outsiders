@@ -537,46 +537,43 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     }));
   };
 
-  const leaveGroup = () => {
-    if (!selectedGroup || !currentMember) return;
+  const leaveGroup = (targetGroup = selectedGroup) => {
+    if (!targetGroup) return;
+    const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
+    if (!member) return;
 
     const confirmed = window.confirm(
-      selectedGroup.members.length === 1
-        ? `You are the last member of ${selectedGroup.name}. Leaving will delete the group.`
-        : `Leave ${selectedGroup.name}? You can join again later with the crew code if someone invites you back.`
+      targetGroup.members.length === 1
+        ? `You are the last member of ${targetGroup.name}. Leaving will delete the group.`
+        : `Leave ${targetGroup.name}? You can join again later with the crew code if someone invites you back.`
     );
     if (!confirmed) return;
 
-    const remainingMembers = selectedGroup.members.filter((member) => (
-      member.name !== currentMember.name && member.username !== currentMember.username
-    ));
+    const remainingMembers = targetGroup.members.filter((m) => m.name !== member.name && m.username !== member.username);
 
     if (!remainingMembers.length) {
       setAppData?.((prev) => ({
         ...prev,
-        groups: prev.groups.filter((group) => group.id !== selectedGroup.id),
+        groups: prev.groups.filter((group) => group.id !== targetGroup.id),
       }));
-      setNotice(`${selectedGroup.name} was deleted because you were the last member.`);
+      setNotice(`${targetGroup.name} was deleted because you were the last member.`);
       return;
     }
 
-    const nextMembers = remainingMembers.some((member) => member.role === "Admin")
+    const nextMembers = remainingMembers.some((m) => m.role === "Admin")
       ? remainingMembers
-      : remainingMembers.map((member, index) => ({ ...member, role: index === 0 ? "Admin" : (member.role || "Member") }));
+      : remainingMembers.map((m, index) => ({ ...m, role: index === 0 ? "Admin" : (m.role || "Member") }));
 
     setAppData?.((prev) => ({
       ...prev,
       groups: prev.groups.map((group) => {
-        if (group.id !== selectedGroup.id) return group;
-
+        if (group.id !== targetGroup.id) return group;
         return {
           ...group,
           members: nextMembers,
           hangoutProposals: (group.hangoutProposals || []).map((proposal) => ({
             ...proposal,
-            participants: (proposal.participants || []).filter((participant) => (
-              participant.name !== currentMember.name && participant.username !== currentMember.username
-            )),
+            participants: (proposal.participants || []).filter((p) => p.name !== member.name && p.username !== member.username),
             votes: {
               ...(proposal.votes || {}),
               availability: Object.fromEntries(Object.entries(proposal.votes?.availability || {}).filter(([key]) => key !== currentUserKey)),
@@ -587,26 +584,28 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
           })),
           billWatch: {
             ...(group.billWatch || {}),
-            electedMemberName: group.billWatch?.electedMemberName === currentMember.name ? "" : (group.billWatch?.electedMemberName || ""),
+            electedMemberName: group.billWatch?.electedMemberName === member.name ? "" : (group.billWatch?.electedMemberName || ""),
             votes: Object.fromEntries(Object.entries(group.billWatch?.votes || {}).filter(([key]) => key !== currentUserKey)),
           },
         };
       }),
     }));
-    setNotice(`You left ${selectedGroup.name}.`);
+    setNotice(`You left ${targetGroup.name}.`);
   };
 
-  const deleteGroup = () => {
-    if (!selectedGroup || !isCurrentMemberAdmin) return;
+  const deleteGroup = (targetGroup = selectedGroup) => {
+    if (!targetGroup) return;
+    const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
+    if (member?.role !== "Admin") return;
 
-    const confirmed = window.confirm(`Delete ${selectedGroup.name} for everyone? This removes the whole crew and its proposals.`);
+    const confirmed = window.confirm(`Delete ${targetGroup.name} for everyone? This removes the whole crew and its proposals.`);
     if (!confirmed) return;
 
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.filter((group) => group.id !== selectedGroup.id),
+      groups: prev.groups.filter((group) => group.id !== targetGroup.id),
     }));
-    setNotice(`${selectedGroup.name} was deleted.`);
+    setNotice(`${targetGroup.name} was deleted.`);
   };
 
   const billLeader = selectedGroup?.members?.reduce((best, member) => {
@@ -658,17 +657,49 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
               <div className="card">
                 <h2 className="panel-title">Your Crews</h2>
                 <div style={{ display: "grid", gap: 12 }}>
-                  {groups.map((group, index) => (
-                    <button key={group.id} type="button" className={`crew-card ${selectedGroup?.id === group.id ? "active" : ""}`} onClick={() => setSelectedGroupId(group.id)}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                        <div>
-                          <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.emoji} {group.name}</strong>
-                          <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} proposals</span>
+                  {groups.map((group, index) => {
+                    const groupMember = group.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
+                    const isGroupAdmin = groupMember?.role === "Admin";
+                    return (
+                      <div key={group.id} style={{ display: "grid", gap: 6 }}>
+                        <div
+                          className={`crew-card ${selectedGroup?.id === group.id ? "active" : ""}`}
+                          onClick={() => setSelectedGroupId(group.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => e.key === "Enter" && setSelectedGroupId(group.id)}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                            <div>
+                              <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.emoji} {group.name}</strong>
+                              <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} proposals</span>
+                            </div>
+                            <div style={{ width: 14, height: 14, borderRadius: 999, background: GROUP_COLORS[index % GROUP_COLORS.length] }} />
+                          </div>
                         </div>
-                        <div style={{ width: 14, height: 14, borderRadius: 999, background: GROUP_COLORS[index % GROUP_COLORS.length] }} />
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            type="button"
+                            className="btn ghost"
+                            style={{ flex: 1, fontSize: 13, padding: "8px 10px" }}
+                            onClick={() => leaveGroup(group)}
+                          >
+                            Leave crew
+                          </button>
+                          {isGroupAdmin ? (
+                            <button
+                              type="button"
+                              className="btn ghost"
+                              style={{ flex: 1, fontSize: 13, padding: "8px 10px", background: "#fff0f0", color: "#b42318", borderColor: "#b42318", boxShadow: "3px 3px 0 #b42318" }}
+                              onClick={() => deleteGroup(group)}
+                            >
+                              Delete crew
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    </button>
-                  ))}
+                    );
+                  })}
                   {!groups.length ? <p style={{ margin: 0, color: "#667085" }}>No crews yet. Create one below.</p> : null}
                 </div>
               </div>
@@ -707,15 +738,31 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                         <h2 className="bangers" style={{ margin: "0 0 8px", fontSize: 30 }}>{selectedGroup.emoji} {selectedGroup.name}</h2>
                         <p style={{ margin: 0, color: "#667085" }}>{selectedGroup.members.length} members · crew code {selectedGroup.code}</p>
                       </div>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                        <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active proposals</span>
-                        <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.pending?.length || 0} pending invites</span>
-                        <button type="button" className="btn ghost" onClick={leaveGroup}>Leave group</button>
-                        {isCurrentMemberAdmin ? (
-                          <button type="button" className="btn ghost" style={{ background: "#fff0f0", color: "#b42318", borderColor: "#b42318", boxShadow: "4px 4px 0 #b42318" }} onClick={deleteGroup}>
-                            Delete group
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active proposals</span>
+                          <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.pending?.length || 0} pending invites</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            style={{ fontFamily: "'Nunito', sans-serif", fontWeight: 800, fontSize: 14 }}
+                            onClick={() => leaveGroup()}
+                          >
+                            Leave crew
                           </button>
-                        ) : null}
+                          {isCurrentMemberAdmin ? (
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ background: "#b42318", color: "#fff", borderColor: "#7a1610", boxShadow: "4px 4px 0 #7a1610", fontFamily: "'Nunito', sans-serif", fontWeight: 800, fontSize: 14 }}
+                              onClick={() => deleteGroup()}
+                            >
+                              Delete crew
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                     <div className="tab-row" style={{ marginTop: 16 }}>
