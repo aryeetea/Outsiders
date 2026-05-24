@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import OutsidersSideNav from "./OutsidersSideNav";
 
 const STYLES = `
@@ -20,6 +20,175 @@ const STYLES = `
   .nav-item.active { background: #fff; color: #1a1a2e; border: 2.5px solid #1a1a2e; box-shadow: 3px 3px 0 #1a1a2e; }
   .nav-section-label { font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.1em; color: #bbb; padding: 8px 14px 4px; text-transform: uppercase; }
   .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
+  .rating-shell {
+    background:
+      radial-gradient(circle, rgba(201, 179, 104, 0.42) 1.4px, transparent 1.5px),
+      linear-gradient(180deg, #fff9ea 0%, #fff6df 100%);
+    background-size: 36px 36px, 100% 100%;
+    border: 5px solid #1a1a2e;
+    border-radius: 28px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.45) inset;
+    padding: 36px 42px 54px;
+    position: relative;
+    overflow: hidden;
+  }
+  .rating-shell::before {
+    content: "";
+    position: absolute;
+    inset: 16px;
+    border: 2px solid rgba(26, 26, 46, 0.08);
+    border-radius: 22px;
+    pointer-events: none;
+  }
+  .rating-hero {
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    text-align: center;
+    margin-bottom: 34px;
+    position: relative;
+    z-index: 1;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .rating-kicker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-width: min(100%, 320px);
+    padding: 12px 24px;
+    background: #ffd54d;
+    border: 5px solid #1a1a2e;
+    border-radius: 12px;
+    box-shadow: 0 6px 0 #1a1a2e;
+    transform: rotate(-1.5deg);
+    font: 400 clamp(18px, 2.2vw, 28px) 'Bangers', cursive;
+    letter-spacing: 0.08em;
+  }
+  .rating-title {
+    margin: 0;
+    font: 400 clamp(54px, 10vw, 110px) 'Bangers', cursive;
+    line-height: 0.92;
+    letter-spacing: 0.04em;
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
+  }
+  .rating-title-star {
+    display: inline-block;
+    margin-left: 12px;
+    transform: rotate(8deg) translateY(-4px);
+  }
+  .rating-subtitle-pill {
+    position: relative;
+    background: #fff;
+    border: 5px solid #1a1a2e;
+    border-radius: 999px;
+    box-shadow: 6px 6px 0 #1a1a2e;
+    padding: 16px 32px;
+    font: 800 clamp(18px, 2vw, 28px) 'Nunito', sans-serif;
+  }
+  .rating-subtitle-pill::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -16px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-right: 5px solid #1a1a2e;
+    border-bottom: 5px solid #1a1a2e;
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .rating-section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 18px;
+    color: #888a95;
+    font: 400 22px 'Bangers', cursive;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .rating-section-label::before {
+    content: "▸";
+    font-size: 18px;
+  }
+  .rating-empty-panel {
+    background: rgba(255,255,255,0.84);
+    border: 5px dashed #1a1a2e;
+    border-radius: 24px;
+    min-height: 380px;
+    display: grid;
+    place-items: center;
+    padding: 48px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .rating-empty-content {
+    display: grid;
+    justify-items: center;
+    gap: 18px;
+    text-align: center;
+    max-width: 560px;
+  }
+  .rating-stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: #4ecdc4;
+    border: 5px solid #1a1a2e;
+    border-radius: 10px;
+    box-shadow: 0 5px 0 #1a1a2e;
+    padding: 14px 24px;
+    transform: rotate(1.5deg);
+    font: 400 20px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+  }
+  .rating-empty-title {
+    margin: 0;
+    font: 400 clamp(36px, 6vw, 62px) 'Bangers', cursive;
+    line-height: 0.95;
+    color: #1a1a2e;
+  }
+  .rating-empty-copy {
+    margin: 0;
+    font: 800 clamp(18px, 2.1vw, 28px) 'Nunito', sans-serif;
+    line-height: 1.35;
+    color: #5a5c66;
+  }
+  .rating-detail-layout { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); align-items: start; }
+  .rating-column-card {
+    background: rgba(255,255,255,0.72);
+    border: 3px solid rgba(26, 26, 46, 0.14);
+    border-radius: 22px;
+    padding: 20px;
+    box-shadow: 0 10px 24px rgba(26, 26, 46, 0.06);
+  }
+  .rating-column-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .rating-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    box-shadow: 3px 3px 0 #1a1a2e;
+    font: 400 16px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    color: #1a1a2e;
+  }
+  .rating-list-stack { display: flex; flex-direction: column; gap: 14px; }
   .card { background: #fff; border: 3px solid #1a1a2e; border-radius: 16px; box-shadow: 5px 5px 0 #1a1a2e; padding: 22px 24px; }
   .star-btn { background: none; border: none; cursor: pointer; font-size: 36px; transition: transform 0.15s; line-height: 1; padding: 4px; }
   .star-btn:hover { transform: scale(1.3); }
@@ -42,10 +211,14 @@ const STYLES = `
   .rating-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 1024px) {
     .main { padding: 24px 20px; }
-    .rating-layout-grid, .rating-summary-grid { grid-template-columns: 1fr; }
+    .rating-detail-layout, .rating-summary-grid { grid-template-columns: 1fr; }
+    .rating-shell { padding: 28px 22px 36px; }
   }
   @media (max-width: 640px) {
     .main { padding: 18px 14px; }
+    .rating-kicker { min-width: 0; width: 100%; }
+    .rating-subtitle-pill { padding: 14px 20px; }
+    .rating-empty-panel { padding: 34px 18px; min-height: 320px; }
   }
 `;
 
@@ -192,6 +365,13 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
   const alreadyRated = selectedOuting?.ratings.some(r => r.member === 0);
   const profileName = appData?.profile?.name || appData?.profile?.username || "You";
 
+  useEffect(() => {
+    if (outings.length && !selectedOuting) {
+      setSelectedOuting(outings[0]);
+      setRating(createEmptyRating(outings[0].itemType));
+    }
+  }, [outings, selectedOuting]);
+
   const updateSelectedFromAppData = (updatedItem) => {
     setSelectedOuting(updatedItem);
     if (updatedItem.itemType === "trip") {
@@ -222,62 +402,91 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
       <div className="root">
         <OutsidersSideNav activeLabel="Ratings" onNavigate={onNavigate} profileName={profileName}>
           <main className="main">
-            <div style={{ marginBottom: 24 }}>
-              <span className="comic-tag">{pageCopy.tag}</span>
-              <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>{pageCopy.title}</h1>
-              <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>{pageCopy.subtitle}</p>
-            </div>
-
-            <div className="rating-layout-grid" style={{ display: "grid", gap: 24 }}>
-
-              {/* Outing list */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <p className="bangers" style={{ fontSize: 13, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>{pageCopy.listLabel}</p>
-                {outings.length === 0 && (
-                  <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "16px", textAlign: "center" }}>
-                    <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>Nothing to rate yet</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Finished hangouts and trips will show up here for feedback.</p>
-                  </div>
-                )}
-                {outings.map(o => {
-                  const avg = avgRating(o);
-                  const myRating = o.ratings.find(r => r.member === 0);
-                  return (
-                    <div key={o.id} onClick={() => { setSelectedOuting(o); setRating(createEmptyRating(o.itemType)); setSubmitted(false); setActiveTab("Rate"); }} style={{ background: selectedOuting?.id === o.id ? o.color : "#fff", border: `3px solid ${selectedOuting?.id === o.id ? o.border : "#1a1a2e"}`, borderRadius: 14, padding: "16px 18px", cursor: "pointer", boxShadow: `5px 5px 0 ${selectedOuting?.id === o.id ? o.border : "#1a1a2e"}`, transition: "all 0.15s" }}>
-                      <p className="bangers" style={{ fontSize: 16, margin: "0 0 4px", color: "#1a1a2e" }}>{o.name}</p>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: "0 0 8px" }}>
-                        {o.itemType === "trip" ? "✈️ Trip" : "🎉 Outing"} · 📅 {o.displayDate} · 📍 {o.displayLocation}
-                      </p>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span className="bangers" style={{ fontSize: 18, color: o.border }}>⭐ {avg > 0 ? avg : "—"}/10</span>
-                        {myRating
-                          ? <span className="badge" style={{ background: "#e8fde8", color: "#51cf66", borderColor: "#51cf66" }}>✓ Rated</span>
-                          : <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>Rate it</span>
-                        }
-                      </div>
-                    </div>
-                  );
-                })}
+            <section className="rating-shell">
+              <div className="rating-hero">
+                <div className="rating-kicker">
+                  <span>⭐</span>
+                  <span>{currentType === "trip" ? "Trip Receipts" : "How Was It?"}</span>
+                  <span>⭐</span>
+                </div>
+                <h1 className="rating-title">
+                  {currentType === "trip" ? "Rate The Trip" : "Rate The Outing"}
+                  <span className="rating-title-star">⭐</span>
+                </h1>
+                <div className="rating-subtitle-pill">{pageCopy.subtitle}</div>
               </div>
 
-              {/* Rating detail */}
-              {selectedOuting && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className="rating-section-label">{pageCopy.listLabel}</div>
+
+              {outings.length === 0 ? (
+                <div className="rating-empty-panel">
+                  <div className="rating-empty-content">
+                    <div className="rating-stamp">📝 Nothing Filed!</div>
+                    <h2 className="rating-empty-title">Nothing To Rate Yet</h2>
+                    <p className="rating-empty-copy">
+                      Finished hangouts and trips will show up here.
+                      <br />
+                      Then the crew can leave the real feedback.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rating-detail-layout" style={{ display: "grid", gap: 24 }}>
+                  <div className="rating-column-card">
+                    <div className="rating-column-title">
+                      <div>
+                        <p className="bangers" style={{ fontSize: 22, margin: 0, color: "#1a1a2e" }}>Scoreboard</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#7b7e87" }}>Pick a past plan to rate or review.</p>
+                      </div>
+                      <span className="rating-count-badge">{outings.length}</span>
+                    </div>
+                    <div className="rating-list-stack">
+                      {outings.map(o => {
+                        const avg = avgRating(o);
+                        const myRating = o.ratings.find(r => r.member === 0);
+                        return (
+                          <div key={o.id} onClick={() => { setSelectedOuting(o); setRating(createEmptyRating(o.itemType)); setSubmitted(false); setActiveTab("Rate"); }} style={{ background: selectedOuting?.id === o.id ? o.color.bg || o.color : "#fff", border: `3px solid ${selectedOuting?.id === o.id ? o.color.border || o.border : "#1a1a2e"}`, borderRadius: 14, padding: "16px 18px", cursor: "pointer", boxShadow: `5px 5px 0 ${selectedOuting?.id === o.id ? o.color.border || o.border : "#1a1a2e"}`, transition: "all 0.15s" }}>
+                            <p className="bangers" style={{ fontSize: 16, margin: "0 0 4px", color: "#1a1a2e" }}>{o.name}</p>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: "0 0 8px" }}>
+                              {o.itemType === "trip" ? "✈️ Trip" : "🎉 Outing"} · 📅 {o.displayDate} · 📍 {o.displayLocation}
+                            </p>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <span className="bangers" style={{ fontSize: 18, color: o.color.border || o.border }}>⭐ {avg > 0 ? avg : "—"}/10</span>
+                              {myRating
+                                ? <span className="badge" style={{ background: "#e8fde8", color: "#51cf66", borderColor: "#51cf66" }}>✓ Rated</span>
+                                : <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>Rate it</span>
+                              }
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {selectedOuting && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                        <div>
+                          <p className="bangers" style={{ fontSize: 26, margin: 0, color: "#1a1a2e" }}>Selected Review</p>
+                          <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#7b7e87" }}>Crew reactions, scores, and comments all live here.</p>
+                        </div>
+                        <span className="badge" style={{ background: "#fff", color: "#1a1a2e", borderColor: "#1a1a2e" }}>{selectedOuting.itemType === "trip" ? "Trip" : "Outing"}</span>
+                      </div>
 
                   {/* Header */}
-                  <div className="card" style={{ background: selectedOuting.color, borderColor: selectedOuting.border, boxShadow: `5px 5px 0 ${selectedOuting.border}` }}>
+                  <div className="card" style={{ background: selectedOuting.color.bg || selectedOuting.color, borderColor: selectedOuting.color.border || selectedOuting.border, boxShadow: `5px 5px 0 ${selectedOuting.color.border || selectedOuting.border}` }}>
                     <h2 className="bangers" style={{ fontSize: 26, margin: "0 0 4px" }}>{selectedOuting.name}</h2>
                     <p style={{ fontSize: 13, fontWeight: 700, color: "#666", margin: "0 0 12px" }}>
                       {selectedOuting.itemType === "trip" ? "✈️ Trip" : "🎉 Outing"} · 📅 {selectedOuting.displayDate} · 📍 {selectedOuting.displayLocation}
                     </p>
                     <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                      <div style={{ background: "#fff", border: `3px solid ${selectedOuting.border}`, borderRadius: 10, padding: "10px 16px", boxShadow: `3px 3px 0 ${selectedOuting.border}` }}>
+                      <div style={{ background: "#fff", border: `3px solid ${selectedOuting.color.border || selectedOuting.border}`, borderRadius: 10, padding: "10px 16px", boxShadow: `3px 3px 0 ${selectedOuting.color.border || selectedOuting.border}` }}>
                         <p style={{ fontSize: 11, fontWeight: 800, color: "#888", margin: "0 0 2px" }}>AVG RATING</p>
-                        <p className="bangers" style={{ fontSize: 26, margin: 0, color: selectedOuting.border }}>⭐ {avgRating(selectedOuting) || "—"}/10</p>
+                        <p className="bangers" style={{ fontSize: 26, margin: 0, color: selectedOuting.color.border || selectedOuting.border }}>⭐ {avgRating(selectedOuting) || "—"}/10</p>
                       </div>
-                      <div style={{ background: "#fff", border: `3px solid ${selectedOuting.border}`, borderRadius: 10, padding: "10px 16px", boxShadow: `3px 3px 0 ${selectedOuting.border}` }}>
+                      <div style={{ background: "#fff", border: `3px solid ${selectedOuting.color.border || selectedOuting.border}`, borderRadius: 10, padding: "10px 16px", boxShadow: `3px 3px 0 ${selectedOuting.color.border || selectedOuting.border}` }}>
                         <p style={{ fontSize: 11, fontWeight: 800, color: "#888", margin: "0 0 2px" }}>RATINGS IN</p>
-                        <p className="bangers" style={{ fontSize: 26, margin: 0, color: selectedOuting.border }}>{selectedOuting.ratings.length}/4</p>
+                        <p className="bangers" style={{ fontSize: 26, margin: 0, color: selectedOuting.color.border || selectedOuting.border }}>{selectedOuting.ratings.length}/4</p>
                       </div>
                     </div>
                   </div>
@@ -378,9 +587,11 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                       ))}
                     </div>
                   )}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </section>
           </main>
         </OutsidersSideNav>
       </div>

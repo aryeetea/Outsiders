@@ -32,6 +32,50 @@ const STYLES = `
     position: relative;
     z-index: 1;
   }
+  .planner-board {
+    background:
+      radial-gradient(circle, rgba(201, 179, 104, 0.45) 1.4px, transparent 1.5px),
+      linear-gradient(180deg, #fff9ea 0%, #fff3cf 100%);
+    background-size: 36px 36px, 100% 100%;
+    border: 5px solid #17151f;
+    border-radius: 28px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.42) inset;
+    padding: 34px 30px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .planner-board::before {
+    content: '';
+    position: absolute;
+    inset: 16px;
+    border: 2px solid rgba(23, 21, 31, 0.08);
+    border-radius: 22px;
+    pointer-events: none;
+  }
+  .planner-hero {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+  }
+  .planner-title {
+    margin: 0;
+    font: 400 clamp(48px, 7vw, 94px) 'Bangers', cursive;
+    line-height: 0.9;
+    letter-spacing: 0.05em;
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #17151f, 12px 0 0 rgba(255, 107, 107, 0.18);
+  }
+  .planner-subtitle {
+    margin: 0;
+    max-width: 58ch;
+    color: #556077;
+    line-height: 1.6;
+    font-weight: 800;
+    font-size: 18px;
+  }
   .glass, .card {
     border-radius: 22px;
     border: 4px solid #17151f;
@@ -260,6 +304,9 @@ const STYLES = `
     display: grid;
     gap: 16px;
     align-content: start;
+    position: sticky;
+    top: 24px;
+    height: fit-content;
   }
   .summary-box {
     border-radius: 18px;
@@ -307,10 +354,14 @@ const STYLES = `
     .layout, .form-grid {
       grid-template-columns: 1fr;
     }
+    .sidebar-stack {
+      position: static;
+    }
   }
   @media (max-width: 720px) {
     .shell { padding: 16px 12px 36px; }
     .glass, .card { padding: 18px; border-radius: 24px; }
+    .planner-board { padding: 24px 18px 28px; }
   }
 `;
 
@@ -493,15 +544,24 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
         <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName}>
         <div className="shell">
           {!createdProposal ? (
+            <section className="planner-board">
+            <div className="planner-hero">
+              <div className="comic-kicker">Hangout Planner</div>
+              <h1 className="planner-title">Pitch The Next Hangout.</h1>
+              <p className="planner-subtitle">
+                Any crew member can propose a hangout now. Add multiple time and place options so everyone can vote inside the crew without the page feeling scattered.
+              </p>
+            </div>
             <div className="layout">
               <section className="main-stack">
                 <div className="card">
                   <div className="card-header">
-                    <div className="comic-kicker">Hangout Planner</div>
-                    <h1 className="bangers" style={{ margin: "14px 0 8px", fontSize: 42 }}>Pitch the next hangout.</h1>
-                    <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
-                      Any crew member can propose a hangout now. Add multiple time and place options so everyone can vote inside the crew.
-                    </p>
+                    <div>
+                      <h2 className="section-title" style={{ marginBottom: 6 }}>Planner Setup</h2>
+                      <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
+                        Start with the crew, lock the vibe, and build the options the whole group will vote on.
+                      </p>
+                    </div>
                   </div>
                   <div className="planner-stats" style={{ marginBottom: 18 }}>
                     <div className="planner-stat">
@@ -686,8 +746,19 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                     Share hangout with crew
                   </button>
                 </div>
+
+                <div className="card">
+                  <h2 className="section-title">Posting Checklist</h2>
+                  <div className="summary-box">
+                    <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length ? "✓" : "•"} Add at least one time option.</p>
+                    <p style={{ margin: "0 0 10px", color: "#667085" }}>{locationOptions.length ? "✓" : "•"} Add at least one place option.</p>
+                    <p style={{ margin: "0 0 10px", color: "#667085" }}>{form.name.trim() ? "✓" : "•"} Give the hangout a clear name.</p>
+                    <p style={{ margin: 0, color: "#667085" }}>{selectedGroup ? "✓" : "•"} Make sure the right crew is selected.</p>
+                  </div>
+                </div>
               </aside>
             </div>
+            </section>
           ) : (
             <div className="card" style={{ maxWidth: 760, margin: "0 auto" }}>
               <div className="status-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>Hangout Shared</div>
