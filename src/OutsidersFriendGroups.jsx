@@ -1053,9 +1053,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
 
   const leaveGroup = (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
-    const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
-    if (!member) return;
-    const remainingMembers = targetGroup.members.filter((m) => m.name !== member.name && m.username !== member.username);
+    const memberIndex = targetGroup.members.findIndex((m) => m.name === currentName || (profile.username && m.username === `@${profile.username}`));
+    if (memberIndex === -1) return;
+    const member = targetGroup.members[memberIndex];
+    const remainingMembers = targetGroup.members.filter((_, idx) => idx !== memberIndex);
 
     if (!remainingMembers.length) {
       setAppData?.((prev) => ({
@@ -1382,7 +1383,19 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                                 </button>
                               </div>
                             </div>
-                            <p style={{ margin: "10px 0 0", color: "#667085" }}>{availabilityToText(member.availability)}</p>
+                            <p style={{ margin: "10px 0 0", color: "#667085" }}>
+                              {hasAvailability(member.availability) ? (
+                                <span style={{ display: "grid", gap: 3 }}>
+                                  {availabilityToText(member.availability).split(" • ").map((line, i) => (
+                                    <span key={i} style={{ display: "block", fontSize: 13, fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: 7, padding: "3px 9px", width: "fit-content" }}>{line}</span>
+                                  ))}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: 13, fontWeight: 700, color: "#9a6700" }}>
+                                  Availability will show once this member sets it in their profile.
+                                </span>
+                              )}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -1393,8 +1406,41 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                     <div className="card">
                       <div className="section-header">
                         <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew invites</h3>
-                        <p className="section-copy">Invite people, copy the crew link, and keep pending invites separate from the rest of the page.</p>
+                        <p className="section-copy">Share your crew code or link so people can join. Invite by username to add them to the pending list.</p>
                       </div>
+
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "18px 20px", background: "#ffd93d", border: "4px solid #1a1a2e", borderRadius: 16, boxShadow: "5px 5px 0 #1a1a2e", marginBottom: 22 }}>
+                        <div>
+                          <p className="bangers" style={{ margin: "0 0 4px", fontSize: 13, letterSpacing: "0.12em", color: "#6b5a00" }}>YOUR CREW CODE</p>
+                          <p className="bangers" style={{ margin: 0, fontSize: 42, letterSpacing: "0.22em", color: "#1a1a2e", lineHeight: 1 }}>{selectedGroup.code}</p>
+                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>Share this code or the link below so friends can join from the sidebar.</p>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+                          <button
+                            type="button"
+                            className="btn ghost"
+                            style={{ whiteSpace: "nowrap" }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(selectedGroup.code);
+                              setNotice("Crew code copied!");
+                            }}
+                          >
+                            Copy code
+                          </button>
+                          <button
+                            type="button"
+                            className="btn ghost"
+                            style={{ whiteSpace: "nowrap" }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(buildGroupInviteLink(selectedGroup.code));
+                              setNotice("Invite link copied!");
+                            }}
+                          >
+                            Copy link
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="field">
                         <label>Invite username</label>
                         <input value={inviteUsername} onChange={(event) => setInviteUsername(event.target.value)} placeholder="theirusername" />
