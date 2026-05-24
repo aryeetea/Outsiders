@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import OutsidersSideNav from "./OutsidersSideNav";
 
 const STYLES = `
@@ -101,125 +101,257 @@ const STYLES = `
     text-transform: uppercase;
   }
 
-  .main {
-    flex: 1;
-    padding: clamp(28px, 4vw, 56px) clamp(18px, 4vw, 56px) clamp(44px, 6vw, 80px);
-    overflow-y: auto;
+  .main { flex: 1; padding: 28px 32px; overflow-y: auto; }
+
+  .trip-planning-shell {
+    background:
+      radial-gradient(circle, rgba(201, 179, 104, 0.5) 1.4px, transparent 1.5px),
+      linear-gradient(180deg, #fff9ea 0%, #fff6df 100%);
+    background-size: 36px 36px, 100% 100%;
+    border: 5px solid #1a1a2e;
+    border-radius: 28px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.45) inset;
+    padding: 36px 42px 54px;
     position: relative;
-    isolation: isolate;
-    min-height: 100vh;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
+    overflow: hidden;
   }
 
-  .trip-bg-word {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    z-index: -1;
-    transform: translate(-50%, -50%);
-    font-family: 'Bangers', cursive;
-    font-size: clamp(78px, 17vw, 260px);
-    font-weight: 900;
-    letter-spacing: clamp(0.18em, 1vw, 0.34em);
-    line-height: 0.82;
-    color: #1a1a2e;
-    opacity: 0.055;
-    filter: blur(0.4px);
-    white-space: nowrap;
+  .trip-planning-shell::before {
+    content: "";
+    position: absolute;
+    inset: 16px;
+    border: 2px solid rgba(26, 26, 46, 0.08);
+    border-radius: 22px;
     pointer-events: none;
-    user-select: none;
-    animation: tripWordFloat 9s ease-in-out infinite;
   }
 
-  .trip-hero-shell {
-    width: min(100%, 1120px);
-    position: relative;
-    z-index: 1;
-    margin-top: clamp(18px, 5vh, 54px);
-    animation: tripHeroFade 520ms ease both;
+  .trip-planning-shell::after {
+    content: "";
+    position: absolute;
+    right: 46px;
+    top: 44px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.82);
+    box-shadow: 0 10px 24px rgba(26, 26, 46, 0.08);
   }
 
-  .trip-hero-header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    gap: 18px;
-    margin: 0 auto clamp(24px, 3vw, 34px);
-  }
-
-  .trip-title-group {
+  .trip-hero {
     display: grid;
     justify-items: center;
-    gap: 8px;
+    gap: 22px;
+    text-align: center;
+    margin-bottom: 34px;
+    position: relative;
+    z-index: 1;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .trip-kicker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    min-width: min(100%, 420px);
+    padding: 12px 28px;
+    background: #ffd54d;
+    border: 5px solid #1a1a2e;
+    border-radius: 12px;
+    box-shadow: 0 6px 0 #1a1a2e;
+    transform: rotate(-1.5deg);
+    font: 400 clamp(18px, 2.2vw, 28px) 'Bangers', cursive;
+    letter-spacing: 0.08em;
   }
 
   .trip-title {
-    font-size: clamp(42px, 6vw, 76px);
-    margin: 4px 0 0;
-    color: #1a1a2e;
-    line-height: 0.95;
-  }
-
-  .trip-subtitle {
-    max-width: 540px;
-    font-size: clamp(15px, 2vw, 18px);
-    color: #706d68;
-    font-weight: 800;
     margin: 0;
+    font: 400 clamp(56px, 11vw, 120px) 'Bangers', cursive;
+    line-height: 0.9;
+    letter-spacing: 0.06em;
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
   }
 
-  .trip-list-column {
+  .trip-title-plane {
+    display: inline-block;
+    margin-left: 14px;
+    transform: rotate(12deg) translateY(-4px);
+    filter: drop-shadow(4px 4px 0 #ff6b6b);
+  }
+
+  .trip-actions-row {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .speech-pill {
+    position: relative;
+    background: #fff;
+    border: 5px solid #1a1a2e;
+    border-radius: 999px;
+    box-shadow: 6px 6px 0 #1a1a2e;
+    padding: 16px 32px;
+    font: 800 clamp(18px, 2vw, 28px) 'Nunito', sans-serif;
+  }
+
+  .speech-pill::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -16px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-right: 5px solid #1a1a2e;
+    border-bottom: 5px solid #1a1a2e;
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  .trip-new-btn {
+    background: #fff8ea;
+    color: #1a1a2e;
+    border: 3px solid rgba(26, 26, 46, 0.18);
+    border-bottom: 7px solid #1a1a2e;
+    border-right: 7px solid #1a1a2e;
+    border-radius: 18px;
+    box-shadow: none;
+    padding: 18px 30px;
+    font-size: 18px;
+  }
+
+  .trip-new-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: none;
+  }
+
+  .trip-section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 18px;
+    color: #888a95;
+    font: 400 22px 'Bangers', cursive;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .trip-section-label::before {
+    content: "▸";
+    font-size: 18px;
+  }
+
+  .trip-empty-panel {
+    background: rgba(255,255,255,0.84);
+    border: 5px dashed #1a1a2e;
+    border-radius: 24px;
+    min-height: 470px;
+    display: grid;
+    place-items: center;
+    padding: 48px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .trip-empty-panel::before {
+    content: "";
+    position: absolute;
+    right: 42px;
+    top: 24px;
+    width: 120px;
+    height: 120px;
+    background-image: radial-gradient(circle, rgba(26,26,46,0.14) 2px, transparent 2.4px);
+    background-size: 18px 18px;
+    border-radius: 50%;
+    opacity: 0.8;
+  }
+
+  .trip-empty-content {
+    display: grid;
+    justify-items: center;
+    gap: 18px;
+    text-align: center;
+    max-width: 640px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .trip-stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: #4ecdc4;
+    border: 5px solid #1a1a2e;
+    border-radius: 10px;
+    box-shadow: 0 5px 0 #1a1a2e;
+    padding: 14px 26px;
+    transform: rotate(1.5deg);
+    font: 400 20px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+  }
+
+  .trip-empty-title {
+    margin: 0;
+    font: 400 clamp(40px, 6vw, 70px) 'Bangers', cursive;
+    line-height: 0.95;
+    color: #1a1a2e;
+  }
+
+  .trip-empty-copy {
+    margin: 0;
+    font: 800 clamp(18px, 2.1vw, 28px) 'Nunito', sans-serif;
+    line-height: 1.35;
+    color: #5a5c66;
+  }
+
+  .trip-list-stack {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    width: min(100%, 430px);
-    justify-self: center;
-    text-align: center;
+    gap: 14px;
   }
 
-  .trip-list-column .trip-card {
-    text-align: left;
+  .trip-column-card {
+    background: rgba(255,255,255,0.72);
+    border: 3px solid rgba(26, 26, 46, 0.14);
+    border-radius: 22px;
+    padding: 20px;
+    box-shadow: 0 10px 24px rgba(26, 26, 46, 0.06);
   }
 
-  .trip-empty-card,
-  .trip-new-prompt {
-    border: 3px dashed #ccc;
-    border-radius: 14px;
-    padding: 18px 20px;
-    text-align: center;
-  }
-
-  .trip-new-prompt {
-    cursor: pointer;
-    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.15s ease;
-  }
-
-  .trip-new-prompt:hover {
-    border-color: #ff6b6b;
-    transform: translate(-1px, -2px);
-    box-shadow: 4px 4px 0 rgba(26, 26, 46, 0.14);
-  }
-
-  .trip-detail-column {
+  .trip-column-title {
     display: flex;
-    flex-direction: column;
-    gap: 20px;
-    width: min(100%, 820px);
-    justify-self: center;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
-  @keyframes tripWordFloat {
-    0%, 100% { transform: translate(-50%, -50%) rotate(-1deg); }
-    50% { transform: translate(-50%, calc(-50% - 12px)) rotate(1deg); }
+  .trip-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #fff;
+    border: 3px solid #1a1a2e;
+    box-shadow: 3px 3px 0 #1a1a2e;
+    font: 400 16px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    color: #1a1a2e;
   }
 
-  @keyframes tripHeroFade {
-    from { opacity: 0; transform: translateY(14px); }
-    to { opacity: 1; transform: translateY(0); }
+  .trip-detail-layout {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+    align-items: start;
   }
 
   .card {
@@ -440,47 +572,20 @@ const STYLES = `
     border-radius: 99px;
     transition: width 0.5s ease;
   }
-  .trip-layout-grid {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    justify-content: center;
-    justify-items: center;
-  }
   .trip-overview-grid, .trip-modal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .trip-activity-grid { grid-template-columns: 100px 80px minmax(0, 1fr) auto; }
   @media (max-width: 1024px) {
-    .main {
-      align-items: flex-start;
-      padding: 34px 20px;
-    }
-    .trip-hero-shell {
-      margin-top: 0;
-    }
-    .trip-layout-grid, .trip-overview-grid, .trip-modal-grid, .trip-activity-grid { grid-template-columns: 1fr; }
-    .trip-bg-word {
-      font-size: clamp(72px, 19vw, 160px);
-      letter-spacing: 0.16em;
-    }
+    .main { padding: 24px 20px; }
+    .trip-detail-layout, .trip-overview-grid, .trip-modal-grid, .trip-activity-grid { grid-template-columns: 1fr; }
+    .trip-planning-shell { padding: 28px 22px 36px; }
+    .trip-empty-panel { min-height: 380px; }
   }
   @media (max-width: 640px) {
-    .main {
-      padding: 28px 14px 42px;
-    }
-    .trip-hero-header {
-      gap: 14px;
-      margin-bottom: 22px;
-    }
-    .trip-title {
-      font-size: 42px;
-    }
-    .trip-bg-word {
-      font-size: 62px;
-      letter-spacing: 0.12em;
-      opacity: 0.045;
-      white-space: normal;
-      text-align: center;
-      width: 100%;
-    }
+    .main { padding: 18px 14px; }
+    .trip-kicker { min-width: 0; width: 100%; }
+    .speech-pill { padding: 14px 20px; }
+    .trip-new-btn { width: 100%; justify-content: center; }
+    .trip-empty-panel { padding: 34px 18px; }
   }
 `;
 
@@ -493,9 +598,28 @@ const TRIP_COLORS = [
 
 const INITIAL_TRIPS = [];
 
+const IconLogoMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>;
+const IconHome = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+const IconCalendar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+const IconUsers = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+const IconPlane = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>;
+const IconSplit = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
+const IconHeart = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
+const IconStar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
+const IconBell = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
 const IconPlus = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>;
+
+const NAV_ITEMS = [
+  { icon: <IconHome />, label: "Dashboard" },
+  { icon: <IconCalendar />, label: "Hangouts" },
+  { icon: <IconUsers />, label: "My Crew" },
+  { icon: <IconPlane />, label: "Trips" },
+  { icon: <IconSplit />, label: "Bill Split" },
+  { icon: <IconStar />, label: "Ratings" },
+  { icon: <IconHeart />, label: "Debrief" },
+];
 
 const formatDate = (d) => {
   if (!d) return "";
@@ -508,7 +632,18 @@ const getDays = (start, end) => {
   return Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
 };
 
+const NAV_TARGETS = {
+  "Dashboard": "dashboard",
+  "Hangouts": "create-hangout",
+  "My Crew": "friend-groups",
+  "Trips": "trip-planning",
+  "Bill Split": "bill-split",
+  "Ratings": "rate-outing",
+  "Debrief": "debrief",
+};
+
 export default function OutsidersTripPlanning({ onNavigate, appData, setAppData }) {
+  const [activeNav, setActiveNav] = useState("Trips");
   const [trips, setTrips] = useState(appData?.trips?.length ? appData.trips : INITIAL_TRIPS);
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [activeTab, setActiveTab] = useState("Overview");
@@ -517,6 +652,17 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
   const [newPackItem, setNewPackItem] = useState("");
   const [newTripForm, setNewTripForm] = useState({ name: "", destination: "", startDate: "", endDate: "", budget: "" });
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (trips.length && !selectedTrip) {
+      setSelectedTrip(trips[0]);
+    }
+  }, [trips, selectedTrip]);
+
+  const handleNav = (label) => {
+    setActiveNav(label);
+    onNavigate?.(NAV_TARGETS[label] || "trip-planning");
+  };
 
   const updateTrip = (updatedTrip) => {
     setTrips(prev => prev.map(t => t.id === updatedTrip.id ? updatedTrip : t));
@@ -603,73 +749,108 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
 
         <OutsidersSideNav activeLabel="Trips" onNavigate={onNavigate} profileName={profileName}>
           <main className="main">
-            <div className="trip-bg-word" aria-hidden="true">OUTSIDERS</div>
-            <section className="trip-hero-shell" aria-labelledby="trip-planning-title">
-
-            {/* Header */}
-            <div className="trip-hero-header">
-              <div className="trip-title-group">
-                <span className="comic-tag">Adventure awaits! ✈️</span>
-                <h1 id="trip-planning-title" className="bangers trip-title">Trip Planning ✈️</h1>
-                <p className="trip-subtitle">Plan your next crew adventure.</p>
-              </div>
-              <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-                <IconPlus /> New Trip
-              </button>
-            </div>
-
-            <div className="trip-layout-grid" style={{ display: "grid", gap: 24 }}>
-
-              {/* Trip list */}
-              <div className="trip-list-column">
-                <p className="bangers" style={{ fontSize: 13, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>Your Trips</p>
-                {trips.length === 0 && (
-                  <div className="trip-empty-card">
-                    <p className="bangers" style={{ fontSize: 15, color: "#aaa", margin: "0 0 6px" }}>No trips yet</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#888", margin: 0 }}>Plan your first trip when you’re ready.</p>
-                  </div>
-                )}
-                {trips.map((trip) => (
-                  <div
-                    key={trip.id}
-                    className={`trip-card ${selectedTrip?.id === trip.id ? "active" : ""}`}
-                    style={{ background: trip.color.bg, borderColor: selectedTrip?.id === trip.id ? "#ff6b6b" : trip.color.border, boxShadow: `5px 5px 0 ${selectedTrip?.id === trip.id ? "#ff6b6b" : trip.color.border}` }}
-                    onClick={() => { setSelectedTrip(trip); setActiveTab("Overview"); }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                      <div style={{ width: 44, height: 44, background: "#fff", border: `3px solid ${trip.color.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: `3px 3px 0 ${trip.color.border}`, flexShrink: 0 }}>
-                        {trip.color.emoji}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <p className="bangers" style={{ fontSize: 16, margin: 0, color: "#1a1a2e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trip.name}</p>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: 0 }}>📍 {trip.destination}</p>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: "#666" }}>
-                        {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
-                      </span>
-                      <span className="badge" style={{
-                        background: trip.status === "Planning" ? "#e8f4fd" : "#f3e8fd",
-                        color: trip.status === "Planning" ? "#4ecdc4" : "#9b59b6",
-                        borderColor: trip.status === "Planning" ? "#4ecdc4" : "#9b59b6",
-                      }}>{trip.status}</span>
-                    </div>
-                  </div>
-                ))}
-
-                {/* New trip prompt */}
-                <div
-                  className="trip-new-prompt"
-                  onClick={() => setShowCreateModal(true)}
-                >
-                  <p className="bangers" style={{ fontSize: 15, color: "#aaa", margin: 0 }}>+ Plan New Trip</p>
+            <section className="trip-planning-shell">
+              <div className="trip-hero">
+                <div className="trip-kicker">
+                  <span>⚡</span>
+                  <span>Adventure Awaits!</span>
+                  <span>⚡</span>
+                </div>
+                <h1 className="trip-title">
+                  Trip Planning
+                  <span className="trip-title-plane">✈️</span>
+                </h1>
+                <div className="trip-actions-row">
+                  <div className="speech-pill">Plan your next crew adventure.</div>
+                  <button className="btn-primary trip-new-btn" onClick={() => setShowCreateModal(true)}>
+                    <IconPlus /> New Trip
+                  </button>
                 </div>
               </div>
 
-              {/* Trip detail */}
-              {selectedTrip && (
-                <div className="trip-detail-column">
+              <div className="trip-section-label">Your Trips</div>
+
+              {trips.length === 0 ? (
+                <div className="trip-empty-panel">
+                  <div className="trip-empty-content">
+                    <div className="trip-stamp">📍 Blank Map!</div>
+                    <h2 className="trip-empty-title">No Trips Yet</h2>
+                    <p className="trip-empty-copy">
+                      Plan your first trip when you&apos;re ready.
+                      <br />
+                      The world won&apos;t explore itself!
+                    </p>
+                    <button className="btn-primary trip-new-btn" onClick={() => setShowCreateModal(true)}>
+                      <IconPlus /> Plan New Trip
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="trip-detail-layout">
+                  <div className="trip-column-card">
+                    <div className="trip-column-title">
+                      <div>
+                        <p className="bangers" style={{ fontSize: 22, margin: 0, color: "#1a1a2e" }}>Trip Lineup</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#7b7e87" }}>Pick a trip to open its planner.</p>
+                      </div>
+                      <span className="trip-count-badge">{trips.length}</span>
+                    </div>
+                    <div className="trip-list-stack">
+                      {trips.map((trip) => (
+                        <div
+                          key={trip.id}
+                          className={`trip-card ${selectedTrip?.id === trip.id ? "active" : ""}`}
+                          style={{ background: trip.color.bg, borderColor: selectedTrip?.id === trip.id ? "#ff6b6b" : trip.color.border, boxShadow: `5px 5px 0 ${selectedTrip?.id === trip.id ? "#ff6b6b" : trip.color.border}` }}
+                          onClick={() => { setSelectedTrip(trip); setActiveTab("Overview"); }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                            <div style={{ width: 44, height: 44, background: "#fff", border: `3px solid ${trip.color.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: `3px 3px 0 ${trip.color.border}`, flexShrink: 0 }}>
+                              {trip.color.emoji}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <p className="bangers" style={{ fontSize: 16, margin: 0, color: "#1a1a2e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trip.name}</p>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: 0 }}>📍 {trip.destination}</p>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: "#666" }}>
+                              {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
+                            </span>
+                            <span className="badge" style={{
+                              background: trip.status === "Planning" ? "#e8f4fd" : "#f3e8fd",
+                              color: trip.status === "Planning" ? "#4ecdc4" : "#9b59b6",
+                              borderColor: trip.status === "Planning" ? "#4ecdc4" : "#9b59b6",
+                            }}>{trip.status}</span>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div
+                        onClick={() => setShowCreateModal(true)}
+                        style={{ border: "3px dashed #b9b1a2", borderRadius: 18, padding: "18px 16px", textAlign: "center", cursor: "pointer", transition: "border-color 0.2s, transform 0.2s", background: "rgba(255,255,255,0.68)" }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.borderColor = "#ff6b6b";
+                          e.currentTarget.style.transform = "translate(-2px, -2px)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.borderColor = "#b9b1a2";
+                          e.currentTarget.style.transform = "translate(0, 0)";
+                        }}
+                      >
+                        <p className="bangers" style={{ fontSize: 15, color: "#888", margin: 0 }}>+ Plan New Trip</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedTrip && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                        <div>
+                          <p className="bangers" style={{ fontSize: 26, margin: 0, color: "#1a1a2e" }}>Selected Trip</p>
+                          <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 800, color: "#7b7e87" }}>Overview, itinerary, and packing in one place.</p>
+                        </div>
+                        <span className="badge" style={{ background: "#fff", color: "#1a1a2e", borderColor: "#1a1a2e" }}>{selectedTrip.status}</span>
+                      </div>
 
                   {/* Trip header */}
                   <div className="card" style={{ background: selectedTrip.color.bg, borderColor: selectedTrip.color.border, boxShadow: `5px 5px 0 ${selectedTrip.color.border}` }}>
@@ -809,9 +990,10 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                       </div>
                     </div>
                   )}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
             </section>
           </main>
         </OutsidersSideNav>
