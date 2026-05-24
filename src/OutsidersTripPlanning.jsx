@@ -841,7 +841,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                       </div>
                     </div>
                   </div>
-
+                  
                   {selectedTrip && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
