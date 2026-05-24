@@ -963,27 +963,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
   const leaveGroup = (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
-    const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
-    if (!member) return;
-
-    const confirmed = window.confirm(
-      targetGroup.members.length === 1
-        ? `You are the last member of ${targetGroup.name}. Leaving will delete the group.`
-        : `Leave ${targetGroup.name}? You can join again later with the crew code if someone invites you back.`
-    );
-    if (!confirmed) return;
-
     setAppData?.((prev) => ({
       ...prev,
       groups: (prev.groups || []).filter((group) => String(group.id) !== String(targetGroup.id)),
+      hangouts: (prev.hangouts || []).filter((hangout) => String(hangout.groupId) !== String(targetGroup.id)),
       notifications: (prev.notifications || []).filter((notification) => String(notification.groupId) !== String(targetGroup.id)),
     }));
     setSelectedGroupId((currentId) => (String(currentId) === String(targetGroup.id) ? "" : currentId));
-    setNotice(
-      targetGroup.members.length === 1
-        ? `${targetGroup.name} was deleted because you were the last member.`
-        : `You left ${targetGroup.name}.`
-    );
+    setNotice(`You left ${targetGroup.name}.`);
   };
 
   const deleteGroup = (targetGroup = selectedGroup) => {
