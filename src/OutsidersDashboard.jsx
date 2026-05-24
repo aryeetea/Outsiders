@@ -331,7 +331,7 @@ function leadingChoice(options = [], votes = {}) {
   return counts.sort((a, b) => b.count - a.count)[0] || null;
 }
 
-export default function OutsidersDashboard({ onNavigate, appData }) {
+export default function OutsidersDashboard({ onNavigate, appData, setAppData }) {
   const groups = appData?.groups || [];
   const proposals = groups.flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupName: group.name })));
   const notifications = appData?.notifications || [];
@@ -438,6 +438,24 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                     <div key={notification.id} className="note-card" style={{ opacity: notification.read ? 0.7 : 1 }}>
                       <strong>{notification.message}</strong>
                       <p style={{ margin: "8px 0 0", color: "#667085" }}>{notification.groupName ? `${notification.groupName} · ` : ""}{new Date(notification.createdAt).toLocaleString()}</p>
+                      {notification.actionScreen ? (
+                        <button
+                          type="button"
+                          className="chip-btn"
+                          style={{ marginTop: 10 }}
+                          onClick={() => {
+                            setAppData?.((prev) => ({
+                              ...prev,
+                              notifications: (prev.notifications || []).map((item) => (
+                                item.id === notification.id ? { ...item, read: true } : item
+                              )),
+                            }));
+                            onNavigate?.(notification.actionScreen, notification.actionParams || {});
+                          }}
+                        >
+                          {notification.type === "hangout-invite" ? "Join hangout" : "Open update"}
+                        </button>
+                      ) : null}
                     </div>
                   )) : (
                     <div className="note-card">

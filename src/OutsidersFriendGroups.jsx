@@ -374,6 +374,45 @@ const STYLES = `
     min-height: 116px;
     resize: vertical;
   }
+  .edit-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 180;
+    background: rgba(23, 21, 31, 0.48);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .edit-modal {
+    width: min(720px, 100%);
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    border-radius: 22px;
+    border: 4px solid #17151f;
+    background: #fffdf7;
+    box-shadow: 8px 8px 0 #17151f;
+    padding: 24px;
+    display: grid;
+    gap: 16px;
+  }
+  .edit-list {
+    display: grid;
+    gap: 10px;
+  }
+  .edit-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-radius: 12px;
+    border: 3px solid #17151f;
+    background: #fff7e4;
+    box-shadow: 3px 3px 0 #17151f;
+    padding: 10px 12px;
+    font-weight: 800;
+  }
   .comic-kicker {
     display: inline-flex;
     width: fit-content;
@@ -477,7 +516,7 @@ function getLeaderFromMemberVotes(members = [], votes = {}) {
 }
 
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
-  const groups = appData?.groups ?? [];
+  const groups = useMemo(() => appData?.groups ?? [], [appData?.groups]);
   const profile = appData?.profile || {};
   const profileName = profile.name || profile.username || "You";
   const currentName = getDisplayName(profile);
@@ -489,6 +528,18 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const [inviteUsername, setInviteUsername] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [billChecklistDraft, setBillChecklistDraft] = useState("");
+  const [editingProposalId, setEditingProposalId] = useState(null);
+  const [editDraft, setEditDraft] = useState({
+    name: "",
+    description: "",
+    durationHours: "",
+    timeOptions: [],
+    locationOptions: [],
+    externalInvites: [],
+    newTime: "",
+    newLocation: "",
+    newInvite: "",
+  });
   const [notice, setNotice] = useState("");
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
   const currentMember = selectedGroup?.members?.find((member) => member.name === currentName || member.username === `@${profile.username}`) || null;
@@ -497,16 +548,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const openDebriefCount = useMemo(() => (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length, [selectedGroup]);
   const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
   const myBillWatchVote = selectedBillWatch.votes?.[currentUserKey] || "";
-
-  useEffect(() => {
-    if (!groups.length) {
-      setSelectedGroupId("");
-      return;
-    }
-    if (!selectedGroupId || !groups.some((group) => String(group.id) === String(selectedGroupId))) {
-      setSelectedGroupId(groups[0].id);
-    }
-  }, [groups, selectedGroupId]);
+  const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
 
   useEffect(() => {
     if (!selectedGroup) return;
@@ -744,6 +786,153 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     setNotice("Removed that Bill Watch checklist item.");
   };
 
+  const startEditingProposal = (proposal) => {
+    setEditingProposalId(proposal.id);
+    setEditDraft({
+      name: proposal.name || "",
+      description: proposal.description || "",
+      durationHours: proposal.durationHours || (proposal.durationMinutes ? proposal.durationMinutes / 60 : ""),
+      timeOptions: proposal.timeOptions || [],
+      locationOptions: proposal.locationOptions || [],
+      externalInvites: proposal.externalInvites || [],
+      newTime: "",
+      newLocation: "",
+      newInvite: "",
+    });
+  };
+
+  const closeEditProposal = () => {
+    setEditingProposalId(null);
+    setEditDraft({
+      name: "",
+      description: "",
+      durationHours: "",
+      timeOptions: [],
+      locationOptions: [],
+      externalInvites: [],
+      newTime: "",
+      newLocation: "",
+      newInvite: "",
+    });
+  };
+
+  const addEditTimeOption = () => {
+    const label = editDraft.newTime.trim();
+    if (!label) return;
+    setEditDraft((prev) => ({
+      ...prev,
+      timeOptions: prev.timeOptions.some((option) => option.label.toLowerCase() === label.toLowerCase())
+        ? prev.timeOptions
+        : [...prev.timeOptions, { id: createId("time"), label }],
+      newTime: "",
+    }));
+  };
+
+  const addEditLocationOption = () => {
+    const label = editDraft.newLocation.trim();
+    if (!label) return;
+    setEditDraft((prev) => ({
+      ...prev,
+      locationOptions: prev.locationOptions.some((option) => option.label.toLowerCase() === label.toLowerCase())
+        ? prev.locationOptions
+        : [...prev.locationOptions, { id: createId("place"), label }],
+      newLocation: "",
+    }));
+  };
+
+  const addEditExternalInvite = () => {
+    const invite = editDraft.newInvite.trim();
+    if (!invite) return;
+    setEditDraft((prev) => ({
+      ...prev,
+      externalInvites: prev.externalInvites.includes(invite) ? prev.externalInvites : [...prev.externalInvites, invite],
+      newInvite: "",
+    }));
+  };
+
+  const saveEditedProposal = () => {
+    if (!selectedGroup || !editingProposal) return;
+    if (!editDraft.name.trim()) {
+      setNotice("Give the hangout a name before saving.");
+      return;
+    }
+    if (!editDraft.timeOptions.length || !editDraft.locationOptions.length) {
+      setNotice("Keep at least one time and one place option.");
+      return;
+    }
+
+    const nextDuration = editDraft.durationHours === "" ? null : Number(editDraft.durationHours);
+    const allowedTimeIds = new Set(editDraft.timeOptions.map((option) => option.id));
+    const allowedLocationIds = new Set(editDraft.locationOptions.map((option) => option.id));
+    const previousInvites = new Set(editingProposal.externalInvites || []);
+    const newExternalInvites = editDraft.externalInvites.filter((invite) => !previousInvites.has(invite));
+
+    const updateProposal = (proposal) => {
+      if (proposal.id !== editingProposal.id) return proposal;
+      return {
+        ...proposal,
+        name: editDraft.name.trim(),
+        description: editDraft.description.trim(),
+        durationHours: Number.isFinite(nextDuration) && nextDuration > 0 ? nextDuration : null,
+        durationMinutes: Number.isFinite(nextDuration) && nextDuration > 0 ? Math.max(30, Math.round(nextDuration * 60)) : null,
+        timeOptions: editDraft.timeOptions,
+        locationOptions: editDraft.locationOptions,
+        externalInvites: editDraft.externalInvites,
+        votes: {
+          ...(proposal.votes || {}),
+          time: Object.fromEntries(Object.entries(proposal.votes?.time || {}).filter(([, value]) => allowedTimeIds.has(value))),
+          location: Object.fromEntries(Object.entries(proposal.votes?.location || {}).filter(([, value]) => allowedLocationIds.has(value))),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+    };
+
+    const updateNotifications = [
+      {
+        id: createId("note"),
+        type: "hangout-updated",
+        message: `${editingProposal.name} was updated in ${selectedGroup.name}.`,
+        groupId: selectedGroup.id,
+        groupName: selectedGroup.name,
+        proposalId: editingProposal.id,
+        proposalCode: editingProposal.code,
+        link: editingProposal.link,
+        actionScreen: "join-hangout",
+        actionParams: { code: editingProposal.code },
+        createdAt: new Date().toISOString(),
+        read: false,
+      },
+      ...newExternalInvites.map((invite) => ({
+        id: createId("note"),
+        type: "hangout-invite",
+        message: `Invite ready for ${invite}: ${editDraft.name.trim()}.`,
+        groupId: selectedGroup.id,
+        groupName: selectedGroup.name,
+        proposalId: editingProposal.id,
+        proposalCode: editingProposal.code,
+        link: editingProposal.link,
+        recipient: invite,
+        actionScreen: "join-hangout",
+        actionParams: { code: editingProposal.code },
+        createdAt: new Date().toISOString(),
+        read: false,
+      })),
+    ];
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id
+          ? { ...group, hangoutProposals: (group.hangoutProposals || []).map(updateProposal) }
+          : group
+      )),
+      hangouts: (prev.hangouts || []).map(updateProposal),
+      notifications: [...(prev.notifications || []), ...updateNotifications],
+    }));
+    closeEditProposal();
+    setNotice("Hangout updated.");
+  };
+
   const leaveGroup = (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
     const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
@@ -756,54 +945,17 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     );
     if (!confirmed) return;
 
-    const remainingMembers = targetGroup.members.filter((m) => m.name !== member.name && m.username !== member.username);
-
-    if (!remainingMembers.length) {
-      setAppData?.((prev) => ({
-        ...prev,
-        groups: prev.groups.filter((group) => group.id !== targetGroup.id),
-      }));
-      setNotice(`${targetGroup.name} was deleted because you were the last member.`);
-      return;
-    }
-
-    const nextMembers = remainingMembers.some((m) => m.role === "Admin")
-      ? remainingMembers
-      : remainingMembers.map((m, index) => ({ ...m, role: index === 0 ? "Admin" : (m.role || "Member") }));
-
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.map((group) => {
-        if (group.id !== targetGroup.id) return group;
-        return {
-          ...group,
-          members: nextMembers,
-          hangoutProposals: (group.hangoutProposals || []).map((proposal) => ({
-            ...proposal,
-            participants: (proposal.participants || []).filter((p) => p.name !== member.name && p.username !== member.username),
-            votes: {
-              ...(proposal.votes || {}),
-              availability: Object.fromEntries(Object.entries(proposal.votes?.availability || {}).filter(([key]) => key !== currentUserKey)),
-              vibe: Object.fromEntries(Object.entries(proposal.votes?.vibe || {}).filter(([key]) => key !== currentUserKey)),
-              time: Object.fromEntries(Object.entries(proposal.votes?.time || {}).filter(([key]) => key !== currentUserKey)),
-              location: Object.fromEntries(Object.entries(proposal.votes?.location || {}).filter(([key]) => key !== currentUserKey)),
-            },
-          })),
-          billWatch: (() => {
-            const filteredVotes = Object.fromEntries(
-              Object.entries(group.billWatch?.votes || {}).filter(([key, value]) => key !== currentUserKey && value !== member.name)
-            );
-            const leader = getLeaderFromMemberVotes(nextMembers, filteredVotes);
-            return {
-              ...(group.billWatch || {}),
-              electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
-              votes: filteredVotes,
-            };
-          })(),
-        };
-      }),
+      groups: (prev.groups || []).filter((group) => String(group.id) !== String(targetGroup.id)),
+      notifications: (prev.notifications || []).filter((notification) => String(notification.groupId) !== String(targetGroup.id)),
     }));
-    setNotice(`You left ${targetGroup.name}.`);
+    setSelectedGroupId((currentId) => (String(currentId) === String(targetGroup.id) ? "" : currentId));
+    setNotice(
+      targetGroup.members.length === 1
+        ? `${targetGroup.name} was deleted because you were the last member.`
+        : `You left ${targetGroup.name}.`
+    );
   };
 
   const deleteGroup = (targetGroup = selectedGroup) => {
@@ -990,7 +1142,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                     {proposal.proposerName === currentName ? "Started by you" : `Started by ${proposal.proposerName}`}
                                   </span>
                                 </div>
-                                <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
+                                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                                  <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
+                                  {(proposal.proposerName === currentName || isCurrentMemberAdmin) ? (
+                                    <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => startEditingProposal(proposal)}>
+                                      Edit hangout
+                                    </button>
+                                  ) : null}
+                                </div>
                               </div>
                               <p style={{ margin: "0 0 12px", color: "#475467" }}>{proposal.description || "No extra description added."}</p>
                               <div className="proposal-meta">
@@ -1228,6 +1387,94 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
           </div>
         </div>
         </OutsidersSideNav>
+        {editingProposal ? (
+          <div className="edit-modal-overlay" onClick={closeEditProposal}>
+            <div className="edit-modal" onClick={(event) => event.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div>
+                  <div className="comic-kicker">Edit Hangout</div>
+                  <h2 className="bangers" style={{ margin: "12px 0 0", fontSize: 34 }}>Update the plan</h2>
+                </div>
+                <button type="button" className="btn ghost" onClick={closeEditProposal}>Close</button>
+              </div>
+
+              <div className="field">
+                <label>Hangout name</label>
+                <input value={editDraft.name} onChange={(event) => setEditDraft((prev) => ({ ...prev, name: event.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Description</label>
+                <textarea value={editDraft.description} onChange={(event) => setEditDraft((prev) => ({ ...prev, description: event.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Duration in hours</label>
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={editDraft.durationHours}
+                  onChange={(event) => setEditDraft((prev) => ({ ...prev, durationHours: event.target.value }))}
+                  placeholder="Flexible"
+                />
+              </div>
+
+              <div className="field">
+                <label>Time options</label>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <input value={editDraft.newTime} onChange={(event) => setEditDraft((prev) => ({ ...prev, newTime: event.target.value }))} placeholder="Fri · 7:00 PM" />
+                  <button type="button" className="btn secondary" onClick={addEditTimeOption}>Add time</button>
+                </div>
+              </div>
+              <div className="edit-list">
+                {editDraft.timeOptions.map((option) => (
+                  <div key={option.id} className="edit-row">
+                    <span>{option.label}</span>
+                    <button type="button" className="btn ghost" style={{ padding: "7px 10px", fontSize: 12 }} onClick={() => setEditDraft((prev) => ({ ...prev, timeOptions: prev.timeOptions.filter((item) => item.id !== option.id) }))}>Remove</button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="field">
+                <label>Place options</label>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <input value={editDraft.newLocation} onChange={(event) => setEditDraft((prev) => ({ ...prev, newLocation: event.target.value }))} placeholder="Pizza spot, rooftop, game bar..." />
+                  <button type="button" className="btn secondary" onClick={addEditLocationOption}>Add place</button>
+                </div>
+              </div>
+              <div className="edit-list">
+                {editDraft.locationOptions.map((option) => (
+                  <div key={option.id} className="edit-row">
+                    <span>{option.label}</span>
+                    <button type="button" className="btn ghost" style={{ padding: "7px 10px", fontSize: 12 }} onClick={() => setEditDraft((prev) => ({ ...prev, locationOptions: prev.locationOptions.filter((item) => item.id !== option.id) }))}>Remove</button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="field">
+                <label>Outside invites</label>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <input value={editDraft.newInvite} onChange={(event) => setEditDraft((prev) => ({ ...prev, newInvite: event.target.value }))} placeholder="name, @handle, or phone note" />
+                  <button type="button" className="btn secondary" onClick={addEditExternalInvite}>Add invite</button>
+                </div>
+              </div>
+              <div className="edit-list">
+                {editDraft.externalInvites.length ? editDraft.externalInvites.map((invite) => (
+                  <div key={invite} className="edit-row">
+                    <span>{invite}</span>
+                    <button type="button" className="btn ghost" style={{ padding: "7px 10px", fontSize: 12 }} onClick={() => setEditDraft((prev) => ({ ...prev, externalInvites: prev.externalInvites.filter((item) => item !== invite) }))}>Remove</button>
+                  </div>
+                )) : (
+                  <div className="edit-row"><span>No outside invites yet.</span></div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, flexWrap: "wrap" }}>
+                <button type="button" className="btn ghost" onClick={closeEditProposal}>Cancel</button>
+                <button type="button" className="btn primary" onClick={saveEditedProposal}>Save changes</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </>
   );

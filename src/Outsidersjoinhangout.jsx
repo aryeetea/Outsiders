@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getDisplayName } from "./appState";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -112,10 +113,12 @@ const STYLES = `
   }
 `;
 
-export default function OutsidersJoinHangout({ onNavigate, appData, setAppData }) {
-  const [code, setCode] = useState("");
+export default function OutsidersJoinHangout({ onNavigate, appData, setAppData, routeParams }) {
+  const initialCode = String(routeParams?.code || "").toUpperCase();
+  const [code, setCode] = useState(initialCode);
   const [error, setError] = useState("");
   const [joinedId, setJoinedId] = useState(null);
+  const profile = appData?.profile || {};
 
   const allProposals = useMemo(
     () => (appData?.groups || []).flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupId: group.id, groupName: group.name }))),
@@ -132,6 +135,11 @@ export default function OutsidersJoinHangout({ onNavigate, appData, setAppData }
     }
     setAppData?.((prev) => ({
       ...prev,
+      notifications: (prev.notifications || []).map((notification) => (
+        notification.proposalCode?.toUpperCase() === normalized
+          ? { ...notification, read: true }
+          : notification
+      )),
       groups: prev.groups.map((group) => (
         group.id === match.groupId
           ? {
@@ -140,6 +148,13 @@ export default function OutsidersJoinHangout({ onNavigate, appData, setAppData }
                 proposal.id === match.id
                   ? {
                       ...proposal,
+                      participants: (proposal.participants || []).some((participant) => participant.name === getDisplayName(profile))
+                        ? proposal.participants
+                        : [...(proposal.participants || []), {
+                            name: getDisplayName(profile),
+                            username: profile.username ? `@${profile.username}` : "",
+                            availability: profile.availability,
+                          }],
                       externalInvites: proposal.externalInvites?.includes("Guest joined via code")
                         ? proposal.externalInvites
                         : [...(proposal.externalInvites || []), "Guest joined via code"],

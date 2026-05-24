@@ -488,6 +488,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     }
 
     const code = generateCode();
+    const chosenMemberKeys = selectedMembers.length ? selectedMembers : participants.map(memberKey);
+    const proposalParticipants = participants.filter((member) => chosenMemberKeys.includes(memberKey(member)));
     const proposal = {
       id: createId("proposal"),
       name: form.name.trim(),
@@ -505,19 +507,40 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       timeOptions,
       locationOptions,
       votes: { availability: {}, vibe: {}, time: {}, location: {} },
-      participants: participants.filter((member) => (selectedMembers.length ? selectedMembers : participants.map(memberKey)).includes(memberKey(member))),
+      participants: proposalParticipants,
       externalInvites,
       recommendations,
       finalizedChoice: null,
     };
 
-    const otherMembers = selectedGroup.members.filter((member) => member.name !== getDisplayName(profile));
-    const notifications = otherMembers.map(() => ({
+    const otherMembers = proposalParticipants.filter((member) => member.name !== getDisplayName(profile));
+    const memberNotifications = otherMembers.map((member) => ({
       id: createId("note"),
-      type: "hangout-proposal",
-      message: `${getDisplayName(profile)} in your crew has proposed a hangout!`,
+      type: "hangout-invite",
+      message: `${getDisplayName(profile)} invited you to ${proposal.name}.`,
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
+      proposalId: proposal.id,
+      proposalCode: proposal.code,
+      link: proposal.link,
+      recipient: member.name,
+      actionScreen: "join-hangout",
+      actionParams: { code: proposal.code },
+      createdAt: new Date().toISOString(),
+      read: false,
+    }));
+    const externalNotifications = externalInvites.map((invite) => ({
+      id: createId("note"),
+      type: "hangout-invite",
+      message: `Invite ready for ${invite}: ${proposal.name}.`,
+      groupId: selectedGroup.id,
+      groupName: selectedGroup.name,
+      proposalId: proposal.id,
+      proposalCode: proposal.code,
+      link: proposal.link,
+      recipient: invite,
+      actionScreen: "join-hangout",
+      actionParams: { code: proposal.code },
       createdAt: new Date().toISOString(),
       read: false,
     }));
@@ -530,7 +553,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
           : group
       )),
       hangouts: [...(prev.hangouts || []), proposal],
-      notifications: [...(prev.notifications || []), ...notifications],
+      notifications: [...(prev.notifications || []), ...memberNotifications, ...externalNotifications],
     }));
 
     setCreatedProposalId(proposal.id);

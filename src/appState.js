@@ -111,6 +111,12 @@ function normalizeNotification(notification = {}) {
     message: notification.message || "",
     groupId: notification.groupId || null,
     groupName: notification.groupName || "",
+    proposalId: notification.proposalId || null,
+    proposalCode: notification.proposalCode || "",
+    link: notification.link || "",
+    recipient: notification.recipient || "",
+    actionScreen: notification.actionScreen || "",
+    actionParams: notification.actionParams && typeof notification.actionParams === "object" ? notification.actionParams : {},
     type: notification.type || "general",
     createdAt: notification.createdAt || new Date().toISOString(),
     read: Boolean(notification.read),
@@ -141,4 +147,3 @@ export function normalizeAppData(appData = {}) {
 export function profileNeedsAvailability(profile) {
   return !hasAvailability(profile?.availability);
 }
-

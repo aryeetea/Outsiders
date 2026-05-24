@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
@@ -299,16 +299,6 @@ const STYLES = `
   }
 `;
 
-const NAV_ITEMS = [
-  ["Dashboard", "dashboard"],
-  ["Hangouts", "create-hangout"],
-  ["My Crew", "friend-groups"],
-  ["Trips", "trip-planning"],
-  ["Bill Split", "bill-split"],
-  ["Ratings", "rate-outing"],
-  ["Debrief", "debrief"],
-];
-
 function initialsFor(profile) {
   const seed = (profile?.name || profile?.username || "You").replace(/^@/, "").trim();
   return seed.slice(0, 2).toUpperCase() || "YO";
@@ -330,10 +320,6 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
   const availabilitySummary = weekSummary(draft.availability);
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const availabilityReady = hasAvailability(draft.availability);
-
-  useEffect(() => {
-    setDraft(profile);
-  }, [profile]);
 
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -534,6 +520,24 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData }) {
                   <p style={{ margin: "8px 0 0", color: "#667085", fontSize: 14 }}>
                     {notification.groupName ? `${notification.groupName} · ` : ""}{new Date(notification.createdAt).toLocaleString()}
                   </p>
+                  {notification.actionScreen ? (
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      style={{ marginTop: 10 }}
+                      onClick={() => {
+                        setAppData?.((prev) => ({
+                          ...prev,
+                          notifications: (prev.notifications || []).map((item) => (
+                            item.id === notification.id ? { ...item, read: true } : item
+                          )),
+                        }));
+                        onNavigate?.(notification.actionScreen, notification.actionParams || {});
+                      }}
+                    >
+                      {notification.type === "hangout-invite" ? "Join hangout" : "Open update"}
+                    </button>
+                  ) : null}
                 </div>
               )) : (
                 <div className="notif-item">
