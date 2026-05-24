@@ -152,6 +152,56 @@ alter table public.groups
 create unique index if not exists groups_code_key on public.groups (code);
 
 -- =========================
+-- Personalized Crew Invite Migration
+-- =========================
+
+update public.groups g
+set pending = coalesce(
+  (
+    select jsonb_agg(
+      jsonb_build_object(
+        'id', coalesce(nullif(invite->>'id', ''), 'invite-' || substring(replace(gen_random_uuid()::text, '-', '') from 1 for 12)),
+        'username',
+          case
+            when coalesce(invite->>'username', '') = '' and coalesce(invite->>'name', '') = '' then ''
+            when left(coalesce(invite->>'username', invite->>'name', ''), 1) = '@'
+              then lower(coalesce(invite->>'username', invite->>'name', ''))
+            else '@' || lower(coalesce(invite->>'username', invite->>'name', ''))
+          end,
+        'name', coalesce(nullif(invite->>'name', ''), regexp_replace(coalesce(invite->>'username', ''), '^@', '')),
+        'initials', coalesce(nullif(invite->>'initials', ''), upper(substring(regexp_replace(coalesce(invite->>'username', coalesce(invite->>'name', 'YO')), '^@', '') from 1 for 2))),
+        'inviteCode', coalesce(nullif(invite->>'inviteCode', ''), upper(g.code || '-' || substring(replace(gen_random_uuid()::text, '-', '') from 1 for 4))),
+        'createdAt', coalesce(nullif(invite->>'createdAt', ''), now()::text)
+      )
+    )
+    from jsonb_array_elements(coalesce(g.pending, '[]'::jsonb)) invite
+  ),
+  '[]'::jsonb
+)
+where jsonb_typeof(coalesce(g.pending, '[]'::jsonb)) = 'array';
+
+-- Resolve either a crew code or a personalized invite code from the database.
+create or replace function public.find_group_by_join_code(join_code text)
+returns public.groups
+language sql
+security definer
+set search_path = public
+as $$
+  select g.*
+  from public.groups g
+  where upper(g.code) = upper(join_code)
+    or exists (
+      select 1
+      from jsonb_array_elements(coalesce(g.pending, '[]'::jsonb)) invite
+      where upper(coalesce(invite->>'inviteCode', '')) = upper(join_code)
+    )
+  order by case when upper(g.code) = upper(join_code) then 0 else 1 end, g.created_at asc
+  limit 1;
+$$;
+
+grant execute on function public.find_group_by_join_code(text) to authenticated;
+
+-- =========================
 -- Groups Updated-At Trigger
 -- =========================
 

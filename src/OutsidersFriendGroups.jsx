@@ -3,6 +3,7 @@ import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildGroupInviteLink } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 function profileRouteParamsForMember(member, groupId) {
   return {
@@ -502,6 +503,7 @@ const STYLES = `
 `;
 
 const GROUP_COLORS = ["#ff8f7a", "#6ed7ff", "#73e2a7", "#ffcf6e", "#c6a6ff"];
+const EMPTY_PROFILE = {};
 
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -510,6 +512,84 @@ function generateCode() {
 
 function getInitials(name) {
   return (name || "You").replace(/^@/, "").trim().slice(0, 2).toUpperCase() || "YO";
+}
+
+function normalizeUsernameTag(value = "") {
+  const clean = String(value || "").trim().replace(/^@/, "").toLowerCase();
+  return clean ? `@${clean}` : "";
+}
+
+function normalizePendingInvite(invite = {}, groupCode = "") {
+  const username = normalizeUsernameTag(invite.username || invite.name || "");
+  const inviteCode = String(invite.inviteCode || groupCode || "").trim().toUpperCase();
+  return {
+    ...invite,
+    id: invite.id || createId("invite"),
+    username,
+    name: invite.name || username.replace(/^@/, ""),
+    initials: invite.initials || getInitials(username || "You"),
+    inviteCode,
+    inviteLink: invite.inviteLink || buildGroupInviteLink({
+      groupCode,
+      inviteCode,
+      inviteFor: (invite.name || username.replace(/^@/, "")),
+    }),
+    createdAt: invite.createdAt || new Date().toISOString(),
+  };
+}
+
+function buildMemberFromProfile(profile = {}, currentName = "You", role = "Member", userId = null) {
+  return {
+    name: currentName,
+    initials: getInitials(currentName),
+    role,
+    userId,
+    username: profile.username ? `@${profile.username}` : "",
+    bio: profile.bio || "",
+    location: profile.location || "",
+    email: profile.email || "",
+    availability: profile.availability,
+    avatar: profile.avatar || "",
+  };
+}
+
+function normalizeSupabaseGroupRecord(group = {}) {
+  return {
+    id: group.id,
+    name: group.name || "Untitled Crew",
+    emoji: group.emoji || "👥",
+    code: group.code || "",
+    members: Array.isArray(group.members) ? group.members : [],
+    pending: Array.isArray(group.pending) ? group.pending.map((invite) => normalizePendingInvite(invite, group.code || "")) : [],
+    cases: Array.isArray(group.cases) ? group.cases : [],
+    hangoutProposals: Array.isArray(group.hangoutProposals) ? group.hangoutProposals : [],
+    billWatch: group.billWatch || group.bill_watch || { electedMemberName: "", votes: {}, checklist: ["Track who paid", "Post the split", "Confirm balances"] },
+    peaceMaker: group.peaceMaker || group.peace_maker || { electedMemberName: "", votes: {}, oath: "" },
+    roastBoard: Array.isArray(group.roastBoard) ? group.roastBoard : [],
+  };
+}
+
+function generateInviteCode(groupCode = "") {
+  const suffix = Array.from({ length: 4 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
+  return `${String(groupCode || "").trim().toUpperCase()}-${suffix}`;
+}
+
+function buildPendingInvite(username, groupCode) {
+  const normalizedUsername = normalizeUsernameTag(username);
+  const inviteCode = generateInviteCode(groupCode);
+  return {
+    id: createId("invite"),
+    username: normalizedUsername,
+    name: normalizedUsername.replace(/^@/, ""),
+    initials: getInitials(normalizedUsername),
+    inviteCode,
+    inviteLink: buildGroupInviteLink({
+      groupCode,
+      inviteCode,
+      inviteFor: normalizedUsername.replace(/^@/, ""),
+    }),
+    createdAt: new Date().toISOString(),
+  };
 }
 
 function formatDurationHours(value) {
@@ -545,11 +625,12 @@ function getLeaderFromMemberVotes(members = [], votes = {}) {
 }
 
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams }) {
-  const profile = useMemo(() => appData?.profile || {}, [appData?.profile]);
+  const profile = useMemo(() => appData?.profile || EMPTY_PROFILE, [appData?.profile]);
   const profileName = profile.name || profile.username || "You";
   const currentName = getDisplayName(profile);
   const currentUserKey = getCurrentUserKey(profile);
-  const inviteCodeFromLink = String(routeParams?.groupCode || "").toUpperCase();
+  const inviteCodeFromLink = String(routeParams?.inviteCode || routeParams?.groupCode || "").toUpperCase();
+  const inviteRecipientFromLink = normalizeUsernameTag(routeParams?.inviteFor || "");
   const allGroups = useMemo(() => appData?.groups ?? [], [appData?.groups]);
   const groups = useMemo(() => getVisibleGroupsForProfile(allGroups, profile), [allGroups, profile]);
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
@@ -561,6 +642,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const [billChecklistDraft, setBillChecklistDraft] = useState("");
   const [editingProposalId, setEditingProposalId] = useState(null);
   const [generatedInvite, setGeneratedInvite] = useState({ groupId: "", link: "" });
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [editDraft, setEditDraft] = useState({
     name: "",
     description: "",
@@ -582,6 +664,45 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const myBillWatchVote = selectedBillWatch.votes?.[currentUserKey] || "";
   const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
   const generatedInviteLink = generatedInvite.groupId === selectedGroup?.id ? generatedInvite.link : "";
+
+  async function persistPendingInvites(groupId, nextPending) {
+    if (!isSupabaseConfigured || !groupId || String(groupId).startsWith("group-")) return true;
+
+    const { error } = await supabase
+      .from("groups")
+      .update({ pending: nextPending })
+      .eq("id", groupId);
+
+    if (error) {
+      setNotice(error.message || "We could not update the crew invites yet.");
+      return false;
+    }
+
+    return true;
+  }
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+
+    let active = true;
+
+    async function loadCurrentUser() {
+      const { data } = await supabase.auth.getUser();
+      if (active) {
+        setCurrentUserId(data.user?.id || null);
+      }
+    }
+
+    loadCurrentUser();
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUserId(session?.user?.id || null);
+    });
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     setAppData?.((prev) => {
@@ -619,90 +740,165 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     });
   }, [currentName, profile.availability, profile.username, setAppData]);
 
-  const createGroup = () => {
+  const createGroup = async () => {
     if (!newGroupName.trim()) {
       setNotice("Give the crew a name first.");
       return;
     }
-    const nextGroup = {
+    const fallbackGroup = {
       id: createId("group"),
       name: newGroupName.trim(),
       emoji: newGroupEmoji,
       code: generateCode(),
-      members: [{
-        name: currentName,
-        initials: getInitials(currentName),
-        role: "Admin",
-        username: profile.username ? `@${profile.username}` : "",
-        bio: profile.bio || "",
-        location: profile.location || "",
-        email: profile.email || "",
-        availability: profile.availability,
-        avatar: appData?.avatar || "",
-      }],
+      members: [buildMemberFromProfile(profile, currentName, "Admin", currentUserId)],
       pending: [],
       hangoutProposals: [],
       billWatch: { electedMemberName: "", votes: {}, checklist: ["Track who paid", "Post the split", "Confirm balances"] },
+      peaceMaker: { electedMemberName: "", votes: {}, oath: "" },
     };
-    setAppData?.((prev) => ({ ...prev, groups: [...prev.groups, nextGroup] }));
+
+    let nextGroup = fallbackGroup;
+
+    if (isSupabaseConfigured && currentUserId) {
+      const { data, error } = await supabase
+        .from("groups")
+        .insert({
+          name: fallbackGroup.name,
+          emoji: fallbackGroup.emoji,
+          code: fallbackGroup.code,
+          owner_id: currentUserId,
+          owner_username: profile.username || "",
+          members: fallbackGroup.members,
+          pending: [],
+          cases: [],
+          bill_watch: fallbackGroup.billWatch,
+          peace_maker: fallbackGroup.peaceMaker,
+        })
+        .select("*")
+        .single();
+
+      if (error) {
+        setNotice(error.message || "We could not create that crew yet.");
+        return;
+      }
+
+      nextGroup = normalizeSupabaseGroupRecord(data);
+    }
+
+    setAppData?.((prev) => ({ ...prev, groups: [...(prev.groups || []), nextGroup] }));
     setSelectedGroupId(nextGroup.id);
     setNewGroupName("");
     setNotice(`Created ${nextGroup.name}.`);
   };
 
-  const joinCrew = () => {
+  const joinCrew = async () => {
     const code = joinCode.trim().toUpperCase();
-    const target = allGroups.find((group) => group.code === code);
+    const localTarget = allGroups.find((group) => (
+      group.code === code || (group.pending || []).some((invite) => invite.inviteCode === code)
+    ));
+    let target = localTarget;
+
+    if (!target && isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .rpc("find_group_by_join_code", { join_code: code });
+
+      if (error) {
+        setNotice(error.message || "We could not look up that crew or invite code.");
+        return;
+      }
+
+      if (data) {
+        target = normalizeSupabaseGroupRecord(data);
+      }
+    }
+
     if (!target) {
       setNotice("No crew was found with that code.");
       return;
     }
-    const already = target.members.some((member) => member.name === currentName || member.username === `@${profile.username}`);
+
+    const matchedInvite = (target.pending || []).find((invite) => invite.inviteCode === code) || null;
+    if (matchedInvite?.username && profile.username && matchedInvite.username !== normalizeUsernameTag(profile.username)) {
+      setNotice(`That invite was made for ${matchedInvite.username}. Use the invite sent to your username instead.`);
+      return;
+    }
+    if (inviteRecipientFromLink && matchedInvite?.username && matchedInvite.username !== inviteRecipientFromLink) {
+      setNotice("That invite link does not match the invite record anymore.");
+      return;
+    }
+
+    const already = (target.members || []).some((member) => member.name === currentName || member.username === `@${profile.username}`);
     if (already) {
+      setAppData?.((prev) => {
+        const existsLocally = (prev.groups || []).some((group) => String(group.id) === String(target.id));
+        if (existsLocally) return prev;
+        return { ...prev, groups: [...(prev.groups || []), target] };
+      });
       setSelectedGroupId(target.id);
       setNotice("You are already in that crew.");
       return;
     }
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: prev.groups.map((group) => (
-        group.id === target.id
-          ? {
-              ...group,
-              members: [...group.members, {
-                name: currentName,
-                initials: getInitials(currentName),
-                role: "Member",
-                username: profile.username ? `@${profile.username}` : "",
-                bio: profile.bio || "",
-                location: profile.location || "",
-                email: profile.email || "",
-                availability: profile.availability,
-                avatar: appData?.avatar || "",
-              }],
-            }
-          : group
-      )),
-    }));
+    const nextMember = buildMemberFromProfile(profile, currentName, "Member", currentUserId);
+    const nextPending = matchedInvite
+      ? (target.pending || []).filter((invite) => invite.id !== matchedInvite.id && invite.inviteCode !== matchedInvite.inviteCode)
+      : (target.pending || []);
+    const nextTarget = {
+      ...target,
+      members: [...(target.members || []), nextMember],
+      pending: nextPending,
+    };
+
+    if (isSupabaseConfigured && target.id && !String(target.id).startsWith("group-")) {
+      const { error } = await supabase
+        .from("groups")
+        .update({ members: nextTarget.members, pending: nextPending })
+        .eq("id", target.id);
+
+      if (error) {
+        setNotice(error.message || "We could not join that crew yet.");
+        return;
+      }
+    }
+
+    setAppData?.((prev) => {
+      const existsLocally = (prev.groups || []).some((group) => String(group.id) === String(nextTarget.id));
+      if (existsLocally) {
+        return {
+          ...prev,
+          groups: (prev.groups || []).map((group) => (
+            String(group.id) === String(nextTarget.id) ? { ...group, members: nextTarget.members } : group
+          )),
+        };
+      }
+
+      return {
+        ...prev,
+        groups: [...(prev.groups || []), nextTarget],
+      };
+    });
     setSelectedGroupId(target.id);
     setJoinCode("");
-    setNotice(`Joined ${target.name}.`);
+    setNotice(matchedInvite ? `Joined ${target.name} with your invite.` : `Joined ${target.name}.`);
   };
 
-  const inviteMember = () => {
+  const inviteMember = async () => {
     if (!selectedGroup || !inviteUsername.trim()) {
       setNotice("Add a username to invite.");
       return;
     }
-    const username = inviteUsername.startsWith("@") ? inviteUsername : `@${inviteUsername}`;
-    const inviteLink = buildGroupInviteLink(selectedGroup.code);
+    const username = normalizeUsernameTag(inviteUsername);
+    const invite = buildPendingInvite(username, selectedGroup.code);
+    const nextPending = [...(selectedGroup.pending || []), invite];
+    const saved = await persistPendingInvites(selectedGroup.id, nextPending);
+    if (!saved) return;
+
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.map((group) => (
+      groups: (prev.groups || []).map((group) => (
         group.id === selectedGroup.id
           ? {
               ...group,
-              pending: [...(group.pending || []), { username, name: username.replace(/^@/, ""), initials: getInitials(username) }],
+              pending: nextPending,
             }
           : group
       )),
@@ -714,17 +910,18 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
           message: `${username}, ${currentName} invited you to join ${selectedGroup.name}.`,
           groupId: selectedGroup.id,
           groupName: selectedGroup.name,
-          link: inviteLink,
+          link: invite.inviteLink,
           recipient: username,
           actionScreen: "friend-groups",
-          actionParams: { groupCode: selectedGroup.code },
+          actionParams: { groupCode: selectedGroup.code, inviteCode: invite.inviteCode, inviteFor: invite.name },
           createdAt: new Date().toISOString(),
           read: false,
         },
       ],
     }));
+    setGeneratedInvite({ groupId: selectedGroup.id, link: invite.inviteLink });
     setInviteUsername("");
-    setNotice(`${username} was added to pending invites.`);
+    setNotice(`${username} got a personalized invite code: ${invite.inviteCode}.`);
   };
 
   const copyCrewInviteLink = async () => {
@@ -733,7 +930,25 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       return;
     }
 
-    const inviteLink = buildGroupInviteLink(selectedGroup.code);
+    let inviteLink = buildGroupInviteLink(selectedGroup.code);
+    if (inviteUsername.trim()) {
+      const invite = buildPendingInvite(inviteUsername, selectedGroup.code);
+      const nextPending = [...(selectedGroup.pending || []), invite];
+      const saved = await persistPendingInvites(selectedGroup.id, nextPending);
+      if (!saved) return;
+
+      setAppData?.((prev) => ({
+        ...prev,
+        groups: (prev.groups || []).map((group) => (
+          group.id === selectedGroup.id
+            ? { ...group, pending: nextPending }
+            : group
+        )),
+      }));
+      inviteLink = invite.inviteLink;
+      setInviteUsername("");
+    }
+
     setGeneratedInvite({ groupId: selectedGroup.id, link: inviteLink });
     try {
       if (window.navigator?.clipboard && window.isSecureContext) {
@@ -750,7 +965,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
         document.body.removeChild(textArea);
         if (!copied) throw new Error("Clipboard copy was blocked.");
       }
-      setNotice(`Invite link generated and copied for ${selectedGroup.name}.`);
+      setNotice(
+        inviteUsername.trim()
+          ? "Personalized invite link generated and copied."
+          : `Invite link generated and copied for ${selectedGroup.name}.`
+      );
     } catch {
       setNotice("Invite link generated. Copy it from the box below.");
     }
@@ -1419,14 +1638,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                     <div className="card">
                       <div className="section-header">
                         <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew invites</h3>
-                        <p className="section-copy">Share your crew code or link so people can join. Invite by username to add them to the pending list.</p>
+                        <p className="section-copy">Create invite-specific codes and links for each username so every pending invite is trackable.</p>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "18px 20px", background: "#ffd93d", border: "4px solid #1a1a2e", borderRadius: 16, boxShadow: "5px 5px 0 #1a1a2e", marginBottom: 22 }}>
                         <div>
                           <p className="bangers" style={{ margin: "0 0 4px", fontSize: 13, letterSpacing: "0.12em", color: "#6b5a00" }}>YOUR CREW CODE</p>
                           <p className="bangers" style={{ margin: 0, fontSize: 42, letterSpacing: "0.22em", color: "#1a1a2e", lineHeight: 1 }}>{selectedGroup.code}</p>
-                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>Share this code or the link below so friends can join from the sidebar.</p>
+                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>This is the crew-wide fallback. Personalized invites below each get their own code and link.</p>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
                           <button
@@ -1459,22 +1678,50 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         <input value={inviteUsername} onChange={(event) => setInviteUsername(event.target.value)} placeholder="theirusername" />
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-                        <button type="button" className="btn primary" onClick={inviteMember}>Add pending invite</button>
+                        <button type="button" className="btn primary" onClick={inviteMember}>Create personal invite</button>
                         <button type="button" className="btn ghost" onClick={copyCrewInviteLink}>Generate & copy invite link</button>
                       </div>
                       {generatedInviteLink ? (
                         <div className="invite-link-box">
-                          <strong>Share this crew invite link</strong>
+                          <strong>Share this invite link</strong>
                           <div className="invite-link-value">{generatedInviteLink}</div>
                           <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
-                            Send this link to someone so they can open Outsiders with this crew code ready to join.
+                            Send this link to someone so they open Outsiders with their invite code already attached.
                           </p>
                         </div>
                       ) : null}
                       <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
                         {selectedGroup.pending?.length ? selectedGroup.pending.map((invite) => (
-                          <div key={invite.username} className="pending-row">
+                          <div key={invite.id || `${invite.username}-${invite.inviteCode || ""}`} className="pending-row" style={{ display: "grid", gap: 10 }}>
                             <strong>{invite.username}</strong>
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                              <span className="stat-chip" style={{ background: "#eef8ff", color: "#155e75" }}>
+                                Invite code {invite.inviteCode || selectedGroup.code}
+                              </span>
+                              <button
+                                type="button"
+                                className="btn ghost"
+                                style={{ padding: "8px 12px", fontSize: 13 }}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(invite.inviteCode || selectedGroup.code);
+                                  setNotice(`Invite code copied for ${invite.username}.`);
+                                }}
+                              >
+                                Copy code
+                              </button>
+                              <button
+                                type="button"
+                                className="btn ghost"
+                                style={{ padding: "8px 12px", fontSize: 13 }}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(invite.inviteLink || buildGroupInviteLink(selectedGroup.code));
+                                  setNotice(`Invite link copied for ${invite.username}.`);
+                                }}
+                              >
+                                Copy link
+                              </button>
+                            </div>
+                            <div className="invite-link-value">{invite.inviteLink || buildGroupInviteLink(selectedGroup.code)}</div>
                           </div>
                         )) : <div className="pending-row"><strong>No pending invites.</strong></div>}
                       </div>

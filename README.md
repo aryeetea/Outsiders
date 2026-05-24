@@ -28,7 +28,7 @@ OPENAI_API_KEY=your_openai_api_key
 OPENAI_MODEL=gpt-5.4-mini
 ```
 
-Run the SQL in `supabase-schema.sql` from the Supabase SQL editor to create the `profiles`, `groups`, and `hangouts` tables used by signup availability, shared crew invites, anonymous debrief cases, hangout scheduling, and the crew bill-watch roster.
+Run the SQL in `supabase-schema.sql` from the Supabase SQL editor to create the `profiles`, `groups`, and `hangouts` tables used by signup availability, shared crew invites, anonymous debrief cases, hangout scheduling, and the crew bill-watch roster. If your database is already set up, re-run the file after pull/update so the personalized crew-invite migration and `find_group_by_join_code` RPC are added too.
 
 ## Hangout Assistant
 

@@ -253,7 +253,11 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
   const [loading, setLoading] = useState(false);
   const fileRef = useRef();
   const strength = getPasswordStrength(form.password);
-  const inviteParams = routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {};
+  const inviteParams = {
+    ...(routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {}),
+    ...(routeParams?.inviteCode ? { inviteCode: routeParams.inviteCode } : {}),
+    ...(routeParams?.inviteFor ? { inviteFor: routeParams.inviteFor } : {}),
+  };
   const postAuthScreen = routeParams?.redirect || "dashboard";
 
   const handleAvatar = (e) => {

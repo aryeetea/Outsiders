@@ -70,8 +70,8 @@ const STYLES = `
 
   .availability-shortcuts {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 12px;
   }
 
   .availability-day-card {
@@ -82,6 +82,7 @@ const STYLES = `
     padding: 12px;
     display: grid;
     gap: 10px;
+    min-width: 0;
   }
 
   .availability-day-actions {
@@ -99,6 +100,10 @@ const STYLES = `
     cursor: pointer;
     font: 800 11px 'Nunito', sans-serif;
     box-shadow: 2px 2px 0 #1a1a2e;
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
   }
 
   .availability-mini-btn:hover {
@@ -236,6 +241,16 @@ const STYLES = `
 
     .availability-shortcuts {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 520px) {
+    .availability-shortcuts {
+      grid-template-columns: 1fr;
+    }
+
+    .availability-mini-btn {
+      flex-basis: 100%;
     }
   }
 `;

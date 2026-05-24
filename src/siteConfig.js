@@ -14,7 +14,15 @@ export function buildHangoutInviteLink(code) {
   return `${getSiteUrl()}/#/join-hangout?code=${safeCode}`;
 }
 
-export function buildGroupInviteLink(code) {
-  const safeCode = encodeURIComponent((code || "").trim().toUpperCase());
-  return `${getSiteUrl()}/#/friend-groups?groupCode=${safeCode}`;
+export function buildGroupInviteLink(codeOrParams, inviteParams = {}) {
+  const params = typeof codeOrParams === "object" && codeOrParams !== null
+    ? codeOrParams
+    : { groupCode: codeOrParams, ...inviteParams };
+
+  const query = new URLSearchParams();
+  if (params.groupCode) query.set("groupCode", String(params.groupCode).trim().toUpperCase());
+  if (params.inviteCode) query.set("inviteCode", String(params.inviteCode).trim().toUpperCase());
+  if (params.inviteFor) query.set("inviteFor", String(params.inviteFor));
+
+  return `${getSiteUrl()}/#/friend-groups${query.size ? `?${query.toString()}` : ""}`;
 }

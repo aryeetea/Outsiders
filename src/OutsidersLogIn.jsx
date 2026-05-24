@@ -197,7 +197,11 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const inviteParams = routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {};
+  const inviteParams = {
+    ...(routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {}),
+    ...(routeParams?.inviteCode ? { inviteCode: routeParams.inviteCode } : {}),
+    ...(routeParams?.inviteFor ? { inviteFor: routeParams.inviteFor } : {}),
+  };
   const postAuthScreen = routeParams?.redirect || "dashboard";
 
   const handleChange = (field) => (e) => {
