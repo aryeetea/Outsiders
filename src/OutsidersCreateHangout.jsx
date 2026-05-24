@@ -104,6 +104,37 @@ const STYLES = `
     grid-template-columns: minmax(0, 1fr) 360px;
     gap: 22px;
   }
+  .main-stack {
+    display: grid;
+    gap: 18px;
+  }
+  .card-header {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .planner-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .planner-stat {
+    border-radius: 16px;
+    border: 3px solid #17151f;
+    background: #fff7de;
+    box-shadow: 4px 4px 0 #17151f;
+    padding: 14px 16px;
+  }
+  .field-note {
+    font-size: 13px;
+    color: #667085;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .section-block {
+    display: grid;
+    gap: 14px;
+  }
   .form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -292,6 +323,11 @@ function generateCode() {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
+function formatDurationHours(value) {
+  if (!Number.isFinite(value) || value <= 0) return "Flexible";
+  return `${value} hour${value === 1 ? "" : "s"}`;
+}
+
 export default function OutsidersCreateHangout({ onNavigate, appData, setAppData }) {
   const groups = appData?.groups || [];
   const profile = appData?.profile || {};
@@ -305,7 +341,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     manualLocation: "",
     externalInvite: "",
   });
-  const [duration, setDuration] = useState(120);
+  const [duration, setDuration] = useState("");
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [timeOptions, setTimeOptions] = useState([]);
   const [locationOptions, setLocationOptions] = useState([]);
@@ -326,7 +362,10 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       }));
   }, [participants, selectedMembers]);
 
-  const durationMinutes = Math.max(15, Number(duration) || 120);
+  const parsedDurationHours = duration === "" ? null : Number(duration);
+  const hasCustomDuration = Number.isFinite(parsedDurationHours) && parsedDurationHours > 0;
+  const durationHours = hasCustomDuration ? parsedDurationHours : null;
+  const durationMinutes = hasCustomDuration ? Math.max(30, Math.round(parsedDurationHours * 60)) : 120;
 
   const recommendations = useMemo(
     () => recommendHangoutTimes(participantPool, { durationMinutes }),
@@ -402,7 +441,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       id: createId("proposal"),
       name: form.name.trim(),
       description: form.description.trim(),
-      durationMinutes,
+      durationHours,
+      durationMinutes: durationHours ? durationMinutes : null,
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       status: "proposed",
@@ -454,14 +494,28 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
         <div className="shell">
           {!createdProposal ? (
             <div className="layout">
-              <section style={{ display: "grid", gap: 18 }}>
+              <section className="main-stack">
                 <div className="card">
-                  <div style={{ marginBottom: 18 }}>
+                  <div className="card-header">
                     <div className="comic-kicker">Hangout Planner</div>
                     <h1 className="bangers" style={{ margin: "14px 0 8px", fontSize: 42 }}>Pitch the next hangout.</h1>
                     <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
                       Any crew member can propose a hangout now. Add multiple time and place options so everyone can vote inside the crew.
                     </p>
+                  </div>
+                  <div className="planner-stats" style={{ marginBottom: 18 }}>
+                    <div className="planner-stat">
+                      <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Crew</div>
+                      <div style={{ fontWeight: 900 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "Not chosen yet"}</div>
+                    </div>
+                    <div className="planner-stat">
+                      <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Duration</div>
+                      <div style={{ fontWeight: 900 }}>{formatDurationHours(durationHours)}</div>
+                    </div>
+                    <div className="planner-stat">
+                      <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Picked so far</div>
+                      <div style={{ fontWeight: 900 }}>{timeOptions.length} times · {locationOptions.length} places</div>
+                    </div>
                   </div>
 
                   <div className="form-grid">
@@ -474,16 +528,16 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                       </select>
                     </div>
                     <div className="field">
-                      <label>Duration</label>
+                      <label>Duration In Hours</label>
                       <input
                         type="number"
-                        min="15"
-                        step="15"
+                        min="0.5"
+                        step="0.5"
                         value={duration}
                         onChange={(event) => setDuration(event.target.value)}
-                        placeholder="120"
+                        placeholder="2"
                       />
-                      <div style={{ fontSize: 13, color: "#667085" }}>Enter minutes, like 90 or 120.</div>
+                      <div className="field-note">Optional. Enter hours like 1.5 or 2. Leave it blank if the crew can decide later.</div>
                     </div>
                     <div className="field full">
                       <label>Hangout name</label>
@@ -497,7 +551,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 </div>
 
                 <div className="card">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+                  <div className="card-header" style={{ marginBottom: 14 }}>
                     <div>
                       <h2 className="section-title" style={{ marginBottom: 6 }}>Pick The Crew Members Involved</h2>
                       <p style={{ margin: 0, color: "#667085" }}>Recommendations use the availability saved on each member profile.</p>
@@ -523,7 +577,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
                 <div className="card">
                   <h2 className="section-title">Time Options</h2>
-                  <div className="form-grid" style={{ marginBottom: 16 }}>
+                  <div className="section-block">
+                  <div className="form-grid">
                     <div className="field">
                       <label>Date</label>
                       <input type="date" value={form.manualDate} onChange={(event) => setForm((prev) => ({ ...prev, manualDate: event.target.value }))} />
@@ -547,10 +602,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                       )) : <span style={{ color: "#667085" }}>No time options added yet.</span>}
                     </div>
                   </div>
+                  </div>
                 </div>
 
                 <div className="card">
                   <h2 className="section-title">Place Options And External Invites</h2>
+                  <div className="section-block">
                   <div className="form-grid">
                     <div className="field">
                       <label>Location idea</label>
@@ -587,12 +644,18 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                       )) : <span style={{ color: "#667085" }}>No outside guests added yet.</span>}
                     </div>
                   </div>
+                  </div>
                 </div>
               </section>
 
               <aside className="sidebar-stack">
                 <div className="card">
                   <h2 className="section-title">Availability Recommendations</h2>
+                  <p className="field-note" style={{ margin: "0 0 14px" }}>
+                    {durationHours
+                      ? `These suggestions are based on a ${formatDurationHours(durationHours).toLowerCase()} hangout.`
+                      : "These suggestions use a 2-hour default until you add a duration."}
+                  </p>
                   <div style={{ display: "grid", gap: 12 }}>
                     {recommendations.length ? recommendations.map((rec, index) => (
                       <div key={`${rec.day}-${rec.start}`} className="recommendation">
@@ -614,6 +677,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                   <h2 className="section-title">Hangout Summary</h2>
                   <div className="summary-box">
                     <p style={{ margin: "0 0 10px", fontWeight: 700 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
+                    <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(durationHours)}</p>
                     <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length} time options · {locationOptions.length} place options · {externalInvites.length} external invite{externalInvites.length === 1 ? "" : "s"}</p>
                     <p style={{ margin: 0, color: "#667085" }}>Once you post this, everyone in the crew can vote on every option inside the crew page.</p>
                   </div>
@@ -631,6 +695,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
               <p style={{ margin: "0 0 16px", color: "#667085" }}>The crew can now vote on this hangout inside {createdProposal.groupName}. Notifications have been added for the rest of the crew.</p>
               <div className="summary-box">
                 <strong style={{ display: "block", marginBottom: 8 }}>Invite code</strong>
+                <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(createdProposal.durationHours)}</p>
                 <div className="bangers" style={{ fontSize: 42, letterSpacing: "0.18em" }}>{createdProposal.code}</div>
                 <p style={{ margin: "10px 0 0", color: "#667085" }}>{createdProposal.link}</p>
               </div>

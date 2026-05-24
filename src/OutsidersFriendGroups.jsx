@@ -37,9 +37,9 @@ const STYLES = `
   .shell {
     max-width: 1380px;
     margin: 0 auto;
-    padding: 28px 20px 54px;
+    padding: 32px 24px 64px;
     display: grid;
-    gap: 26px;
+    gap: 32px;
     position: relative;
     z-index: 1;
   }
@@ -62,11 +62,11 @@ const STYLES = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
-    padding: 18px 22px;
+    gap: 20px;
+    padding: 24px 28px;
     flex-wrap: wrap;
   }
-  .card { padding: 22px; }
+  .card { padding: 28px; }
   .brand-btn, .btn, .crew-card, .tab-btn, .vote-btn, .roast-card {
     transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
   }
@@ -93,21 +93,41 @@ const STYLES = `
     transform: rotate(-7deg);
   }
   .hero {
-    padding: 32px;
+    padding: 38px;
     background: #fff2a6;
   }
   .layout {
     display: grid;
     grid-template-columns: 320px minmax(0, 1fr);
-    gap: 22px;
+    gap: 28px;
   }
   .sidebar-stack, .detail-stack {
     display: grid;
-    gap: 16px;
+    gap: 22px;
     align-content: start;
   }
+  .section-header {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .section-copy {
+    margin: 0;
+    color: #667085;
+    line-height: 1.65;
+    max-width: 68ch;
+  }
+  .content-stack {
+    display: grid;
+    gap: 18px;
+  }
+  .content-divider {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(23, 21, 31, 0.08);
+  }
   .crew-card {
-    padding: 16px;
+    padding: 18px;
     border-radius: 16px;
     border: 3px solid #17151f;
     background: #fff7e8;
@@ -175,11 +195,11 @@ const STYLES = `
   }
   .tab-row {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
   }
   .tab-btn {
-    padding: 10px 14px;
+    padding: 12px 16px;
     border-radius: 999px;
     background: #fff1c7;
     border: 3px solid transparent;
@@ -197,10 +217,27 @@ const STYLES = `
     border-radius: 14px;
     border: 3px solid #17151f;
     background: #fff8ea;
-    padding: 16px;
+    padding: 20px;
     box-shadow: 5px 5px 0 #17151f;
     position: relative;
     overflow: hidden;
+  }
+  .proposal-card {
+    display: grid;
+    gap: 18px;
+  }
+  .proposal-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .proposal-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding-top: 2px;
   }
   .proposal-card::after, .member-row::after, .pending-row::after, .bill-card::after {
     content: '';
@@ -215,7 +252,73 @@ const STYLES = `
   }
   .vote-grid, .member-list, .roast-list {
     display: grid;
+    gap: 16px;
+  }
+  .bill-watch-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .bill-watch-main, .bill-watch-side {
+    display: grid;
+    gap: 14px;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .summary-card {
+    border-radius: 16px;
+    border: 3px solid #17151f;
+    padding: 16px 18px;
+    background: #fff7da;
+    box-shadow: 4px 4px 0 #17151f;
+  }
+  .bill-card.active {
+    background: #eefdf5;
+    border-color: #51cf66;
+    box-shadow: 5px 5px 0 #51cf66;
+  }
+  .bill-vote-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .mini-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 2px solid #17151f;
+    background: #fffdf7;
+    box-shadow: 2px 2px 0 #17151f;
+    font-size: 12px;
+    font-weight: 800;
+    color: #475467;
+  }
+  .checklist-panel {
+    border-radius: 16px;
+    border: 3px solid #17151f;
+    background: #fff6df;
+    box-shadow: 5px 5px 0 #17151f;
+    padding: 16px;
+    display: grid;
     gap: 12px;
+  }
+  .checklist-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-radius: 12px;
+    border: 3px solid #17151f;
+    background: #fffdf7;
+    box-shadow: 3px 3px 0 #17151f;
+    padding: 12px;
   }
   .vote-btn {
     width: 100%;
@@ -314,6 +417,9 @@ const STYLES = `
     .proposal-columns {
       grid-template-columns: 1fr !important;
     }
+    .bill-watch-shell {
+      grid-template-columns: 1fr;
+    }
   }
   @media (max-width: 1080px) {
     .layout {
@@ -321,8 +427,8 @@ const STYLES = `
     }
   }
   @media (max-width: 720px) {
-    .shell { padding: 16px 12px 36px; }
-    .glass, .hero, .card { padding: 18px; border-radius: 24px; }
+    .shell { padding: 18px 14px 40px; gap: 20px; }
+    .glass, .hero, .card { padding: 20px; border-radius: 24px; }
     .root::after { display: none; }
   }
 `;
@@ -336,6 +442,11 @@ function generateCode() {
 
 function getInitials(name) {
   return (name || "You").replace(/^@/, "").trim().slice(0, 2).toUpperCase() || "YO";
+}
+
+function formatDurationHours(value) {
+  if (!Number.isFinite(value) || value <= 0) return "Flexible";
+  return `${value} hour${value === 1 ? "" : "s"}`;
 }
 
 function countVotes(votes = {}, optionId) {
@@ -847,7 +958,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                         </div>
                       </div>
                     </div>
-                    <div className="tab-row" style={{ marginTop: 16 }}>
+                    <div className="content-divider" style={{ margin: "22px 0 18px" }} />
+                    <div className="tab-row">
                       {["Hangouts", "Members", "Invites", "Debrief", "Bill Watch"].map((tab) => (
                         <button key={tab} type="button" className={`tab-btn ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
                           {tab}
@@ -858,10 +970,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                   {activeTab === "Hangouts" ? (
                     <div className="card">
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
                         <div>
                           <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Crew hangouts</h3>
-                          <p style={{ margin: 0, color: "#667085" }}>Every crew member can see and vote on each hangout below.</p>
+                          <p className="section-copy">Every crew member can see and vote on each hangout below. Each card separates the basics, the vote choices, and the current leader so it is easier to read.</p>
                         </div>
                         <button type="button" className="btn primary" onClick={() => onNavigate?.("create-hangout")}>Start a hangout</button>
                       </div>
@@ -881,6 +993,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                 <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
                               </div>
                               <p style={{ margin: "0 0 12px", color: "#475467" }}>{proposal.description || "No extra description added."}</p>
+                              <div className="proposal-meta">
+                                <span className="stat-chip" style={{ padding: "8px 12px", background: "#eef8ff", color: "#155e75" }}>
+                                  Duration: {formatDurationHours(proposal.durationHours || ((proposal.durationMinutes || 0) ? proposal.durationMinutes / 60 : null))}
+                                </span>
+                              </div>
                               <div className="proposal-columns" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                                 <div>
                                   <strong className="bangers" style={{ display: "block", marginBottom: 8, fontSize: 16 }}>Vote The Best Time</strong>
@@ -909,7 +1026,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                   </div>
                                 </div>
                               </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginTop: 14, alignItems: "center" }}>
+                              <div className="proposal-footer">
                                 <div style={{ color: "#667085", fontWeight: 700 }}>
                                   Top time: {topTime?.label || "No votes yet"}<br />
                                   Top place: {topLocation?.label || "No votes yet"}
@@ -933,7 +1050,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                   {activeTab === "Members" ? (
                     <div className="card">
-                      <h3 className="bangers" style={{ margin: "0 0 14px", fontSize: 24 }}>Crew members</h3>
+                      <div className="section-header">
+                        <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew members</h3>
+                        <p className="section-copy">See who is in the room, what role they have, and whether their availability is ready for planning.</p>
+                      </div>
                       <div className="member-list">
                         {selectedGroup.members.map((member) => (
                           <div key={`${member.name}-${member.username || ""}`} className="member-row">
@@ -955,7 +1075,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                   {activeTab === "Invites" ? (
                     <div className="card">
-                      <h3 className="bangers" style={{ margin: "0 0 14px", fontSize: 24 }}>Crew invites</h3>
+                      <div className="section-header">
+                        <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew invites</h3>
+                        <p className="section-copy">Invite people, copy the crew link, and keep pending invites separate from the rest of the page.</p>
+                      </div>
                       <div className="field">
                         <label>Invite username</label>
                         <input value={inviteUsername} onChange={(event) => setInviteUsername(event.target.value)} placeholder="theirusername" />
@@ -976,10 +1099,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                   {activeTab === "Debrief" ? (
                     <div className="card">
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
                         <div>
                           <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Debrief Court ❤️</h3>
-                          <p style={{ margin: 0, color: "#667085", fontWeight: 800 }}>Open your crew's case room when something needs honesty, repair, or a peace-maker vote.</p>
+                          <p className="section-copy">Open your crew's case room when something needs honesty, repair, or a peace-maker vote.</p>
                         </div>
                         <button type="button" className="btn primary" onClick={() => onNavigate?.("debrief")}>Open Debrief</button>
                       </div>
@@ -1008,68 +1131,88 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                   {activeTab === "Bill Watch" ? (
                     <div className="card">
-                      <h3 className="bangers" style={{ margin: "0 0 14px", fontSize: 24 }}>Bill Watch</h3>
-                      <p style={{ margin: "0 0 16px", color: "#667085" }}>Pick who you trust to track who paid, keep the split clean, and stay on top of balances.</p>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-                        <span className="stat-chip" style={{ background: "#eef8ff", color: "#155e75" }}>
-                          {myBillWatchVote ? `Your pick: ${myBillWatchVote}` : "You have not voted yet"}
-                        </span>
-                        <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>
-                          {billLeader?.isTie ? `Tie at ${billLeader.count} vote${billLeader.count === 1 ? "" : "s"}` : (billLeader?.name ? `${billLeader.name} leads` : "No leader yet")}
-                        </span>
+                      <div className="section-header">
+                        <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Bill Watch</h3>
+                        <p className="section-copy">Pick who you trust to track who paid, keep the split clean, and stay on top of balances. The summary stays at the top, votes stay in the left column, and the checklist stays on the right.</p>
                       </div>
-                      <div className="vote-grid">
-                        {selectedGroup.members.map((member) => {
-                          const totalVotes = countMemberVotes(selectedBillWatch.votes, member.name);
-                          const isMine = myBillWatchVote === member.name;
-                          return (
-                            <div key={member.name} className="bill-card">
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                                <div>
-                                  <strong style={{ display: "block" }}>{member.name}</strong>
-                                  <span style={{ color: "#667085", fontWeight: 700 }}>
-                                    {totalVotes} vote{totalVotes === 1 ? "" : "s"} {isMine ? "· your pick" : ""}
-                                  </span>
-                                </div>
-                                <button type="button" className={`btn ${isMine ? "ghost" : "secondary"}`} onClick={() => castBillWatchVote(member.name)}>
-                                  {isMine ? "Remove my vote" : "Vote for this person"}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
-                        <div>
-                          <strong style={{ display: "block", marginBottom: 8 }}>Bill Watch checklist</strong>
-                          <div className="field">
-                            <label>Add a responsibility</label>
-                            <input
-                              value={billChecklistDraft}
-                              onChange={(event) => setBillChecklistDraft(event.target.value)}
-                              placeholder="Example: Post Venmo reminders by Sunday night"
-                            />
-                          </div>
-                          <button type="button" className="btn secondary" style={{ marginTop: 12 }} onClick={addBillWatchChecklistItem}>
-                            Add checklist item
-                          </button>
+                      <div className="summary-grid" style={{ marginBottom: 18 }}>
+                        <div className="summary-card" style={{ background: "#eef8ff" }}>
+                          <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Your vote</p>
+                          <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#155e75" }}>
+                            {myBillWatchVote || "Not picked yet"}
+                          </p>
                         </div>
-                        <div className="vote-grid">
-                          {(selectedBillWatch.checklist || []).length ? selectedBillWatch.checklist.map((item) => (
-                            <div key={item} className="bill-card" style={{ padding: 12 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                        <div className="summary-card" style={{ background: "#fff5e6" }}>
+                          <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Current leader</p>
+                          <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#9a6700" }}>
+                            {billLeader?.isTie ? "Tie vote" : (billLeader?.name || "No leader yet")}
+                          </p>
+                        </div>
+                        <div className="summary-card" style={{ background: "#eefdf5" }}>
+                          <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Votes cast</p>
+                          <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#0f766e" }}>
+                            {Object.keys(selectedBillWatch.votes || {}).length}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bill-watch-shell">
+                        <div className="bill-watch-main">
+                          <div className="vote-grid">
+                            {selectedGroup.members.map((member) => {
+                              const totalVotes = countMemberVotes(selectedBillWatch.votes, member.name);
+                              const isMine = myBillWatchVote === member.name;
+                              return (
+                                <div key={member.name} className={`bill-card ${isMine ? "active" : ""}`}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                    <div>
+                                      <strong style={{ display: "block", fontSize: 18 }}>{member.name}</strong>
+                                      <div className="bill-vote-meta">
+                                        <span className="mini-pill">{totalVotes} vote{totalVotes === 1 ? "" : "s"}</span>
+                                        {isMine ? <span className="mini-pill" style={{ background: "#e8fde8", color: "#0f766e" }}>Your pick</span> : null}
+                                      </div>
+                                    </div>
+                                    <button type="button" className={`btn ${isMine ? "ghost" : "secondary"}`} onClick={() => castBillWatchVote(member.name)}>
+                                      {isMine ? "Remove my vote" : "Vote for this person"}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="bill-watch-side">
+                          <div className="checklist-panel">
+                            <div>
+                              <strong style={{ display: "block", marginBottom: 6 }}>Bill Watch checklist</strong>
+                              <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>Set the handoff so whoever wins knows exactly what your crew expects.</p>
+                            </div>
+                            <div className="field">
+                              <label>Add a responsibility</label>
+                              <input
+                                value={billChecklistDraft}
+                                onChange={(event) => setBillChecklistDraft(event.target.value)}
+                                placeholder="Example: Post Venmo reminders by Sunday night"
+                              />
+                            </div>
+                            <button type="button" className="btn secondary" onClick={addBillWatchChecklistItem}>
+                              Add checklist item
+                            </button>
+                          </div>
+                          <div className="vote-grid">
+                            {(selectedBillWatch.checklist || []).length ? selectedBillWatch.checklist.map((item) => (
+                              <div key={item} className="checklist-item">
                                 <span style={{ fontWeight: 800, color: "#475467" }}>{item}</span>
                                 <button type="button" className="btn ghost" style={{ padding: "8px 10px", fontSize: 13 }} onClick={() => removeBillWatchChecklistItem(item)}>
                                   Remove
                                 </button>
                               </div>
-                            </div>
-                          )) : (
-                            <div className="bill-card">
-                              <strong>No checklist yet.</strong>
-                              <p style={{ margin: "8px 0 0", color: "#667085" }}>Add a few expectations so your Bill Watch pick knows what your crew wants covered.</p>
-                            </div>
-                          )}
+                            )) : (
+                              <div className="bill-card">
+                                <strong>No checklist yet.</strong>
+                                <p style={{ margin: "8px 0 0", color: "#667085" }}>Add a few expectations so your Bill Watch pick knows what your crew wants covered.</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
