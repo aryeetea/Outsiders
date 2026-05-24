@@ -108,6 +108,25 @@ function calcSettlements(balances) {
   return settlements;
 }
 
+function countMemberVotes(votes = {}, memberName) {
+  return Object.values(votes).filter((value) => value === memberName).length;
+}
+
+function getLeaderFromMemberVotes(members = [], votes = {}) {
+  const ranked = members
+    .map((member) => ({ name: member.name, votes: countMemberVotes(votes, member.name) }))
+    .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name));
+
+  const top = ranked[0];
+  const runnerUp = ranked[1];
+
+  if (!top || top.votes === 0) return null;
+  if (runnerUp && runnerUp.votes === top.votes) {
+    return { name: "", votes: top.votes, isTie: true };
+  }
+  return { name: top.name, votes: top.votes, isTie: false };
+}
+
 function getFallbackMembers() {
   return [{ initials: "YOU", name: "You" }];
 }
@@ -148,13 +167,7 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
   );
   const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
   const billWatchVoteEntries = Object.entries(selectedBillWatch.votes || {});
-  const billWatchLeader = selectedGroup?.members?.reduce((best, member) => {
-    const memberVotes = billWatchVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
-    if (!best || memberVotes > best.votes) {
-      return { name: member.name, votes: memberVotes };
-    }
-    return best;
-  }, null);
+  const billWatchLeader = getLeaderFromMemberVotes(selectedGroup?.members || [], selectedBillWatch.votes || {});
 
   const balances = calcBalances(expenses, members);
   const settlements = calcSettlements(balances);
@@ -183,7 +196,7 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
                 <span className="comic-tag">Split it fair! 💸</span>
                 <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>Bill Split 💸</h1>
                 <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>
-                  {selectedGroup ? `Tracking ${selectedGroup.name}'s expenses.` : "No expenses are loaded until you add them."}
+                  {selectedGroup ? `You're tracking ${selectedGroup.name}'s expenses here.` : "No expenses are loaded until you add them."}
                 </p>
               </div>
               <button className="btn-primary" onClick={() => setShowModal(true)}><IconPlus /> Add Expense</button>
@@ -194,17 +207,17 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
                 <div style={{ flex: 1, minWidth: 240 }}>
                   <p className="bangers" style={{ fontSize: 18, margin: "0 0 6px" }}>Bill Watch Roster 🧮</p>
                   <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: "0 0 10px" }}>
-                    This is where the crew sees who was voted to keep record of the money and split math.
+                    This is where you can see who your crew voted to track payments and keep the split math clean.
                   </p>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                     <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>
-                      {billWatchLeader?.name ? `${billWatchLeader.name} leading` : "No vote yet"}
+                      {billWatchLeader?.isTie ? `Tie at ${billWatchLeader.votes} vote${billWatchLeader.votes === 1 ? "" : "s"}` : (billWatchLeader?.name ? `${billWatchLeader.name} leading` : "No vote yet")}
                     </span>
                     <span className="badge" style={{ background: "#fff", color: "#1a1a2e", borderColor: "#1a1a2e" }}>
                       {billWatchVoteEntries.length} total vote{billWatchVoteEntries.length === 1 ? "" : "s"}
                     </span>
                     <span className="badge" style={{ background: "#fff", color: "#ff9a3c", borderColor: "#ff9a3c" }}>
-                      Tracker: {selectedBillWatch.electedMemberName || "Not assigned yet"}
+                      Tracker: {selectedBillWatch.electedMemberName || (billWatchLeader?.isTie ? "Tie vote right now" : "Not assigned yet")}
                     </span>
                   </div>
                   {(selectedBillWatch.checklist || []).length > 0 ? (
@@ -232,7 +245,7 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
                   <div style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 12, padding: "12px 14px", boxShadow: "3px 3px 0 #1a1a2e" }}>
                     <p className="bangers" style={{ fontSize: 14, margin: "0 0 8px" }}>Vote board</p>
                     {selectedGroup?.members?.length ? selectedGroup.members.map((member) => {
-                      const voteCount = billWatchVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
+                      const voteCount = countMemberVotes(selectedBillWatch.votes, member.name);
                       return (
                         <div key={member.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
                           <span style={{ fontSize: 12, fontWeight: 900, color: "#1a1a2e" }}>{member.name}</span>

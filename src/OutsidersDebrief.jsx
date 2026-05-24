@@ -79,6 +79,25 @@ function getInitials(name) {
   return cleaned.slice(0, 2).toUpperCase();
 }
 
+function countMemberVotes(votes = {}, memberName) {
+  return Object.values(votes).filter((value) => value === memberName).length;
+}
+
+function getLeaderFromMemberVotes(members = [], votes = {}) {
+  const ranked = members
+    .map((member) => ({ name: member.name, votes: countMemberVotes(votes, member.name) }))
+    .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name));
+
+  const top = ranked[0];
+  const runnerUp = ranked[1];
+
+  if (!top || top.votes === 0) return null;
+  if (runnerUp && runnerUp.votes === top.votes) {
+    return { name: "", votes: top.votes, isTie: true };
+  }
+  return { name: top.name, votes: top.votes, isTie: false };
+}
+
 function getNextId(items, prefix) {
   const nextNumber = (items || []).reduce((highest, item) => {
     const numeric = Number(String(item.id || "").replace(`${prefix}-`, ""));
@@ -195,13 +214,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
   const currentVoteKey = currentUser?.id || (currentUsername ? `username:${currentUsername}` : `name:${currentDisplayName}`);
   const peaceMakerBench = selectedGroup?.peaceMaker || { electedMemberName: "", votes: {}, oath: "" };
   const peaceMakerVoteEntries = Object.entries(peaceMakerBench.votes || {});
-  const peaceMakerLeader = selectedGroup?.members?.reduce((best, member) => {
-    const memberVotes = peaceMakerVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
-    if (!best || memberVotes > best.votes) {
-      return { name: member.name, votes: memberVotes };
-    }
-    return best;
-  }, null);
+  const peaceMakerLeader = getLeaderFromMemberVotes(selectedGroup?.members || [], peaceMakerBench.votes || {});
 
   const cases = useMemo(() => selectedGroup?.cases || [], [selectedGroup]);
   const visibleCases = useMemo(() => cases.filter((caseItem) => {
@@ -334,19 +347,27 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
 
   async function voteForPeaceMaker(memberName) {
     if (!selectedGroup) return;
+    const nextVotes = { ...(peaceMakerBench.votes || {}) };
+    if (nextVotes[currentVoteKey] === memberName) {
+      delete nextVotes[currentVoteKey];
+    } else {
+      nextVotes[currentVoteKey] = memberName;
+    }
+    const leader = getLeaderFromMemberVotes(groupMembers, nextVotes);
     const nextPeaceMaker = {
       ...peaceMakerBench,
-      electedMemberName: memberName,
-      votes: {
-        ...(peaceMakerBench.votes || {}),
-        [currentVoteKey]: memberName,
-      },
+      electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
+      votes: nextVotes,
       oath: peaceMakerBench.oath || "Hear both sides, cool the temperature, and push the room toward something fair.",
     };
 
     const saved = await persistPeaceMaker(selectedGroup.id, nextPeaceMaker);
     if (!saved) return;
-    setNotice(`${memberName} got your peace-maker vote.`);
+    setNotice(
+      peaceMakerBench.votes?.[currentVoteKey] === memberName
+        ? "You removed your peace-maker vote."
+        : `${memberName} got your peace-maker vote.`
+    );
   }
 
   async function sendResponse() {
@@ -399,7 +420,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
               <div>
                 <span className="comic-tag">Anonymous court room ⚖️</span>
                 <h1 className="bangers" style={{ fontSize: 34, margin: "6px 0 4px" }}>Debrief Court</h1>
-                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>File a case anonymously, bring the room into session, and let the named person answer, clap back, or apologize.</p>
+                <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>File a case anonymously, bring your crew into session, and let the named person answer, clap back, or apologize.</p>
               </div>
               <button className="btn-primary" onClick={() => setShowNewModal(true)}>+ File A Case</button>
             </div>
@@ -461,19 +482,21 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                       <p className="bangers" style={{ fontSize: 16, margin: 0 }}>Peace-Maker Bench ⚖️</p>
                       <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>
-                        {peaceMakerLeader?.name ? `${peaceMakerLeader.name} leading` : "No vote yet"}
+                        {peaceMakerLeader?.isTie ? `Tie at ${peaceMakerLeader.votes} vote${peaceMakerLeader.votes === 1 ? "" : "s"}` : (peaceMakerLeader?.name ? `${peaceMakerLeader.name} leading` : "No vote yet")}
                       </span>
                     </div>
                     <p style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 10px" }}>
-                      The crew can vote for one trusted peace maker to step in on group cases. One-on-one cases can optionally name a separate mediator.
+                      Vote for the person you trust most to step in on group cases. One-on-one cases can still name a separate mediator.
                     </p>
                     <div style={{ background: "#fff", border: "2px solid #1a1a2e", borderRadius: 12, padding: "10px 12px", marginBottom: 12 }}>
                       <p className="bangers" style={{ fontSize: 13, margin: "0 0 4px" }}>Bench result</p>
                       <p style={{ fontSize: 13, fontWeight: 900, color: "#1a1a2e", margin: "0 0 4px" }}>
-                        {peaceMakerBench.electedMemberName || "No elected peace maker yet"}
+                        {peaceMakerBench.electedMemberName || (peaceMakerLeader?.isTie ? "Tie vote right now" : "No elected peace maker yet")}
                       </p>
                       <p style={{ fontSize: 12, fontWeight: 800, color: "#777", margin: 0 }}>
-                        {peaceMakerLeader?.name ? `${peaceMakerLeader.name} is currently leading the vote.` : "Nobody is leading because no vote has been cast yet."}
+                        {peaceMakerLeader?.isTie
+                          ? "Your crew is tied, so nobody has the bench yet."
+                          : (peaceMakerLeader?.name ? `${peaceMakerLeader.name} is currently leading the vote.` : "Nobody is leading because no vote has been cast yet.")}
                       </p>
                     </div>
                     <p style={{ fontSize: 12, fontWeight: 800, color: "#1a1a2e", margin: "0 0 12px" }}>
@@ -481,7 +504,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                     </p>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {groupMembers.map((member, index) => {
-                        const voteCount = peaceMakerVoteEntries.filter(([, chosenName]) => chosenName === member.name).length;
+                        const voteCount = countMemberVotes(peaceMakerBench.votes, member.name);
                         const isMyVote = peaceMakerBench.votes?.[currentVoteKey] === member.name;
                         return (
                           <div key={member.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "#fff", border: "2px solid #1a1a2e", borderRadius: 12, padding: "10px 12px" }}>
@@ -493,7 +516,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                               </div>
                             </div>
                             <button className="btn-outline" style={{ fontSize: 12, padding: "6px 10px" }} onClick={() => voteForPeaceMaker(member.name)}>
-                              {isMyVote ? "Change Vote" : "Vote"}
+                              {isMyVote ? "Remove my vote" : "Vote"}
                             </button>
                           </div>
                         );

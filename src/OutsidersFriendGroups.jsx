@@ -346,6 +346,25 @@ function pickWinner(options = [], votes = {}) {
   return [...options].sort((a, b) => countVotes(votes, b.id) - countVotes(votes, a.id))[0] || null;
 }
 
+function countMemberVotes(votes = {}, memberName) {
+  return Object.values(votes).filter((value) => value === memberName).length;
+}
+
+function getLeaderFromMemberVotes(members = [], votes = {}) {
+  const ranked = members
+    .map((member) => ({ name: member.name, count: countMemberVotes(votes, member.name) }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  const top = ranked[0];
+  const runnerUp = ranked[1];
+
+  if (!top || top.count === 0) return null;
+  if (runnerUp && runnerUp.count === top.count) {
+    return { name: "", count: top.count, isTie: true };
+  }
+  return { name: top.name, count: top.count, isTie: false };
+}
+
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
   const groups = appData?.groups ?? [];
   const profile = appData?.profile || {};
@@ -358,12 +377,15 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const [newGroupEmoji, setNewGroupEmoji] = useState("👥");
   const [inviteUsername, setInviteUsername] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const [billChecklistDraft, setBillChecklistDraft] = useState("");
   const [notice, setNotice] = useState("");
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
   const currentMember = selectedGroup?.members?.find((member) => member.name === currentName || member.username === `@${profile.username}`) || null;
   const isCurrentMemberAdmin = currentMember?.role === "Admin";
   const debriefCount = useMemo(() => selectedGroup?.cases?.length || 0, [selectedGroup]);
   const openDebriefCount = useMemo(() => (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length, [selectedGroup]);
+  const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
+  const myBillWatchVote = selectedBillWatch.votes?.[currentUserKey] || "";
 
   useEffect(() => {
     if (!groups.length) {
@@ -541,20 +563,74 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       ...prev,
       groups: prev.groups.map((group) => (
         group.id === selectedGroup.id
+          ? (() => {
+              const currentVote = group.billWatch?.votes?.[currentUserKey];
+              const nextVotes = { ...(group.billWatch?.votes || {}) };
+              if (currentVote === memberName) {
+                delete nextVotes[currentUserKey];
+              } else {
+                nextVotes[currentUserKey] = memberName;
+              }
+              const leader = getLeaderFromMemberVotes(group.members, nextVotes);
+              return {
+                ...group,
+                billWatch: {
+                  ...(group.billWatch || {}),
+                  electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
+                  votes: nextVotes,
+                },
+              };
+            })()
+          : group
+      )),
+    }));
+    setNotice(
+      myBillWatchVote === memberName
+        ? "You removed your Bill Watch vote."
+        : `You picked ${memberName} for Bill Watch.`
+    );
+  };
+
+  const addBillWatchChecklistItem = () => {
+    if (!selectedGroup || !billChecklistDraft.trim()) return;
+    const item = billChecklistDraft.trim();
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (
+        group.id === selectedGroup.id
           ? {
               ...group,
               billWatch: {
                 ...(group.billWatch || {}),
-                electedMemberName: memberName,
-                votes: {
-                  ...(group.billWatch?.votes || {}),
-                  [currentUserKey]: memberName,
-                },
+                checklist: (group.billWatch?.checklist || []).includes(item)
+                  ? (group.billWatch?.checklist || [])
+                  : [...(group.billWatch?.checklist || []), item],
               },
             }
           : group
       )),
     }));
+    setBillChecklistDraft("");
+    setNotice("Bill Watch checklist updated.");
+  };
+
+  const removeBillWatchChecklistItem = (item) => {
+    if (!selectedGroup) return;
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (
+        group.id === selectedGroup.id
+          ? {
+              ...group,
+              billWatch: {
+                ...(group.billWatch || {}),
+                checklist: (group.billWatch?.checklist || []).filter((entry) => entry !== item),
+              },
+            }
+          : group
+      )),
+    }));
+    setNotice("Removed that Bill Watch checklist item.");
   };
 
   const leaveGroup = (targetGroup = selectedGroup) => {
@@ -602,11 +678,17 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
               location: Object.fromEntries(Object.entries(proposal.votes?.location || {}).filter(([key]) => key !== currentUserKey)),
             },
           })),
-          billWatch: {
-            ...(group.billWatch || {}),
-            electedMemberName: group.billWatch?.electedMemberName === member.name ? "" : (group.billWatch?.electedMemberName || ""),
-            votes: Object.fromEntries(Object.entries(group.billWatch?.votes || {}).filter(([key]) => key !== currentUserKey)),
-          },
+          billWatch: (() => {
+            const filteredVotes = Object.fromEntries(
+              Object.entries(group.billWatch?.votes || {}).filter(([key, value]) => key !== currentUserKey && value !== member.name)
+            );
+            const leader = getLeaderFromMemberVotes(nextMembers, filteredVotes);
+            return {
+              ...(group.billWatch || {}),
+              electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
+              votes: filteredVotes,
+            };
+          })(),
         };
       }),
     }));
@@ -628,11 +710,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     setNotice(`${targetGroup.name} was deleted.`);
   };
 
-  const billLeader = selectedGroup?.members?.reduce((best, member) => {
-    const votes = Object.values(selectedGroup.billWatch?.votes || {}).filter((value) => value === member.name).length;
-    if (!best || votes > best.count) return { name: member.name, count: votes };
-    return best;
-  }, null);
+  const billLeader = getLeaderFromMemberVotes(selectedGroup?.members || [], selectedBillWatch.votes || {});
 
   return (
     <>
@@ -641,11 +719,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
         <OutsidersSideNav activeLabel="My Crew" onNavigate={onNavigate} profileName={profileName}>
         <div className="shell">
           <section className="glass hero">
-            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: 12 }}>
               <div className="comic-kicker">Crew HQ</div>
-              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>Every hangout plan, vote, invite, and debrief lives inside the crew.</h1>
+              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>Keep your hangouts, votes, invites, and debriefs in one crew home.</h1>
               <p style={{ margin: 0, maxWidth: 900, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
-                Crew members can propose hangouts, vote on every time and place option, manage outside invites in context, get notifications, and jump into Debrief Court when the room needs to clear the air.
+                You can propose the next move, your crew can vote on time and place, and everyone can handle invites, money roles, and Debrief Court without leaving the group context.
               </p>
             </div>
           </section>
@@ -796,7 +874,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginBottom: 12 }}>
                                 <div>
                                   <strong className="bangers" style={{ display: "block", fontSize: 22 }}>{proposal.name}</strong>
-                                  <span style={{ color: "#667085", fontWeight: 700 }}>Started by {proposal.proposerName}</span>
+                                  <span style={{ color: "#667085", fontWeight: 700 }}>
+                                    {proposal.proposerName === currentName ? "Started by you" : `Started by ${proposal.proposerName}`}
+                                  </span>
                                 </div>
                                 <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
                               </div>
@@ -899,7 +979,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
                         <div>
                           <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Debrief Court ❤️</h3>
-                          <p style={{ margin: 0, color: "#667085", fontWeight: 800 }}>This crew already has a full comic-style debrief system. Use it when a hangout needs honesty, repair, or a peace maker.</p>
+                          <p style={{ margin: 0, color: "#667085", fontWeight: 800 }}>Open your crew's case room when something needs honesty, repair, or a peace-maker vote.</p>
                         </div>
                         <button type="button" className="btn primary" onClick={() => onNavigate?.("debrief")}>Open Debrief</button>
                       </div>
@@ -920,7 +1000,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       <div className="roast-card">
                         <strong style={{ display: "block", marginBottom: 8 }}>Why Debrief instead</strong>
                         <p style={{ margin: 0, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
-                          Debrief Court already gives your crew anonymous case filing, answers, apologies, clap-backs, and a voted peace-maker bench. It fits the comic personality of the site better than a separate roast board, so this crew page now points back to that system instead.
+                          Debrief Court already gives you anonymous case filing, replies, apologies, clap-backs, and a crew-voted peace-maker bench. It fits the comic personality of the site better than a separate roast board, so this page points you back there instead.
                         </p>
                       </div>
                     </div>
@@ -929,25 +1009,69 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   {activeTab === "Bill Watch" ? (
                     <div className="card">
                       <h3 className="bangers" style={{ margin: "0 0 14px", fontSize: 24 }}>Bill Watch</h3>
-                      <p style={{ margin: "0 0 16px", color: "#667085" }}>Existing crew money-role voting still works here too.</p>
+                      <p style={{ margin: "0 0 16px", color: "#667085" }}>Pick who you trust to track who paid, keep the split clean, and stay on top of balances.</p>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+                        <span className="stat-chip" style={{ background: "#eef8ff", color: "#155e75" }}>
+                          {myBillWatchVote ? `Your pick: ${myBillWatchVote}` : "You have not voted yet"}
+                        </span>
+                        <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>
+                          {billLeader?.isTie ? `Tie at ${billLeader.count} vote${billLeader.count === 1 ? "" : "s"}` : (billLeader?.name ? `${billLeader.name} leads` : "No leader yet")}
+                        </span>
+                      </div>
                       <div className="vote-grid">
                         {selectedGroup.members.map((member) => {
-                          const totalVotes = Object.values(selectedGroup.billWatch?.votes || {}).filter((value) => value === member.name).length;
-                          const isMine = selectedGroup.billWatch?.votes?.[currentUserKey] === member.name;
+                          const totalVotes = countMemberVotes(selectedBillWatch.votes, member.name);
+                          const isMine = myBillWatchVote === member.name;
                           return (
                             <div key={member.name} className="bill-card">
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                                 <div>
                                   <strong style={{ display: "block" }}>{member.name}</strong>
-                                  <span style={{ color: "#667085", fontWeight: 700 }}>{totalVotes} vote{totalVotes === 1 ? "" : "s"} {isMine ? "· your pick" : ""}</span>
+                                  <span style={{ color: "#667085", fontWeight: 700 }}>
+                                    {totalVotes} vote{totalVotes === 1 ? "" : "s"} {isMine ? "· your pick" : ""}
+                                  </span>
                                 </div>
-                                <button type="button" className="btn secondary" onClick={() => castBillWatchVote(member.name)}>Vote for this person</button>
+                                <button type="button" className={`btn ${isMine ? "ghost" : "secondary"}`} onClick={() => castBillWatchVote(member.name)}>
+                                  {isMine ? "Remove my vote" : "Vote for this person"}
+                                </button>
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                      {billLeader?.name ? <p style={{ margin: "16px 0 0", color: "#0f766e", fontWeight: 700 }}>{billLeader.name} is currently leading Bill Watch.</p> : null}
+                      <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
+                        <div>
+                          <strong style={{ display: "block", marginBottom: 8 }}>Bill Watch checklist</strong>
+                          <div className="field">
+                            <label>Add a responsibility</label>
+                            <input
+                              value={billChecklistDraft}
+                              onChange={(event) => setBillChecklistDraft(event.target.value)}
+                              placeholder="Example: Post Venmo reminders by Sunday night"
+                            />
+                          </div>
+                          <button type="button" className="btn secondary" style={{ marginTop: 12 }} onClick={addBillWatchChecklistItem}>
+                            Add checklist item
+                          </button>
+                        </div>
+                        <div className="vote-grid">
+                          {(selectedBillWatch.checklist || []).length ? selectedBillWatch.checklist.map((item) => (
+                            <div key={item} className="bill-card" style={{ padding: 12 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                                <span style={{ fontWeight: 800, color: "#475467" }}>{item}</span>
+                                <button type="button" className="btn ghost" style={{ padding: "8px 10px", fontSize: 13 }} onClick={() => removeBillWatchChecklistItem(item)}>
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          )) : (
+                            <div className="bill-card">
+                              <strong>No checklist yet.</strong>
+                              <p style={{ margin: "8px 0 0", color: "#667085" }}>Add a few expectations so your Bill Watch pick knows what your crew wants covered.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                 </>

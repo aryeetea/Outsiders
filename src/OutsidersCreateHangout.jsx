@@ -326,9 +326,11 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       }));
   }, [participants, selectedMembers]);
 
+  const durationMinutes = Math.max(15, Number(duration) || 120);
+
   const recommendations = useMemo(
-    () => recommendHangoutTimes(participantPool, { durationMinutes: Number(duration) || 120 }),
-    [duration, participantPool]
+    () => recommendHangoutTimes(participantPool, { durationMinutes }),
+    [durationMinutes, participantPool]
   );
 
   const createdProposal = useMemo(
@@ -400,6 +402,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       id: createId("proposal"),
       name: form.name.trim(),
       description: form.description.trim(),
+      durationMinutes,
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       status: "proposed",
@@ -472,12 +475,15 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                     </div>
                     <div className="field">
                       <label>Duration</label>
-                      <select value={duration} onChange={(event) => setDuration(event.target.value)}>
-                        <option value={60}>1 hour</option>
-                        <option value={90}>1.5 hours</option>
-                        <option value={120}>2 hours</option>
-                        <option value={180}>3 hours</option>
-                      </select>
+                      <input
+                        type="number"
+                        min="15"
+                        step="15"
+                        value={duration}
+                        onChange={(event) => setDuration(event.target.value)}
+                        placeholder="120"
+                      />
+                      <div style={{ fontSize: 13, color: "#667085" }}>Enter minutes, like 90 or 120.</div>
                     </div>
                     <div className="field full">
                       <label>Hangout name</label>
