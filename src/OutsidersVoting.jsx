@@ -537,7 +537,7 @@ export default function OutsidersVoting({ onNavigate, appData }) {
       <style>{STYLES}</style>
       <div className="root">
 
-        <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
           <main className="main">
             <section className="voting-shell">
 
