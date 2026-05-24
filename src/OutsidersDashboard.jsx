@@ -453,7 +453,7 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
                             onNavigate?.(notification.actionScreen, notification.actionParams || {});
                           }}
                         >
-                          {notification.type === "hangout-invite" ? "Join hangout" : "Open update"}
+                          {notification.type === "hangout-invite" ? "Join hangout" : notification.type === "crew-invite" ? "Join crew" : "Open update"}
                         </button>
                       ) : null}
                     </div>

@@ -522,11 +522,12 @@ function getLeaderFromMemberVotes(members = [], votes = {}) {
   return { name: top.name, count: top.count, isTie: false };
 }
 
-export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
+export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams }) {
   const profile = appData?.profile || {};
   const profileName = profile.name || profile.username || "You";
   const currentName = getDisplayName(profile);
   const currentUserKey = getCurrentUserKey(profile);
+  const inviteCodeFromLink = String(routeParams?.groupCode || "").toUpperCase();
   const allGroups = useMemo(() => appData?.groups ?? [], [appData?.groups]);
   const groups = allGroups.filter((group) =>
     (group.members || []).some((m) => m.name === currentName || m.username === `@${profile.username}`)
@@ -536,7 +537,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupEmoji, setNewGroupEmoji] = useState("👥");
   const [inviteUsername, setInviteUsername] = useState("");
-  const [joinCode, setJoinCode] = useState("");
+  const [joinCode, setJoinCode] = useState(inviteCodeFromLink);
   const [billChecklistDraft, setBillChecklistDraft] = useState("");
   const [editingProposalId, setEditingProposalId] = useState(null);
   const [editDraft, setEditDraft] = useState({
@@ -554,8 +555,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
   const currentMember = selectedGroup?.members?.find((member) => member.name === currentName || member.username === `@${profile.username}`) || null;
   const isCurrentMemberAdmin = currentMember?.role === "Admin";
-  const debriefCount = useMemo(() => selectedGroup?.cases?.length || 0, [selectedGroup]);
-  const openDebriefCount = useMemo(() => (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length, [selectedGroup]);
+  const debriefCount = selectedGroup?.cases?.length || 0;
+  const openDebriefCount = (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length;
   const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
   const myBillWatchVote = selectedBillWatch.votes?.[currentUserKey] || "";
   const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
@@ -657,6 +658,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       return;
     }
     const username = inviteUsername.startsWith("@") ? inviteUsername : `@${inviteUsername}`;
+    const inviteLink = buildGroupInviteLink(selectedGroup.code);
     setAppData?.((prev) => ({
       ...prev,
       groups: prev.groups.map((group) => (
@@ -667,9 +669,52 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
             }
           : group
       )),
+      notifications: [
+        ...(prev.notifications || []),
+        {
+          id: createId("note"),
+          type: "crew-invite",
+          message: `${username}, ${currentName} invited you to join ${selectedGroup.name}.`,
+          groupId: selectedGroup.id,
+          groupName: selectedGroup.name,
+          link: inviteLink,
+          recipient: username,
+          actionScreen: "friend-groups",
+          actionParams: { groupCode: selectedGroup.code },
+          createdAt: new Date().toISOString(),
+          read: false,
+        },
+      ],
     }));
     setInviteUsername("");
     setNotice(`${username} was added to pending invites.`);
+  };
+
+  const copyCrewInviteLink = async () => {
+    if (!selectedGroup?.code) {
+      setNotice("Pick a crew before copying an invite link.");
+      return;
+    }
+
+    const inviteLink = buildGroupInviteLink(selectedGroup.code);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(inviteLink);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = inviteLink;
+        textArea.setAttribute("readonly", "");
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setNotice(`Invite link copied for ${selectedGroup.name}.`);
+    } catch {
+      setNotice(`Copy blocked. Share this code instead: ${selectedGroup.code}`);
+    }
   };
 
   const castProposalVote = (proposalId, category, optionId) => {
@@ -910,7 +955,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       {
         id: createId("note"),
         type: "hangout-updated",
-        message: `${editingProposal.name} was updated in ${selectedGroup.name}.`,
+        message: `${editingProposal.name} was updated for ${selectedGroup.name}.`,
         groupId: selectedGroup.id,
         groupName: selectedGroup.name,
         proposalId: editingProposal.id,
@@ -924,7 +969,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       ...newExternalInvites.map((invite) => ({
         id: createId("note"),
         type: "hangout-invite",
-        message: `Invite ready for ${invite}: ${editDraft.name.trim()}.`,
+        message: `${invite}, you were invited to ${editDraft.name.trim()}.`,
         groupId: selectedGroup.id,
         groupName: selectedGroup.name,
         proposalId: editingProposal.id,
@@ -1330,7 +1375,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
                         <button type="button" className="btn primary" onClick={inviteMember}>Add pending invite</button>
-                        <button type="button" className="btn ghost" onClick={() => navigator.clipboard.writeText(buildGroupInviteLink(selectedGroup.code))}>Copy invite link</button>
+                        <button type="button" className="btn ghost" onClick={copyCrewInviteLink}>Copy invite link</button>
                       </div>
                       <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
                         {selectedGroup.pending?.length ? selectedGroup.pending.map((invite) => (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
@@ -432,9 +432,6 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const availabilityReady = hasAvailability(draft.availability);
 
-  useEffect(() => {
-    setDraft(sourceProfile);
-  }, [sourceProfile]);
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
@@ -676,7 +673,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
                         onNavigate?.(notification.actionScreen, notification.actionParams || {});
                       }}
                     >
-                      {notification.type === "hangout-invite" ? "Join hangout" : "Open update"}
+                      {notification.type === "hangout-invite" ? "Join hangout" : notification.type === "crew-invite" ? "Join crew" : "Open update"}
                     </button>
                   ) : null}
                 </div>

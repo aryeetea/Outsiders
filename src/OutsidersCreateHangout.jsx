@@ -516,8 +516,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     const otherMembers = selectedGroup.members.filter((member) => member.name !== getDisplayName(profile));
     const memberNotifications = otherMembers.map((member) => ({
       id: createId("note"),
-      type: "hangout-proposal",
-      message: `${getDisplayName(profile)} proposed a hangout: ${proposal.name}.`,
+      type: "hangout-invite",
+      message: `${member.name}, ${getDisplayName(profile)} invited you to ${proposal.name}.`,
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       proposalId: proposal.id,
@@ -532,7 +532,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     const externalNotifications = externalInvites.map((invite) => ({
       id: createId("note"),
       type: "hangout-invite",
-      message: `Invite ready for ${invite}: ${proposal.name}.`,
+      message: `${invite}, you were invited to ${proposal.name}.`,
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       proposalId: proposal.id,
