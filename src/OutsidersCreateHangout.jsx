@@ -383,7 +383,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       return;
     }
     if (!form.name.trim()) {
-      setError("Give the proposal a name.");
+      setError("Give the hangout a name.");
       return;
     }
     if (!timeOptions.length) {
@@ -454,7 +454,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
               <section style={{ display: "grid", gap: 18 }}>
                 <div className="card">
                   <div style={{ marginBottom: 18 }}>
-                    <div className="comic-kicker">Proposal Composer</div>
+                    <div className="comic-kicker">Hangout Planner</div>
                     <h1 className="bangers" style={{ margin: "14px 0 8px", fontSize: 42 }}>Pitch the next hangout.</h1>
                     <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
                       Any crew member can propose a hangout now. Add multiple time and place options so everyone can vote inside the crew.
@@ -480,7 +480,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                       </select>
                     </div>
                     <div className="field full">
-                      <label>Proposal name</label>
+                      <label>Hangout name</label>
                       <input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Sunset rooftop link-up" />
                     </div>
                     <div className="field full">
@@ -571,7 +571,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                     </div>
                   </div>
                   <div className="pill-list" style={{ marginTop: 12 }}>
-                    <strong>External invites in this crew proposal</strong>
+                    <strong>External invites for this hangout</strong>
                     <div className="pill-row">
                       {externalInvites.length ? externalInvites.map((invite) => (
                         <span key={invite} className="pill">
@@ -605,7 +605,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 </div>
 
                 <div className="card">
-                  <h2 className="section-title">Proposal Summary</h2>
+                  <h2 className="section-title">Hangout Summary</h2>
                   <div className="summary-box">
                     <p style={{ margin: "0 0 10px", fontWeight: 700 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
                     <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length} time options · {locationOptions.length} place options · {externalInvites.length} external invite{externalInvites.length === 1 ? "" : "s"}</p>
@@ -613,16 +613,16 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                   </div>
                   {error ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{error}</p> : null}
                   <button type="button" className="btn primary" style={{ width: "100%", marginTop: 16 }} onClick={createProposal}>
-                    Post proposal to crew
+                    Share hangout with crew
                   </button>
                 </div>
               </aside>
             </div>
           ) : (
             <div className="card" style={{ maxWidth: 760, margin: "0 auto" }}>
-              <div className="status-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>Proposal Posted</div>
+              <div className="status-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>Hangout Shared</div>
               <h1 className="bangers" style={{ margin: "14px 0 8px", fontSize: 42 }}>{createdProposal.name}</h1>
-              <p style={{ margin: "0 0 16px", color: "#667085" }}>The crew can now vote on the proposal inside {createdProposal.groupName}. Notifications have been added for the rest of the crew.</p>
+              <p style={{ margin: "0 0 16px", color: "#667085" }}>The crew can now vote on this hangout inside {createdProposal.groupName}. Notifications have been added for the rest of the crew.</p>
               <div className="summary-box">
                 <strong style={{ display: "block", marginBottom: 8 }}>Invite code</strong>
                 <div className="bangers" style={{ fontSize: 42, letterSpacing: "0.18em" }}>{createdProposal.code}</div>

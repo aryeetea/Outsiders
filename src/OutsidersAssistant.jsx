@@ -28,19 +28,19 @@ const QUICK_ACTIONS = {
   ],
   dashboard: [
     "What should my crew focus on next?",
-    "Summarize my proposals, trips, and notifications.",
+    "Summarize my hangouts, trips, and notifications.",
     "Recommend a few places my crew would probably love.",
   ],
   "friend-groups": [
     "Recommend places for this crew based on what we seem to like.",
     "Help me write a message to rally the crew.",
-    "Which proposals need attention first?",
+    "Which hangouts need attention first?",
     "Draft a fun invite or follow-up note for this crew.",
   ],
   "create-hangout": [
     "Recommend real places for this hangout based on the vibe I want.",
     "Brainstorm 5 hangout ideas that fit this crew.",
-    "Write a better proposal description for me.",
+    "Write a better hangout description for me.",
   ],
   "trip-planning": [
     "Help me plan a trip itinerary from this page.",
@@ -468,7 +468,7 @@ export default function OutsidersAssistant({ route, appData }) {
 
             <div className="oa-context">
               <strong>{context.currentUser.name}</strong>
-              {isPublicScreen ? " is browsing the app." : ` has ${context.appSummary.groups} crew${context.appSummary.groups === 1 ? "" : "s"}, ${context.appSummary.proposals} proposal${context.appSummary.proposals === 1 ? "" : "s"}, and ${context.appSummary.trips} trip${context.appSummary.trips === 1 ? "" : "s"}.`}
+              {isPublicScreen ? " is browsing the app." : ` has ${context.appSummary.groups} crew${context.appSummary.groups === 1 ? "" : "s"}, ${context.appSummary.proposals} hangout${context.appSummary.proposals === 1 ? "" : "s"}, and ${context.appSummary.trips} trip${context.appSummary.trips === 1 ? "" : "s"}.`}
               <div className="oa-chip-row">
                 {quickActions.map((item) => (
                   <button key={item} type="button" className="oa-chip" onClick={() => sendMessage(item)}>
@@ -481,7 +481,7 @@ export default function OutsidersAssistant({ route, appData }) {
             <div className="oa-messages">
               {!messages.length ? (
                 <div className="oa-bubble assistant">
-                  I can help across the whole app: recommend places based on your vibe and app history, brainstorm hangouts, rewrite proposals, draft debrief responses, summarize trips, and turn what is on this screen into clear next steps.
+                  I can help across the whole app: recommend places based on your vibe and app history, brainstorm hangouts, rewrite hangout plans, draft debrief responses, summarize trips, and turn what is on this screen into clear next steps.
                   {"\n\n"}
                   The existing Hangout Assistant still handles availability overlap and time recommendations.
                 </div>
@@ -508,7 +508,7 @@ export default function OutsidersAssistant({ route, appData }) {
                 className="oa-input"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="Ask for place recommendations, hangout ideas, proposal help, trip plans, reviews, or a message draft..."
+                placeholder="Ask for place recommendations, hangout ideas, hangout help, trip plans, reviews, or a message draft..."
               />
               <div className="oa-actions">
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

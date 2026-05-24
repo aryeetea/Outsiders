@@ -211,8 +211,8 @@ const STYLES = `
 `;
 
 const QUICK_ACTIONS = [
-  ["Create proposal", "create-hangout", "Pitch a time, place, and vibe for your crew."],
-  ["My crew", "friend-groups", "See proposal voting, roast boards, and invites."],
+  ["Start a hangout", "create-hangout", "Share a time, place, and vibe with your crew."],
+  ["My crew", "friend-groups", "See hangout voting, roast boards, and invites."],
   ["Join hangout", "join-hangout", "Use a code to hop into an invite."],
   ["Availability", "profile", "Update your weekly sheet before plans move."],
 ];
@@ -247,11 +247,11 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                 <div className="comic-kicker">Welcome Back</div>
                 <h1 className="bangers" style={{ margin: "14px 0 10px", fontSize: 46, lineHeight: 1 }}>Plan the next move for {displayName} and the crew.</h1>
                 <p style={{ margin: 0, maxWidth: 720, color: "#556077", fontSize: 16, lineHeight: 1.6 }}>
-                  Proposal voting, availability-aware planning, crew invites, notifications, and the roast board all now live inside your crew spaces where they belong.
+                  Hangout voting, availability-aware planning, crew invites, notifications, and the roast board all now live inside your crew spaces where they belong.
                 </p>
               </div>
               <div className="cta-stack">
-                <button type="button" className="cta-btn primary" onClick={() => onNavigate?.("create-hangout")}>Create a hangout proposal</button>
+                <button type="button" className="cta-btn primary" onClick={() => onNavigate?.("create-hangout")}>Start a hangout</button>
                 <button type="button" className="cta-btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open my crew</button>
               </div>
             </div>
@@ -259,7 +259,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
 
           <section className="stats-grid">
             {[
-              ["Live proposals", proposals.length, "#ff8f7a"],
+              ["Live hangouts", proposals.length, "#ff8f7a"],
               ["Unread alerts", unreadNotifications.length, "#6ed7ff"],
               ["Crew members", groups.reduce((sum, group) => sum + (group.members?.length || 0), 0), "#73e2a7"],
               ["External invites", groups.reduce((sum, group) => sum + (group.hangoutProposals || []).reduce((count, proposal) => count + (proposal.externalInvites?.length || 0), 0), 0), "#ffcf6e"],
@@ -276,8 +276,8 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
             <div className="card">
               <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
                 <div>
-                  <h2 className="section-title">Crew Proposals</h2>
-                  <p style={{ margin: 0, color: "#667085" }}>Every active proposal across your crews.</p>
+                  <h2 className="section-title">Crew Hangouts</h2>
+                  <p style={{ margin: 0, color: "#667085" }}>Every active hangout across your crews.</p>
                 </div>
                 <button type="button" className="chip-btn" onClick={() => onNavigate?.("friend-groups")}>Manage in crew</button>
               </div>
@@ -290,7 +290,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
                         <div>
                           <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{proposal.name}</strong>
-                          <span style={{ color: "#667085", fontWeight: 700 }}>{proposal.groupName} · proposed by {proposal.proposerName}</span>
+                          <span style={{ color: "#667085", fontWeight: 700 }}>{proposal.groupName} · started by {proposal.proposerName}</span>
                         </div>
                         <span className="status-chip" style={{ background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>
                           {proposal.status}
@@ -305,8 +305,8 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                   );
                 }) : (
                   <div className="proposal-card">
-                    <strong>No proposals yet.</strong>
-                    <p style={{ margin: "8px 0 0", color: "#667085" }}>Create a hangout proposal to start crew voting.</p>
+                    <strong>No hangouts yet.</strong>
+                    <p style={{ margin: "8px 0 0", color: "#667085" }}>Start a hangout to get the crew voting.</p>
                   </div>
                 )}
               </div>
@@ -336,7 +336,7 @@ export default function OutsidersDashboard({ onNavigate, appData }) {
                   )) : (
                     <div className="note-card">
                       <strong>No activity yet.</strong>
-                      <p style={{ margin: "8px 0 0", color: "#667085" }}>Hangout proposal alerts will appear here.</p>
+                      <p style={{ margin: "8px 0 0", color: "#667085" }}>Hangout alerts will appear here.</p>
                     </div>
                   )}
                 </div>

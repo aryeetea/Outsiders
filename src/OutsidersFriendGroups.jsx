@@ -353,7 +353,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const currentName = getDisplayName(profile);
   const currentUserKey = getCurrentUserKey(profile);
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
-  const [activeTab, setActiveTab] = useState("Proposals");
+  const [activeTab, setActiveTab] = useState("Hangouts");
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupEmoji, setNewGroupEmoji] = useState("👥");
   const [inviteUsername, setInviteUsername] = useState("");
@@ -643,7 +643,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
           <section className="glass hero">
             <div style={{ display: "grid", gap: 12 }}>
               <div className="comic-kicker">Crew HQ</div>
-              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>Every proposal, vote, invite, and debrief lives inside the crew.</h1>
+              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>Every hangout plan, vote, invite, and debrief lives inside the crew.</h1>
               <p style={{ margin: 0, maxWidth: 900, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
                 Crew members can propose hangouts, vote on every time and place option, manage outside invites in context, get notifications, and jump into Debrief Court when the room needs to clear the air.
               </p>
@@ -676,7 +676,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                             <div>
                               <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.emoji} {group.name}</strong>
-                              <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} proposals</span>
+                              <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} hangouts</span>
                             </div>
                             <div style={{ width: 14, height: 14, borderRadius: 999, background: GROUP_COLORS[index % GROUP_COLORS.length] }} />
                           </div>
@@ -744,7 +744,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                          <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active proposals</span>
+                          <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active hangouts</span>
                           <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.pending?.length || 0} pending invites</span>
                         </div>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -770,7 +770,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       </div>
                     </div>
                     <div className="tab-row" style={{ marginTop: 16 }}>
-                      {["Proposals", "Members", "Invites", "Debrief", "Bill Watch"].map((tab) => (
+                      {["Hangouts", "Members", "Invites", "Debrief", "Bill Watch"].map((tab) => (
                         <button key={tab} type="button" className={`tab-btn ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
                           {tab}
                         </button>
@@ -778,14 +778,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                     </div>
                   </div>
 
-                  {activeTab === "Proposals" ? (
+                  {activeTab === "Hangouts" ? (
                     <div className="card">
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
                         <div>
-                          <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Hangout proposals</h3>
-                          <p style={{ margin: 0, color: "#667085" }}>Every crew member can see and vote on each proposal below.</p>
+                          <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Crew hangouts</h3>
+                          <p style={{ margin: 0, color: "#667085" }}>Every crew member can see and vote on each hangout below.</p>
                         </div>
-                        <button type="button" className="btn primary" onClick={() => onNavigate?.("create-hangout")}>Propose a hangout</button>
+                        <button type="button" className="btn primary" onClick={() => onNavigate?.("create-hangout")}>Start a hangout</button>
                       </div>
                       <div className="vote-grid">
                         {selectedGroup.hangoutProposals?.length ? selectedGroup.hangoutProposals.map((proposal) => {
@@ -796,7 +796,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginBottom: 12 }}>
                                 <div>
                                   <strong className="bangers" style={{ display: "block", fontSize: 22 }}>{proposal.name}</strong>
-                                  <span style={{ color: "#667085", fontWeight: 700 }}>Proposed by {proposal.proposerName}</span>
+                                  <span style={{ color: "#667085", fontWeight: 700 }}>Started by {proposal.proposerName}</span>
                                 </div>
                                 <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
                               </div>
@@ -843,8 +843,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                           );
                         }) : (
                           <div className="proposal-card">
-                            <strong>No hangout proposals yet.</strong>
-                            <p style={{ margin: "8px 0 0", color: "#667085" }}>Any member can post one from the hangout proposal screen.</p>
+                            <strong>No hangouts yet.</strong>
+                            <p style={{ margin: "8px 0 0", color: "#667085" }}>Any member can start one from the hangout screen.</p>
                           </div>
                         )}
                       </div>

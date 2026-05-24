@@ -2,15 +2,46 @@ import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "outsiders-side-nav-collapsed";
 
+function IconDashboard() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /></svg>;
+}
+function IconHangouts() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14" /><path d="M5 12h14" /></svg>;
+}
+function IconCrew() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="3.2" /><path d="M20 21v-2a3.5 3.5 0 0 0-2.5-3.35" /><path d="M15.5 4.1a3.2 3.2 0 0 1 0 5.8" /></svg>;
+}
+function IconTrips() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.5 2 12l20-4.5-4.5 4.5z" /><path d="M10 12 6 21l-1.5-.5L6 12" /><path d="M10 12 6 3l-1.5.5L6 12" /></svg>;
+}
+function IconBillSplit() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18" /><path d="M17 7H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H6" /></svg>;
+}
+function IconRatings() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9Z" /></svg>;
+}
+function IconDebrief() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M7 11h10" /><path d="M7 15h6" /><path d="M21 12a8 8 0 0 1-8 8H6l-3 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" /></svg>;
+}
+function IconProfile() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>;
+}
+function IconLogout() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>;
+}
+function IconCollapse() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M9 5v14" /></svg>;
+}
+
 const NAV_ITEMS = [
-  { icon: "🏠", label: "Dashboard", target: "dashboard" },
-  { icon: "🗓", label: "Hangouts", target: "create-hangout" },
-  { icon: "👥", label: "My Crew", target: "friend-groups" },
-  { icon: "✈️", label: "Trips", target: "trip-planning" },
-  { icon: "💸", label: "Bill Split", target: "bill-split" },
-  { icon: "⭐", label: "Ratings", target: "rate-outing" },
-  { icon: "❤️", label: "Debrief", target: "debrief" },
-  { icon: "🙋", label: "Profile", target: "profile" },
+  { icon: <IconDashboard />, label: "Dashboard", target: "dashboard" },
+  { icon: <IconHangouts />, label: "Hangouts", target: "create-hangout" },
+  { icon: <IconCrew />, label: "My Crew", target: "friend-groups" },
+  { icon: <IconTrips />, label: "Trips", target: "trip-planning" },
+  { icon: <IconBillSplit />, label: "Bill Split", target: "bill-split" },
+  { icon: <IconRatings />, label: "Ratings", target: "rate-outing" },
+  { icon: <IconDebrief />, label: "Debrief", target: "debrief" },
+  { icon: <IconProfile />, label: "Profile", target: "profile" },
 ];
 
 function readCollapsed() {
@@ -33,7 +64,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     return () => window.removeEventListener("hashchange", close);
   }, []);
 
-  const navWidth = collapsed ? 96 : 248;
+  const desktopWidth = collapsed ? 0 : 92;
 
   return (
     <>
@@ -51,113 +82,118 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           top: 0;
           left: 0;
           bottom: 0;
-          background: #fffdf9;
-          border-right: 4px solid #1a1a2e;
-          padding: 18px 14px;
+          width: 92px;
+          background:
+            radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76) 55%, rgba(255, 255, 255, 0.94)),
+            #fff8ea;
+          border-right: 3px solid rgba(26, 26, 46, 0.08);
+          box-shadow: inset -8px 0 26px rgba(26, 26, 46, 0.05);
+          padding: 22px 0 18px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          align-items: center;
+          gap: 18px;
           overflow-y: auto;
           z-index: 70;
-          transition: width 180ms ease, transform 180ms ease;
+          transition: transform 180ms ease, opacity 180ms ease;
+          transform: translateX(0);
+          opacity: 1;
         }
-        .os-brand {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 6px 6px 14px;
-          border-bottom: 3px solid #1a1a2e;
+        .os-sidebar.collapsed {
+          transform: translateX(-110%);
+          opacity: 0;
+          pointer-events: none;
         }
-        .os-logo {
-          width: 40px;
-          height: 40px;
-          background: #ff6b6b;
-          border: 3px solid #1a1a2e;
-          border-radius: 12px;
+        .os-top {
           display: grid;
-          place-items: center;
-          box-shadow: 3px 3px 0 #1a1a2e;
-          flex-shrink: 0;
+          justify-items: center;
+          gap: 22px;
+          width: 100%;
         }
-        .os-brand-title {
-          font: 400 24px 'Bangers', cursive;
-          letter-spacing: 0.04em;
+        .os-collapse-btn,
+        .os-mobile-btn,
+        .os-rail-btn,
+        .os-reopen-btn {
+          border: 0;
+          background: transparent;
           color: #1a1a2e;
-        }
-        .os-collapse-btn, .os-mobile-btn, .os-nav-item, .os-logout-btn {
-          border: 3px solid #1a1a2e;
           cursor: pointer;
-          background: #fff;
-          color: #1a1a2e;
-          box-shadow: 3px 3px 0 #1a1a2e;
-          transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+          transition: transform 140ms ease, background 140ms ease, opacity 140ms ease;
         }
-        .os-collapse-btn, .os-mobile-btn {
-          width: 42px;
-          height: 42px;
-          border-radius: 12px;
+        .os-collapse-btn:hover,
+        .os-mobile-btn:hover,
+        .os-rail-btn:hover,
+        .os-reopen-btn:hover {
+          transform: translateY(-1px);
+        }
+        .os-collapse-btn {
+          width: 48px;
+          height: 34px;
+          border-radius: 10px;
           display: grid;
           place-items: center;
-          font: 400 18px 'Bangers', cursive;
-          flex-shrink: 0;
+          color: rgba(26, 26, 46, 0.62);
         }
         .os-nav-group {
-          display: grid;
-          gap: 8px;
-          padding-top: 6px;
-        }
-        .os-nav-item {
           width: 100%;
-          border-radius: 14px;
-          padding: 12px 14px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font: 800 14px 'Nunito', sans-serif;
-          text-align: left;
+          display: grid;
+          justify-items: center;
+          gap: 14px;
         }
-        .os-nav-item.active {
-          background: #fff1c7;
+        .os-rail-btn {
+          width: 56px;
+          height: 56px;
+          border-radius: 20px;
+          display: grid;
+          place-items: center;
+          color: rgba(26, 26, 46, 0.92);
         }
-        .os-nav-item:hover, .os-logout-btn:hover, .os-mobile-btn:hover, .os-collapse-btn:hover {
-          transform: translate(-1px, -2px);
-          box-shadow: 4px 4px 0 #1a1a2e;
+        .os-rail-btn.active {
+          background: rgba(255, 217, 61, 0.24);
+          box-shadow:
+            inset 0 0 0 2px rgba(26, 26, 46, 0.08),
+            0 8px 18px rgba(26, 26, 46, 0.08);
         }
-        .os-nav-icon {
-          width: 22px;
+        .os-rail-btn span {
           display: inline-flex;
+          align-items: center;
           justify-content: center;
-          font-size: 18px;
-          flex-shrink: 0;
+        }
+        .os-label {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
         }
         .os-spacer {
           flex: 1;
         }
-        .os-profile {
-          border: 3px solid #1a1a2e;
-          border-radius: 16px;
-          background: #eef8ff;
-          box-shadow: 3px 3px 0 #1a1a2e;
-          padding: 12px;
+        .os-bottom {
           display: grid;
-          gap: 6px;
+          justify-items: center;
+          gap: 12px;
+          width: 100%;
+          padding-bottom: 8px;
         }
-        .os-avatar {
-          width: 36px;
-          height: 36px;
+        .os-avatar-chip {
+          width: 44px;
+          height: 44px;
           border-radius: 999px;
           background: #ff6b6b;
-          border: 2px solid #1a1a2e;
           color: #fff;
+          border: 2px solid #1a1a2e;
+          box-shadow: 3px 3px 0 #1a1a2e;
           display: grid;
           place-items: center;
-          font: 900 11px 'Nunito', sans-serif;
+          font: 900 12px 'Nunito', sans-serif;
         }
-        .os-logout-btn {
-          border-radius: 12px;
-          padding: 11px 14px;
-          font: 400 14px 'Bangers', cursive;
-          letter-spacing: 0.06em;
+        .os-logout-rail {
+          color: rgba(26, 26, 46, 0.76);
         }
         .os-content {
           min-height: 100vh;
@@ -166,7 +202,42 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         .os-overlay {
           display: none;
         }
+        .os-reopen-btn {
+          position: fixed;
+          top: 24px;
+          left: 22px;
+          z-index: 75;
+          width: 46px;
+          height: 34px;
+          border-radius: 10px;
+          display: grid;
+          place-items: center;
+          color: rgba(26, 26, 46, 0.62);
+          background: rgba(255, 248, 234, 0.96);
+          box-shadow: 0 6px 18px rgba(26, 26, 46, 0.08);
+        }
+        .os-mobile-title {
+          font: 400 22px 'Bangers', cursive;
+          letter-spacing: 0.04em;
+          color: #1a1a2e;
+        }
+        .os-mobile-btn {
+          width: 42px;
+          height: 42px;
+          border-radius: 14px;
+          display: grid;
+          place-items: center;
+          background: rgba(255, 217, 61, 0.22);
+        }
+        .os-mobile-drawer-copy,
+        .os-mobile-divider,
+        .os-mobile-name {
+          display: none;
+        }
         @media (max-width: 900px) {
+          .os-reopen-btn {
+            display: none;
+          }
           .os-mobile-bar {
             position: sticky;
             top: 0;
@@ -175,18 +246,83 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             align-items: center;
             justify-content: space-between;
             gap: 12px;
-            padding: 12px;
-            background: #fffdf9;
-            border-bottom: 4px solid #1a1a2e;
-            box-shadow: 0 4px 0 #1a1a2e;
+            padding: 12px 14px;
+            background: #fff8ea;
+            border-bottom: 3px solid rgba(26, 26, 46, 0.08);
+            backdrop-filter: blur(10px);
           }
           .os-sidebar {
-            width: min(280px, calc(100vw - 56px)) !important;
+            width: min(280px, calc(100vw - 48px));
+            align-items: stretch;
+            padding: 18px 16px;
             transform: translateX(-105%);
-            box-shadow: 8px 0 0 #1a1a2e;
+            box-shadow: 10px 0 30px rgba(26, 26, 46, 0.14);
           }
           .os-sidebar.mobile-open {
             transform: translateX(0);
+            opacity: 1;
+            pointer-events: auto;
+          }
+          .os-top {
+            justify-items: stretch;
+            gap: 14px;
+          }
+          .os-mobile-drawer-copy {
+            display: block;
+            padding: 6px 4px 12px;
+          }
+          .os-mobile-drawer-copy .os-mobile-title {
+            display: block;
+            margin-bottom: 4px;
+          }
+          .os-mobile-drawer-copy p {
+            margin: 0;
+            color: #667085;
+            font: 800 12px 'Nunito', sans-serif;
+          }
+          .os-nav-group,
+          .os-bottom {
+            justify-items: stretch;
+          }
+          .os-rail-btn {
+            width: 100%;
+            height: auto;
+            min-height: 54px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            justify-content: flex-start;
+          }
+          .os-label {
+            position: static;
+            width: auto;
+            height: auto;
+            padding: 0;
+            margin: 0;
+            overflow: visible;
+            clip: auto;
+            white-space: normal;
+            font: 800 14px 'Nunito', sans-serif;
+          }
+          .os-bottom {
+            gap: 10px;
+          }
+          .os-avatar-chip {
+            display: none;
+          }
+          .os-mobile-name {
+            display: block;
+            padding: 0 6px;
+            color: #1a1a2e;
+            font: 900 13px 'Nunito', sans-serif;
+          }
+          .os-mobile-divider {
+            display: block;
+            height: 1px;
+            background: rgba(26, 26, 46, 0.08);
+            margin: 2px 0 4px;
           }
           .os-content {
             margin-left: 0 !important;
@@ -195,7 +331,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             display: block;
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.32);
+            background: rgba(13, 10, 18, 0.28);
             z-index: 60;
           }
         }
@@ -204,86 +340,76 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
       <div className="os-shell">
         <div className="os-mobile-bar">
           <button type="button" className="os-mobile-btn" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
-            ☰
+            <IconCollapse />
           </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div className="os-logo">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
-            </div>
-            <div className="os-brand-title" style={{ fontSize: 22 }}>Outsiders</div>
-          </div>
+          <div className="os-mobile-title">Outsiders</div>
           <button type="button" className="os-mobile-btn" onClick={() => onNavigate?.("profile")} aria-label="Open profile">
-            🙋
+            <IconProfile />
           </button>
         </div>
 
         {mobileOpen ? <div className="os-overlay" onClick={() => setMobileOpen(false)} /> : null}
+        {collapsed ? (
+          <button type="button" className="os-reopen-btn" onClick={() => setCollapsed(false)} aria-label="Show sidebar">
+            <IconCollapse />
+          </button>
+        ) : null}
 
-        <aside className={`os-sidebar ${mobileOpen ? "mobile-open" : ""}`} style={{ width: navWidth }}>
-          <div className="os-brand">
-            <button type="button" onClick={() => onNavigate?.("dashboard")} style={{ all: "unset", cursor: "pointer", display: "contents" }}>
-              <div className="os-logo">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" fill="white"/></svg>
-              </div>
+        <aside className={`os-sidebar ${mobileOpen ? "mobile-open" : ""} ${collapsed ? "collapsed" : ""}`}>
+          <div className="os-top">
+            <button type="button" className="os-collapse-btn" onClick={() => setCollapsed(true)} aria-label="Hide sidebar">
+              <IconCollapse />
             </button>
-            {!collapsed ? (
-              <div style={{ minWidth: 0 }}>
-                <div className="os-brand-title">Outsiders</div>
-                <div style={{ fontSize: 12, color: "#667085", fontWeight: 800 }}>All-access crew nav</div>
-              </div>
-            ) : null}
-            <div className="os-spacer" />
-            <button type="button" className="os-collapse-btn" onClick={() => setCollapsed((current) => !current)} aria-label="Toggle navigation width">
-              {collapsed ? "»" : "«"}
-            </button>
-          </div>
-
-          <div className="os-nav-group">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                className={`os-nav-item ${activeLabel === item.label ? "active" : ""}`}
-                onClick={() => {
-                  setMobileOpen(false);
-                  onNavigate?.(item.target);
-                }}
-                aria-label={item.label}
-                title={collapsed ? item.label : undefined}
-              >
-                <span className="os-nav-icon">{item.icon}</span>
-                {!collapsed ? <span>{item.label}</span> : null}
-              </button>
-            ))}
+            <div className="os-mobile-drawer-copy">
+              <span className="os-mobile-title">Outsiders</span>
+              <p>Comic-style crew planning</p>
+            </div>
+            <div className="os-nav-group">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className={`os-rail-btn ${activeLabel === item.label ? "active" : ""}`}
+                  onClick={() => {
+                    setMobileOpen(false);
+                    onNavigate?.(item.target);
+                  }}
+                  aria-label={item.label}
+                  title={item.label}
+                >
+                  <span>{item.icon}</span>
+                  <span className="os-label">{item.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="os-spacer" />
 
-          <div className="os-profile">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="os-avatar">{String(profileName || "You").slice(0, 2).toUpperCase()}</div>
-              {!collapsed ? (
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, color: "#1a1a2e" }}>{profileName || "You"}</div>
-                  <div style={{ fontSize: 12, color: "#667085", fontWeight: 800 }}>Signed in</div>
-                </div>
-              ) : null}
-            </div>
+          <div className="os-bottom">
+            <div className="os-mobile-divider" />
+            <div className="os-mobile-name">{profileName}</div>
+            <button type="button" className="os-avatar-chip" onClick={() => onNavigate?.("profile")} aria-label="Open profile" title={profileName}>
+              {String(profileName || "You").slice(0, 2).toUpperCase()}
+            </button>
             <button
               type="button"
-              className="os-logout-btn"
+              className="os-rail-btn os-logout-rail"
               onClick={() => {
                 setMobileOpen(false);
                 if (onLogout) onLogout();
                 else onNavigate?.("landing");
               }}
+              aria-label="Log out"
+              title="Log out"
             >
-              {collapsed ? "↩" : "Log Out"}
+              <span><IconLogout /></span>
+              <span className="os-label">Log Out</span>
             </button>
           </div>
         </aside>
 
-        <div className="os-content" style={{ marginLeft: navWidth }}>
+        <div className="os-content" style={{ marginLeft: desktopWidth }}>
           {children}
         </div>
       </div>
