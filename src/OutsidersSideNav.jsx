@@ -49,7 +49,7 @@ function readCollapsed() {
   return window.localStorage.getItem(STORAGE_KEY) === "true";
 }
 
-export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, profileName = "You", children }) {
+export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, profileName = "You", notificationCount = 0, children }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -191,6 +191,40 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           display: grid;
           place-items: center;
           font: 900 12px 'Nunito', sans-serif;
+          position: relative;
+        }
+        .os-notif-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          min-width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: #ff6b6b;
+          border: 2px solid #fff;
+          color: #fff;
+          font: 900 10px 'Nunito', sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 4px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          pointer-events: none;
+        }
+        .os-rail-btn-wrap {
+          position: relative;
+          width: 56px;
+          display: flex;
+          justify-content: center;
+        }
+        .os-rail-btn-wrap .os-notif-badge {
+          top: 2px;
+          right: 2px;
+        }
+        @media (max-width: 900px) {
+          .os-rail-btn-wrap {
+            width: 100%;
+          }
         }
         .os-logout-rail {
           color: rgba(26, 26, 46, 0.76);
@@ -366,20 +400,25 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             </div>
             <div className="os-nav-group">
               {NAV_ITEMS.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  className={`os-rail-btn ${activeLabel === item.label ? "active" : ""}`}
-                  onClick={() => {
-                    setMobileOpen(false);
-                    onNavigate?.(item.target);
-                  }}
-                  aria-label={item.label}
-                  title={item.label}
-                >
-                  <span>{item.icon}</span>
-                  <span className="os-label">{item.label}</span>
-                </button>
+                <div key={item.label} className="os-rail-btn-wrap">
+                  <button
+                    type="button"
+                    className={`os-rail-btn ${activeLabel === item.label ? "active" : ""}`}
+                    onClick={() => {
+                      setMobileOpen(false);
+                      onNavigate?.(item.target);
+                    }}
+                    aria-label={item.label}
+                    title={item.label}
+                    style={{ width: "100%" }}
+                  >
+                    <span>{item.icon}</span>
+                    <span className="os-label">{item.label}</span>
+                  </button>
+                  {item.label === "Profile" && notificationCount > 0 ? (
+                    <span className="os-notif-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -391,6 +430,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             <div className="os-mobile-name">{profileName}</div>
             <button type="button" className="os-avatar-chip" onClick={() => onNavigate?.("profile")} aria-label="Open profile" title={profileName}>
               {String(profileName || "You").slice(0, 2).toUpperCase()}
+              {notificationCount > 0 ? (
+                <span className="os-notif-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
+              ) : null}
             </button>
             <button
               type="button"

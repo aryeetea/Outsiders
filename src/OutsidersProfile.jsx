@@ -529,7 +529,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     <>
       <style>{STYLES}</style>
       <div className="profile-root">
-        <OutsidersSideNav activeLabel="Profile" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="Profile" onNavigate={onNavigate} profileName={profileName} notificationCount={unreadNotifications.length}>
         <div className="profile-shell">
           <section className="profile-board">
           <div className="profile-hero">

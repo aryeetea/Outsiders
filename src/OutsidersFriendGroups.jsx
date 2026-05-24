@@ -523,11 +523,14 @@ function getLeaderFromMemberVotes(members = [], votes = {}) {
 }
 
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
-  const groups = useMemo(() => appData?.groups ?? [], [appData?.groups]);
   const profile = appData?.profile || {};
   const profileName = profile.name || profile.username || "You";
   const currentName = getDisplayName(profile);
   const currentUserKey = getCurrentUserKey(profile);
+  const allGroups = useMemo(() => appData?.groups ?? [], [appData?.groups]);
+  const groups = allGroups.filter((group) =>
+    (group.members || []).some((m) => m.name === currentName || m.username === `@${profile.username}`)
+  );
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
   const [activeTab, setActiveTab] = useState("Hangouts");
   const [newGroupName, setNewGroupName] = useState("");
@@ -558,24 +561,27 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
 
   useEffect(() => {
-    if (!selectedGroup) return;
-    const me = selectedGroup.members.find((member) => member.name === currentName || member.username === `@${profile.username}`);
-    if (me && hasAvailability(profile.availability) && availabilityToText(me.availability) !== availabilityToText(profile.availability)) {
-      setAppData?.((prev) => ({
+    if (!hasAvailability(profile.availability)) return;
+    setAppData?.((prev) => {
+      const needsSync = (prev.groups || []).some((group) =>
+        (group.members || []).some((m) => {
+          const isMe = m.name === currentName || m.username === `@${profile.username}`;
+          return isMe && availabilityToText(m.availability) !== availabilityToText(profile.availability);
+        })
+      );
+      if (!needsSync) return prev;
+      return {
         ...prev,
-        groups: prev.groups.map((group) => (
-          group.id === selectedGroup.id
-            ? {
-                ...group,
-                members: group.members.map((member) => (
-                  member.name === me.name ? { ...member, availability: profile.availability } : member
-                )),
-              }
-            : group
-        )),
-      }));
-    }
-  }, [currentName, profile.availability, profile.username, selectedGroup, setAppData]);
+        groups: (prev.groups || []).map((group) => ({
+          ...group,
+          members: (group.members || []).map((member) => {
+            const isMe = member.name === currentName || member.username === `@${profile.username}`;
+            return isMe ? { ...member, availability: profile.availability } : member;
+          }),
+        })),
+      };
+    });
+  }, [currentName, profile.availability, profile.username, setAppData]);
 
   const createGroup = () => {
     if (!newGroupName.trim()) {
@@ -609,7 +615,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
   const joinCrew = () => {
     const code = joinCode.trim().toUpperCase();
-    const target = groups.find((group) => group.code === code);
+    const target = allGroups.find((group) => group.code === code);
     if (!target) {
       setNotice("No crew was found with that code.");
       return;
@@ -976,14 +982,72 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
   const leaveGroup = (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
+    const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
+    if (!member) return;
+    const remainingMembers = targetGroup.members.filter((m) => m.name !== member.name && m.username !== member.username);
+
+    if (!remainingMembers.length) {
+      setAppData?.((prev) => ({
+        ...prev,
+        groups: (prev.groups || []).filter((group) => String(group.id) !== String(targetGroup.id)),
+        notifications: (prev.notifications || []).filter((notification) => String(notification.groupId) !== String(targetGroup.id)),
+      }));
+      setSelectedGroupId((currentId) => (
+        String(currentId) === String(targetGroup.id)
+          ? (groups.find((group) => String(group.id) !== String(targetGroup.id))?.id || "")
+          : currentId
+      ));
+      setNotice(`${targetGroup.name} was deleted because you were the last member.`);
+      return;
+    }
+
+    const nextMembers = remainingMembers.some((m) => m.role === "Admin")
+      ? remainingMembers
+      : remainingMembers.map((m, index) => ({ ...m, role: index === 0 ? "Admin" : (m.role || "Member") }));
+
     setAppData?.((prev) => ({
       ...prev,
-      groups: (prev.groups || []).filter((group) => String(group.id) !== String(targetGroup.id)),
-      hangouts: (prev.hangouts || []).filter((hangout) => String(hangout.groupId) !== String(targetGroup.id)),
+      groups: (prev.groups || []).map((group) => {
+        if (String(group.id) !== String(targetGroup.id)) return group;
+        return {
+          ...group,
+          members: nextMembers,
+          hangoutProposals: (group.hangoutProposals || []).map((proposal) => ({
+            ...proposal,
+            participants: (proposal.participants || []).filter((p) => p.name !== member.name && p.username !== member.username),
+            votes: {
+              ...(proposal.votes || {}),
+              availability: Object.fromEntries(Object.entries(proposal.votes?.availability || {}).filter(([key]) => key !== currentUserKey)),
+              vibe: Object.fromEntries(Object.entries(proposal.votes?.vibe || {}).filter(([key]) => key !== currentUserKey)),
+              time: Object.fromEntries(Object.entries(proposal.votes?.time || {}).filter(([key]) => key !== currentUserKey)),
+              location: Object.fromEntries(Object.entries(proposal.votes?.location || {}).filter(([key]) => key !== currentUserKey)),
+            },
+          })),
+          billWatch: (() => {
+            const filteredVotes = Object.fromEntries(
+              Object.entries(group.billWatch?.votes || {}).filter(([key, value]) => key !== currentUserKey && value !== member.name)
+            );
+            const leader = getLeaderFromMemberVotes(nextMembers, filteredVotes);
+            return {
+              ...(group.billWatch || {}),
+              electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
+              votes: filteredVotes,
+            };
+          })(),
+        };
+      }),
       notifications: (prev.notifications || []).filter((notification) => String(notification.groupId) !== String(targetGroup.id)),
     }));
-    setSelectedGroupId((currentId) => (String(currentId) === String(targetGroup.id) ? "" : currentId));
-    setNotice(`You left ${targetGroup.name}.`);
+    setSelectedGroupId((currentId) => (
+      String(currentId) === String(targetGroup.id)
+        ? (groups.find((group) => String(group.id) !== String(targetGroup.id))?.id || "")
+        : currentId
+    ));
+    setNotice(
+      targetGroup.members.length === 1
+        ? `${targetGroup.name} was deleted because you were the last member.`
+        : `You left ${targetGroup.name}.`
+    );
   };
 
   const deleteGroup = (targetGroup = selectedGroup) => {
@@ -1007,7 +1071,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="My Crew" onNavigate={onNavigate} profileName={profileName}>
+        <OutsidersSideNav activeLabel="My Crew" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
         <div className="shell">
           <section className="glass hero">
               <div style={{ display: "grid", gap: 12 }}>
