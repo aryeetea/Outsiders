@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STORAGE_KEY = "outsiders-side-nav-collapsed";
 
@@ -6,10 +7,16 @@ function IconDashboard() {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /></svg>;
 }
 function IconHangouts() {
-  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14" /><path d="M5 12h14" /></svg>;
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M7 4v6" /><path d="M17 4v6" /><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 13h8" /><path d="M8 17h5" /></svg>;
+}
+function IconCreateHangout() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h10" /><path d="M7 4v6" /><path d="M13 4v6" /><rect x="3" y="5" width="12" height="14" rx="2" /><path d="M19 10v8" /><path d="M15 14h8" /></svg>;
 }
 function IconCrew() {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="3.2" /><path d="M20 21v-2a3.5 3.5 0 0 0-2.5-3.35" /><path d="M15.5 4.1a3.2 3.2 0 0 1 0 5.8" /></svg>;
+}
+function IconCreateCrew() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="3.2" /><path d="M19 8v6" /><path d="M16 11h6" /></svg>;
 }
 function IconTrips() {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.5 2 12l20-4.5-4.5 4.5z" /><path d="M10 12 6 21l-1.5-.5L6 12" /><path d="M10 12 6 3l-1.5.5L6 12" /></svg>;
@@ -32,11 +39,15 @@ function IconLogout() {
 function IconCollapse() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M9 5v14" /></svg>;
 }
+function IconBell() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" /><path d="M9 17a3 3 0 0 0 6 0" /></svg>;
+}
 
 const NAV_ITEMS = [
   { icon: <IconDashboard />, label: "Dashboard", target: "dashboard" },
-  { icon: <IconHangouts />, label: "Hangouts", target: "create-hangout" },
-  { icon: <IconCrew />, label: "Create Crew", target: "create-crew" },
+  { icon: <IconHangouts />, label: "Hangouts", target: "hangouts" },
+  { icon: <IconCreateHangout />, label: "Create Hangout", target: "create-hangout" },
+  { icon: <IconCreateCrew />, label: "Create Crew", target: "create-crew" },
   { icon: <IconCrew />, label: "My Crew", target: "friend-groups" },
   { icon: <IconTrips />, label: "Trips", target: "trip-planning" },
   { icon: <IconBillSplit />, label: "Bill Split", target: "bill-split" },
@@ -50,9 +61,17 @@ function readCollapsed() {
   return window.localStorage.getItem(STORAGE_KEY) === "true";
 }
 
-export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, profileName = "You", notificationCount = 0, children }) {
+export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, profileName = "You", notificationCount = 0, appData, setAppData, children }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notifications = useMemo(
+    () => [...(appData?.notifications || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)),
+    [appData?.notifications]
+  );
+  const unreadCount = typeof notificationCount === "number"
+    ? notificationCount
+    : notifications.filter((item) => !item.read).length;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -65,7 +84,46 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     return () => window.removeEventListener("hashchange", close);
   }, []);
 
+  useEffect(() => {
+    const close = () => setNotificationsOpen(false);
+    window.addEventListener("hashchange", close);
+    return () => window.removeEventListener("hashchange", close);
+  }, []);
+
   const desktopWidth = collapsed ? 0 : 92;
+
+  const markNotificationRead = async (notificationId) => {
+    if (isSupabaseConfigured) {
+      await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", notificationId);
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      notifications: (prev.notifications || []).map((item) => (
+        item.id === notificationId ? { ...item, read: true } : item
+      )),
+    }));
+  };
+
+  const markAllNotificationsRead = async () => {
+    const unreadIds = notifications.filter((item) => !item.read).map((item) => item.id);
+    if (!unreadIds.length) return;
+
+    if (isSupabaseConfigured) {
+      await supabase
+        .from("notifications")
+        .update({ read: true })
+        .in("id", unreadIds);
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      notifications: (prev.notifications || []).map((item) => ({ ...item, read: true })),
+    }));
+  };
 
   return (
     <>
@@ -114,7 +172,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         .os-collapse-btn,
         .os-mobile-btn,
         .os-rail-btn,
-        .os-reopen-btn {
+        .os-reopen-btn,
+        .os-bell-btn,
+        .os-note-action {
           border: 0;
           background: transparent;
           color: #1a1a2e;
@@ -124,7 +184,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         .os-collapse-btn:hover,
         .os-mobile-btn:hover,
         .os-rail-btn:hover,
-        .os-reopen-btn:hover {
+        .os-reopen-btn:hover,
+        .os-bell-btn:hover,
+        .os-note-action:hover {
           transform: translateY(-1px);
         }
         .os-collapse-btn {
@@ -140,6 +202,106 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           display: grid;
           justify-items: center;
           gap: 14px;
+        }
+        .os-utility-group {
+          width: 100%;
+          display: grid;
+          justify-items: center;
+          gap: 12px;
+        }
+        .os-bell-btn {
+          width: 56px;
+          height: 56px;
+          border-radius: 20px;
+          display: grid;
+          place-items: center;
+          color: rgba(26, 26, 46, 0.92);
+          background: rgba(255, 217, 61, 0.16);
+          position: relative;
+        }
+        .os-bell-btn.active {
+          background: rgba(255, 217, 61, 0.3);
+          box-shadow:
+            inset 0 0 0 2px rgba(26, 26, 46, 0.08),
+            0 8px 18px rgba(26, 26, 46, 0.08);
+        }
+        .os-bell-panel {
+          position: fixed;
+          top: 20px;
+          left: 112px;
+          width: min(380px, calc(100vw - 140px));
+          max-height: calc(100vh - 40px);
+          overflow-y: auto;
+          padding: 18px;
+          border-radius: 20px;
+          border: 3px solid #17151f;
+          background: #fffdf7;
+          box-shadow: 10px 10px 0 #17151f;
+          z-index: 85;
+          display: grid;
+          gap: 14px;
+        }
+        .os-bell-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: flex-start;
+        }
+        .os-bell-title {
+          font: 400 24px 'Bangers', cursive;
+          letter-spacing: 0.05em;
+          color: #17151f;
+          margin: 0;
+        }
+        .os-bell-copy {
+          margin: 4px 0 0;
+          color: #667085;
+          font: 800 13px 'Nunito', sans-serif;
+          line-height: 1.5;
+        }
+        .os-note-list {
+          display: grid;
+          gap: 10px;
+        }
+        .os-note-card {
+          border-radius: 14px;
+          border: 3px solid #17151f;
+          background: #fff8ea;
+          box-shadow: 4px 4px 0 #17151f;
+          padding: 14px;
+          display: grid;
+          gap: 8px;
+        }
+        .os-note-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .os-note-action {
+          border: 3px solid #17151f;
+          border-radius: 999px;
+          background: #fff;
+          color: #17151f;
+          padding: 8px 12px;
+          font: 400 12px 'Bangers', cursive;
+          letter-spacing: 0.06em;
+          box-shadow: 3px 3px 0 #17151f;
+        }
+        .os-note-action.primary {
+          background: #ff6b6b;
+          color: #fff;
+        }
+        .os-note-meta {
+          color: #667085;
+          font: 800 12px 'Nunito', sans-serif;
+        }
+        .os-note-empty {
+          border-radius: 14px;
+          border: 3px dashed rgba(26, 26, 46, 0.24);
+          padding: 16px;
+          text-align: center;
+          color: #667085;
+          font: 800 13px 'Nunito', sans-serif;
         }
         .os-rail-btn {
           width: 56px;
@@ -192,7 +354,6 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           display: grid;
           place-items: center;
           font: 900 12px 'Nunito', sans-serif;
-          position: relative;
         }
         .os-notif-badge {
           position: absolute;
@@ -212,6 +373,16 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           box-shadow: 0 2px 4px rgba(0,0,0,0.2);
           pointer-events: none;
         }
+        .os-bell-wrap {
+          position: relative;
+          width: 56px;
+          display: flex;
+          justify-content: center;
+        }
+        .os-bell-wrap .os-notif-badge {
+          top: 2px;
+          right: 2px;
+        }
         .os-rail-btn-wrap {
           position: relative;
           width: 56px;
@@ -223,6 +394,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           right: 2px;
         }
         @media (max-width: 900px) {
+          .os-bell-wrap,
           .os-rail-btn-wrap {
             width: 100%;
           }
@@ -330,6 +502,23 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             padding: 14px 16px;
             justify-content: flex-start;
           }
+          .os-bell-btn {
+            width: 100%;
+            height: auto;
+            min-height: 54px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            justify-content: flex-start;
+          }
+          .os-bell-panel {
+            top: 76px;
+            left: 12px;
+            width: calc(100vw - 24px);
+            max-height: calc(100vh - 96px);
+          }
           .os-label {
             position: static;
             width: auto;
@@ -378,8 +567,11 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             <IconCollapse />
           </button>
           <div className="os-mobile-title">Outsiders</div>
-          <button type="button" className="os-mobile-btn" onClick={() => onNavigate?.("profile")} aria-label="Open profile">
-            <IconProfile />
+          <button type="button" className="os-mobile-btn" onClick={() => setNotificationsOpen((open) => !open)} aria-label="Open notifications">
+            <span style={{ position: "relative", display: "inline-flex" }}>
+              <IconBell />
+              {unreadCount > 0 ? <span className="os-notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+            </span>
           </button>
         </div>
 
@@ -399,6 +591,21 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
               <span className="os-mobile-title">Outsiders</span>
               <p>Comic-style crew planning</p>
             </div>
+            <div className="os-utility-group">
+              <div className="os-bell-wrap">
+                <button
+                  type="button"
+                  className={`os-bell-btn ${notificationsOpen ? "active" : ""}`}
+                  onClick={() => setNotificationsOpen((open) => !open)}
+                  aria-label="Open notifications"
+                  title="Notifications"
+                >
+                  <span><IconBell /></span>
+                  <span className="os-label">Notifications</span>
+                </button>
+                {unreadCount > 0 ? <span className="os-notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+              </div>
+            </div>
             <div className="os-nav-group">
               {NAV_ITEMS.map((item) => (
                 <div key={item.label} className="os-rail-btn-wrap">
@@ -416,9 +623,6 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
                     <span>{item.icon}</span>
                     <span className="os-label">{item.label}</span>
                   </button>
-                  {item.label === "Profile" && notificationCount > 0 ? (
-                    <span className="os-notif-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
-                  ) : null}
                 </div>
               ))}
             </div>
@@ -431,9 +635,6 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             <div className="os-mobile-name">{profileName}</div>
             <button type="button" className="os-avatar-chip" onClick={() => onNavigate?.("profile")} aria-label="Open profile" title={profileName}>
               {String(profileName || "You").slice(0, 2).toUpperCase()}
-              {notificationCount > 0 ? (
-                <span className="os-notif-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
-              ) : null}
             </button>
             <button
               type="button"
@@ -451,6 +652,58 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             </button>
           </div>
         </aside>
+
+        {notificationsOpen ? (
+          <div className="os-bell-panel">
+            <div className="os-bell-head">
+              <div>
+                <p className="os-bell-title">Notifications</p>
+                <p className="os-bell-copy">Your crew alerts stay here across the whole site.</p>
+              </div>
+              {unreadCount > 0 ? (
+                <button type="button" className="os-note-action" onClick={markAllNotificationsRead}>
+                  Mark all read
+                </button>
+              ) : null}
+            </div>
+            <div className="os-note-list">
+              {notifications.length ? notifications.slice(0, 12).map((notification) => (
+                <div key={notification.id} className="os-note-card" style={{ opacity: notification.read ? 0.72 : 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                    <strong>{notification.message}</strong>
+                    {!notification.read ? <span className="os-note-action" style={{ cursor: "default" }}>New</span> : null}
+                  </div>
+                  <div className="os-note-meta">
+                    {notification.groupName ? `${notification.groupName} · ` : ""}{new Date(notification.createdAt).toLocaleString()}
+                  </div>
+                  <div className="os-note-actions">
+                    {notification.actionScreen ? (
+                      <button
+                        type="button"
+                        className="os-note-action primary"
+                        onClick={async () => {
+                          await markNotificationRead(notification.id);
+                          setNotificationsOpen(false);
+                          setMobileOpen(false);
+                          onNavigate?.(notification.actionScreen, notification.actionParams || {});
+                        }}
+                      >
+                        {notification.type === "hangout-invite" ? "Open hangout" : notification.type === "crew-invite" ? "Open crew" : "Open update"}
+                      </button>
+                    ) : null}
+                    {!notification.read ? (
+                      <button type="button" className="os-note-action" onClick={() => markNotificationRead(notification.id)}>
+                        Mark read
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )) : (
+                <div className="os-note-empty">No notifications yet. Crew updates will show up here.</div>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         <div className="os-content" style={{ marginLeft: desktopWidth }}>
           {children}

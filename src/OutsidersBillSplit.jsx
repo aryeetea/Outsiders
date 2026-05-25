@@ -220,7 +220,7 @@ function getFallbackMembers() {
   return [{ initials: "YOU", name: "You" }];
 }
 
-export default function OutsidersBillSplit({ onNavigate, appData }) {
+export default function OutsidersBillSplit({ onNavigate, appData, setAppData }) {
   const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
   const [showModal, setShowModal] = useState(false);
   const profile = useMemo(() => appData?.profile || {}, [appData?.profile]);
@@ -273,7 +273,7 @@ export default function OutsidersBillSplit({ onNavigate, appData }) {
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Bill Split" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="Bill Split" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
           <main className="main">
             <section className="bill-shell">
             <div className="bill-hero">

@@ -476,7 +476,7 @@ function HypeSection({ title, emoji, options, onHype }) {
   );
 }
 
-export default function OutsidersVoting({ onNavigate, appData }) {
+export default function OutsidersVoting({ onNavigate, appData, setAppData }) {
   const [activeTab, setActiveTab] = useState("Location");
   const [locationOptions, setLocationOptions] = useState(INITIAL_LOCATION_OPTIONS);
   const [timeOptions, setTimeOptions] = useState(INITIAL_TIME_OPTIONS);
@@ -500,7 +500,7 @@ export default function OutsidersVoting({ onNavigate, appData }) {
       <style>{STYLES}</style>
       <div className="root">
 
-        <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
           <main className="main">
             <section className="voting-shell">
 

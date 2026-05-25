@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getDisplayName, getVisibleGroupsForProfile } from "./appState";
+import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -613,15 +616,30 @@ const getDays = (start, end) => {
 
 export default function OutsidersTripPlanning({ onNavigate, appData, setAppData }) {
   const trips = appData?.trips || [];
+  const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], appData?.profile || {}), [appData?.groups, appData?.profile]);
   const [selectedTripId, setSelectedTripId] = useState(() => (appData?.trips?.[0]?.id || null));
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [activeTab, setActiveTab] = useState("Overview");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newActivity, setNewActivity] = useState({ day: 1, time: "", name: "" });
   const [newPackItem, setNewPackItem] = useState("");
-  const [newTripForm, setNewTripForm] = useState({ name: "", destination: "", startDate: "", endDate: "", budget: "" });
+  const [newTripForm, setNewTripForm] = useState({ name: "", destination: "", startDate: "", endDate: "", budget: "", groupId: "" });
   const [formError, setFormError] = useState("");
 
   const selectedTrip = trips.find((trip) => trip.id === selectedTripId) || trips[0] || null;
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+    let active = true;
+    async function loadCurrentUser() {
+      const { data } = await supabase.auth.getUser();
+      if (active) setCurrentUserId(data.user?.id || null);
+    }
+    loadCurrentUser();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const persistTrips = (updater, nextSelectedTripId = null) => {
     setAppData?.((prev) => {
@@ -633,24 +651,44 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
     });
   };
 
-  const updateTrip = (updatedTrip) => {
+  const updateTrip = async (updatedTrip) => {
+    if (isSupabaseConfigured && currentUserId && updatedTrip?.id && !String(updatedTrip.id).startsWith("trip-")) {
+      const { error } = await supabase
+        .from("trips")
+        .update({
+          name: updatedTrip.name,
+          destination: updatedTrip.destination,
+          start_date: updatedTrip.startDate,
+          end_date: updatedTrip.endDate,
+          budget: updatedTrip.budget,
+          spent: updatedTrip.spent,
+          members: updatedTrip.members,
+          color: updatedTrip.color,
+          status: updatedTrip.status,
+          itinerary: updatedTrip.itinerary,
+          packing_list: updatedTrip.packingList,
+          ratings: updatedTrip.ratings || [],
+        })
+        .eq("id", updatedTrip.id);
+      if (error) return;
+    }
     persistTrips((previousTrips) => previousTrips.map((trip) => (trip.id === updatedTrip.id ? updatedTrip : trip)), updatedTrip.id);
   };
 
   const togglePackItem = (itemId) => {
     const updated = { ...selectedTrip, packingList: selectedTrip.packingList.map(p => p.id === itemId ? { ...p, packed: !p.packed } : p) };
-    updateTrip(updated);
+    void updateTrip(updated);
   };
 
   const deletePackItem = (itemId) => {
     const updated = { ...selectedTrip, packingList: selectedTrip.packingList.filter(p => p.id !== itemId) };
-    updateTrip(updated);
+    void updateTrip(updated);
   };
 
   const addPackItem = () => {
     if (!newPackItem.trim()) return;
     const updated = { ...selectedTrip, packingList: [...selectedTrip.packingList, { id: Date.now(), item: newPackItem.trim(), packed: false }] };
-    updateTrip(updated);
+    void updateTrip(updated);
     setNewPackItem("");
   };
 
@@ -664,7 +702,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
           : d
       )
     };
-    updateTrip(updated);
+    void updateTrip(updated);
     setNewActivity({ day: newActivity.day, time: "", name: "" });
   };
 
@@ -678,13 +716,17 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
           : day
       )),
     };
-    updateTrip(updated);
+    void updateTrip(updated);
   };
 
-  const deleteTrip = () => {
+  const deleteTrip = async () => {
     if (!selectedTrip) return;
     const confirmed = window.confirm(`Delete ${selectedTrip.name}? This removes its itinerary and packing list.`);
     if (!confirmed) return;
+    if (isSupabaseConfigured && currentUserId && selectedTrip?.id && !String(selectedTrip.id).startsWith("trip-")) {
+      const { error } = await supabase.from("trips").delete().eq("id", selectedTrip.id);
+      if (error) return;
+    }
     persistTrips(
       (previousTrips) => previousTrips.filter((trip) => trip.id !== selectedTrip.id),
       null
@@ -692,7 +734,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
     setActiveTab("Overview");
   };
 
-  const createTrip = () => {
+  const createTrip = async () => {
     if (!newTripForm.name.trim() || !newTripForm.destination.trim() || !newTripForm.startDate || !newTripForm.endDate) {
       setFormError("Fill in all required fields!");
       return;
@@ -702,29 +744,123 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
       return;
     }
     const days = getDays(newTripForm.startDate, newTripForm.endDate);
+    const selectedGroup = groups.find((group) => String(group.id) === String(newTripForm.groupId)) || null;
     const itinerary = Array.from({ length: days }, (_, i) => ({
       day: i + 1,
       date: formatDate(new Date(new Date(newTripForm.startDate).getTime() + i * 86400000).toISOString().split("T")[0]),
       activities: [],
     }));
     const newTrip = {
-      id: Date.now(),
+      id: `trip-${Date.now()}`,
       name: newTripForm.name,
       destination: newTripForm.destination,
       startDate: newTripForm.startDate,
       endDate: newTripForm.endDate,
       budget: Number(newTripForm.budget) || 0,
       spent: 0,
-      members: [String(appData?.profile?.name || appData?.profile?.username || "YOU").slice(0, 3).toUpperCase()],
+      members: selectedGroup
+        ? selectedGroup.members.map((member) => member.name || member.username || "Crew")
+        : [String(appData?.profile?.name || appData?.profile?.username || "YOU").slice(0, 3).toUpperCase()],
       color: TRIP_COLORS[trips.length % TRIP_COLORS.length],
       status: "Planning",
       itinerary,
       packingList: [{ id: 1, item: "Passport / ID 🛂", packed: false }, { id: 2, item: "Phone charger 🔋", packed: false }],
       ratings: [],
+      groupId: selectedGroup?.id || null,
     };
-    persistTrips((previousTrips) => [...previousTrips, newTrip], newTrip.id);
+    let savedTrip = newTrip;
+    if (isSupabaseConfigured && currentUserId) {
+      const { data, error } = await supabase
+        .from("trips")
+        .insert({
+          name: newTrip.name,
+          destination: newTrip.destination,
+          start_date: newTrip.startDate,
+          end_date: newTrip.endDate,
+          budget: newTrip.budget,
+          spent: newTrip.spent,
+          members: newTrip.members,
+          color: newTrip.color,
+          status: newTrip.status,
+          itinerary: newTrip.itinerary,
+          packing_list: newTrip.packingList,
+          ratings: [],
+          creator_id: currentUserId,
+          group_id: newTrip.groupId,
+        })
+        .select("*")
+        .single();
+      if (!error && data) {
+        savedTrip = {
+          ...newTrip,
+          id: data.id,
+          startDate: data.start_date,
+          endDate: data.end_date,
+          packingList: data.packing_list || newTrip.packingList,
+          creatorId: data.creator_id,
+          groupId: data.group_id || newTrip.groupId,
+        };
+      }
+
+      if (selectedGroup) {
+        const usernamesToResolve = (selectedGroup.members || [])
+          .filter((member) => member.username)
+          .map((member) => String(member.username).replace(/^@/, "").toLowerCase());
+        const { data: profileMatches } = usernamesToResolve.length
+          ? await supabase.from("profiles").select("id, username, email, full_name").in("username", usernamesToResolve)
+          : { data: [] };
+        const profileByUsername = new Map((profileMatches || []).map((item) => [String(item.username || "").toLowerCase(), item]));
+        const resolvedMembers = (selectedGroup.members || []).map((member) => {
+          const normalizedUsername = String(member.username || "").replace(/^@/, "").toLowerCase();
+          const match = profileByUsername.get(normalizedUsername);
+          return {
+            ...member,
+            userId: member.userId || match?.id || null,
+            email: member.email || match?.email || "",
+            name: member.name || match?.full_name || member.name,
+          };
+        });
+        const recipientRows = resolvedMembers
+          .filter((member) => member.userId && member.userId !== currentUserId)
+          .map((member) => ({
+            user_id: member.userId,
+            recipient: member.name,
+            recipient_key: `user:${member.userId}`,
+            group_id: selectedGroup.id,
+            group_name: selectedGroup.name,
+            action_screen: "trip-planning",
+            action_params: {},
+            type: "trip-created",
+            message: `${getDisplayName(appData?.profile || {})} created a trip: ${savedTrip.name}.`,
+            read: false,
+          }));
+
+        if (recipientRows.length) {
+          await supabase.from("notifications").insert(recipientRows);
+        }
+
+        try {
+          await sendNotificationEmails({
+            recipients: resolvedMembers
+              .filter((member) => member.email && member.userId !== currentUserId)
+              .map((member) => ({ email: member.email, name: member.name })),
+            subject: `${getDisplayName(appData?.profile || {})} created a trip in ${selectedGroup.name}`,
+            intro: `${getDisplayName(appData?.profile || {})} just planned "${savedTrip.name}" for ${selectedGroup.name}.`,
+            ctaLabel: "Open Outsiders",
+            ctaUrl: window.location.origin + "/#/trip-planning",
+            details: [
+              `Destination: ${savedTrip.destination}`,
+              `Dates: ${savedTrip.startDate} to ${savedTrip.endDate}`,
+            ],
+          });
+        } catch (emailError) {
+          console.warn("Trip email notifications did not fully send:", emailError.message);
+        }
+      }
+    }
+    persistTrips((previousTrips) => [...previousTrips, savedTrip], savedTrip.id);
     setShowCreateModal(false);
-    setNewTripForm({ name: "", destination: "", startDate: "", endDate: "", budget: "" });
+    setNewTripForm({ name: "", destination: "", startDate: "", endDate: "", budget: "", groupId: "" });
     setFormError("");
     setActiveTab("Overview");
   };
@@ -740,7 +876,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
       <style>{STYLES}</style>
       <div className="root">
 
-        <OutsidersSideNav activeLabel="Trips" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="Trips" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
           <main className="main">
             <section className="trip-planning-shell">
               <div className="trip-hero">
@@ -864,7 +1000,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                       </div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-                      <button type="button" className="btn-danger" onClick={deleteTrip}>Delete trip</button>
+                      <button type="button" className="btn-danger" onClick={() => void deleteTrip()}>Delete trip</button>
                     </div>
 
                     {/* Budget bar */}
@@ -1008,6 +1144,13 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                 <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Where is the crew headed?</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <label className="form-label">Crew</label>
+                  <select className="form-input" value={newTripForm.groupId} onChange={e => setNewTripForm(p => ({ ...p, groupId: e.target.value }))} style={{ padding: "10px 12px" }}>
+                    <option value="">Just me for now</option>
+                    {groups.map((group) => <option key={group.id} value={group.id}>{group.emoji} {group.name}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label className="form-label">Trip Name *</label>
                   <input className="form-input" type="text" placeholder="e.g. Miami Beach Trip" value={newTripForm.name} onChange={e => setNewTripForm(p => ({ ...p, name: e.target.value }))} />

@@ -104,6 +104,30 @@ function normalizeProposal(proposal = {}) {
     externalInvites: Array.isArray(proposal.externalInvites) ? proposal.externalInvites : [],
     recommendations: Array.isArray(proposal.recommendations) ? proposal.recommendations : [],
     finalizedChoice: proposal.finalizedChoice || null,
+    ratings: Array.isArray(proposal.ratings) ? proposal.ratings : [],
+    location: proposal.location || proposal.finalizedChoice?.location?.label || proposal.finalizedChoice?.location || "",
+    date: proposal.date || "",
+  };
+}
+
+function normalizeTrip(trip = {}) {
+  return {
+    ...trip,
+    id: trip.id || createId("trip"),
+    name: trip.name || "Untitled Trip",
+    destination: trip.destination || "",
+    startDate: trip.startDate || trip.start_date || "",
+    endDate: trip.endDate || trip.end_date || "",
+    budget: Number(trip.budget) || 0,
+    spent: Number(trip.spent) || 0,
+    members: Array.isArray(trip.members) ? trip.members : [],
+    color: trip.color && typeof trip.color === "object" ? trip.color : { bg: "#fff4e6", border: "#ff9a3c", emoji: "🏝" },
+    status: trip.status || "Planning",
+    itinerary: Array.isArray(trip.itinerary) ? trip.itinerary : [],
+    packingList: Array.isArray(trip.packingList) ? trip.packingList : (Array.isArray(trip.packing_list) ? trip.packing_list : []),
+    ratings: Array.isArray(trip.ratings) ? trip.ratings : [],
+    groupId: trip.groupId || trip.group_id || null,
+    creatorId: trip.creatorId || trip.creator_id || null,
   };
 }
 
@@ -155,10 +179,17 @@ export function normalizeAppData(appData = {}) {
     ),
   };
 
+  const normalizedGroups = Array.isArray(appData.groups) ? appData.groups.map(normalizeGroup) : [];
+  const derivedHangouts = normalizedGroups.flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({
+    ...proposal,
+    groupId: proposal.groupId || group.id,
+    groupName: proposal.groupName || group.name,
+  })));
+
   return {
-    groups: Array.isArray(appData.groups) ? appData.groups.map(normalizeGroup) : [],
-    hangouts: Array.isArray(appData.hangouts) ? appData.hangouts.map(normalizeProposal) : [],
-    trips: Array.isArray(appData.trips) ? appData.trips : [],
+    groups: normalizedGroups,
+    hangouts: Array.isArray(appData.hangouts) ? appData.hangouts.map(normalizeProposal) : derivedHangouts,
+    trips: Array.isArray(appData.trips) ? appData.trips.map(normalizeTrip) : [],
     profile: nextProfile,
     avatar: appData.avatar || storedProfile.avatar || null,
     notifications: Array.isArray(appData.notifications) ? appData.notifications.map(normalizeNotification) : [],

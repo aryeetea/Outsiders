@@ -484,6 +484,42 @@ const STYLES = `
     font-weight: 900;
     background: #fff7da;
   }
+  .crew-header {
+    display: grid;
+    gap: 18px;
+  }
+  .crew-header-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .crew-header-meta {
+    display: grid;
+    gap: 10px;
+  }
+  .crew-header-actions {
+    display: grid;
+    gap: 12px;
+    justify-items: end;
+  }
+  .crew-header-stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .crew-header-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .crew-action-btn {
+    min-width: 156px;
+    justify-content: center;
+  }
   .section-grid {
     display: grid;
     gap: 14px;
@@ -494,6 +530,16 @@ const STYLES = `
     }
     .bill-watch-shell {
       grid-template-columns: 1fr;
+    }
+    .crew-header-actions,
+    .crew-header-stats,
+    .crew-header-buttons {
+      justify-items: stretch;
+      justify-content: flex-start;
+    }
+    .crew-action-btn {
+      min-width: 0;
+      width: 100%;
     }
   }
   @media (max-width: 1080px) {
@@ -1313,7 +1359,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="My Crew" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="My Crew" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
         <div className="shell">
           <section className="glass hero">
               <div style={{ display: "grid", gap: 12 }}>
@@ -1362,20 +1408,21 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
             <section className="detail-stack">
               {selectedGroup ? (
                   <div className="card">
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-                      <div>
+                    <div className="crew-header">
+                      <div className="crew-header-top">
+                        <div className="crew-header-meta">
                         <h2 className="bangers" style={{ margin: "0 0 8px", fontSize: 30 }}>{selectedGroup.emoji} {selectedGroup.name}</h2>
                         <p style={{ margin: 0, color: "#667085" }}>{selectedGroup.members.length} members · crew code {selectedGroup.code}</p>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        </div>
+                        <div className="crew-header-actions">
+                          <div className="crew-header-stats">
                           <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active hangouts</span>
                           <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.pending?.length || 0} pending invites</span>
-                        </div>
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          </div>
+                          <div className="crew-header-buttons">
                           <button
                             type="button"
-                            className="btn secondary"
+                            className="btn secondary crew-action-btn"
                             style={{ fontFamily: "'Nunito', sans-serif", fontWeight: 800, fontSize: 14 }}
                             onClick={() => leaveGroup()}
                           >
@@ -1384,13 +1431,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                           {isCurrentMemberAdmin ? (
                             <button
                               type="button"
-                              className="btn"
+                              className="btn crew-action-btn"
                               style={{ background: "#b42318", color: "#fff", borderColor: "#7a1610", boxShadow: "4px 4px 0 #7a1610", fontFamily: "'Nunito', sans-serif", fontWeight: 800, fontSize: 14 }}
                               onClick={() => deleteGroup()}
                             >
                               Delete crew
                             </button>
                           ) : null}
+                          </div>
                         </div>
                       </div>
                     </div>

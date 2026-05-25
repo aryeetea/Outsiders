@@ -123,6 +123,12 @@ const STYLES = `
     box-shadow: 0 10px 24px rgba(26,26,46,0.06);
   }
   .card { background: #fff; border: 3px solid #1a1a2e; border-radius: 16px; box-shadow: 5px 5px 0 #1a1a2e; padding: 22px 24px; }
+  .section-divider {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(26, 26, 46, 0.08);
+    margin: 6px 0;
+  }
   .btn-primary { background: #ff6b6b; color: #fff; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 16px; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px; }
   .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
   .btn-secondary { background: #ffd93d; color: #1a1a2e; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 15px; padding: 9px 18px; display: inline-flex; align-items: center; gap: 8px; }
@@ -490,7 +496,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Debrief" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="Debrief" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
           <main className="main">
             <section className="debrief-shell">
             <div className="debrief-hero">
@@ -522,9 +528,17 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
             ) : (
               <>
               <div className="debrief-section-label">Case Rooms</div>
-              <div className="debrief-layout-grid" style={{ display: "grid", gap: 24 }}>
-                <div className="debrief-column-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div className="card">
+              <div className="card" style={{ display: "grid", gap: 22 }}>
+                <div>
+                  <p className="bangers" style={{ fontSize: 24, margin: "0 0 8px" }}>Court Overview</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#667085", margin: 0 }}>Everything for this crew's Debrief Court lives here in one room: pick the crew, review the bench, open a case, and answer the thread.</p>
+                </div>
+
+                <div className="section-divider" />
+
+                <div style={{ display: "grid", gap: 16 }}>
+                  <p className="bangers" style={{ fontSize: 18, margin: 0 }}>1. Choose Crew</p>
+                  <div style={{ maxWidth: 360 }}>
                     <p className="bangers" style={{ fontSize: 14, margin: "0 0 10px", color: "#888", letterSpacing: "0.08em", textTransform: "uppercase" }}>Choose crew</p>
                     <select className="form-input" value={selectedGroup?.id || ""} onChange={(event) => { setActiveGroupId(event.target.value); setSelectedCaseId(""); }} style={{ padding: "10px 14px" }}>
                       {groups.map((group) => (
@@ -532,14 +546,20 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                       ))}
                     </select>
                   </div>
+                </div>
 
-                  <div className="card" style={{ background: "#fde8f0", borderColor: "#ff6b9d", boxShadow: "5px 5px 0 #ff6b9d" }}>
+                <div className="section-divider" />
+
+                <div style={{ display: "grid", gap: 16 }}>
+                  <p className="bangers" style={{ fontSize: 18, margin: 0 }}>2. Room Snapshot</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+                    <div className="card" style={{ background: "#fde8f0", borderColor: "#ff6b9d", boxShadow: "5px 5px 0 #ff6b9d" }}>
                     <p className="bangers" style={{ fontSize: 16, margin: "0 0 8px" }}>Against You</p>
                     <p style={{ fontSize: 34, margin: "0 0 4px", fontWeight: 900, color: "#ff6b9d" }}>{targetedCases.length}</p>
                     <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>Cases in this room naming you directly.</p>
-                  </div>
+                    </div>
 
-                  <div className="card" style={{ background: "#e8f4fd", borderColor: "#4ecdc4", boxShadow: "5px 5px 0 #4ecdc4" }}>
+                    <div className="card" style={{ background: "#e8f4fd", borderColor: "#4ecdc4", boxShadow: "5px 5px 0 #4ecdc4" }}>
                     <p className="bangers" style={{ fontSize: 16, margin: "0 0 8px" }}>Current Peace Maker</p>
                     <p style={{ fontSize: 24, margin: "0 0 4px", fontWeight: 900, color: "#4ecdc4" }}>
                       {peaceMakerBench.electedMemberName || "No one yet"}
@@ -547,9 +567,9 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                     <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: 0 }}>
                       {peaceMakerVoteEntries.length} crew vote{peaceMakerVoteEntries.length === 1 ? "" : "s"} have been cast.
                     </p>
-                  </div>
+                    </div>
 
-                  <div className="card" style={{ background: "#fff4e6", borderColor: "#ff9a3c", boxShadow: "5px 5px 0 #ff9a3c" }}>
+                    <div className="card" style={{ background: "#fff4e6", borderColor: "#ff9a3c", boxShadow: "5px 5px 0 #ff9a3c" }}>
                     <p className="bangers" style={{ fontSize: 16, margin: "0 0 8px" }}>Room Rules</p>
                     {[
                       "Cases are filed anonymously.",
@@ -559,8 +579,14 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                     ].map((rule) => (
                       <p key={rule} style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 6px" }}>{rule}</p>
                     ))}
+                    </div>
                   </div>
+                </div>
 
+                <div className="section-divider" />
+
+                <div style={{ display: "grid", gap: 16 }}>
+                  <p className="bangers" style={{ fontSize: 18, margin: 0 }}>3. Peace-Maker Bench</p>
                   <div className="card" style={{ background: "#e8f4fd", borderColor: "#4ecdc4", boxShadow: "5px 5px 0 #4ecdc4" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                       <p className="bangers" style={{ fontSize: 16, margin: 0 }}>Peace-Maker Bench ⚖️</p>
@@ -606,8 +632,14 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                       })}
                     </div>
                   </div>
+                </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div className="section-divider" />
+
+                <div style={{ display: "grid", gap: 16 }}>
+                  <p className="bangers" style={{ fontSize: 18, margin: 0 }}>4. Case Rooms</p>
+                  <div className="debrief-layout-grid" style={{ display: "grid", gap: 24 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {visibleCases.length === 0 ? (
                       <div style={{ border: "3px dashed #ccc", borderRadius: 14, padding: "18px", textAlign: "center" }}>
                         <p className="bangers" style={{ fontSize: 16, color: "#aaa", margin: "0 0 6px" }}>No visible cases</p>
@@ -638,12 +670,11 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                         </div>
                       );
                     })}
-                  </div>
-                </div>
+                    </div>
 
-                {selectedGroup && selectedCase ? (
-                  <div className="debrief-column-card" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    <div className="card" style={{ background: "#fffdf9" }}>
+                  {selectedGroup && selectedCase ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                      <div className="card" style={{ background: "#fffdf9" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                         <div>
                           <span className="comic-tag">Filed anonymously</span>
@@ -672,9 +703,9 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                           {selectedCase.status === "Resolved" ? "Reopen" : "Mark Resolved"}
                         </button>
                       </div>
-                    </div>
+                      </div>
 
-                    <div className="card">
+                      <div className="card">
                       <div className="case-note" style={{ background: "#fff4e6", borderColor: "#ff9a3c", boxShadow: "4px 4px 0 #ff9a3c", marginBottom: 16 }}>
                         <p className="bangers" style={{ fontSize: 14, margin: "0 0 6px", color: "#ff9a3c" }}>The Case</p>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 700, lineHeight: 1.6 }}>{selectedCase.body}</p>
@@ -695,9 +726,9 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                           );
                         })}
                       </div>
-                    </div>
+                      </div>
 
-                    <div className="card">
+                      <div className="card">
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
                         <p className="bangers" style={{ fontSize: 18, margin: 0 }}>Address The Court</p>
                         <select className="form-input" value={responseType} onChange={(event) => setResponseType(event.target.value)} style={{ width: 180, padding: "10px 14px" }}>
@@ -721,17 +752,17 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                         </span>
                         <button className="btn-primary" onClick={sendResponse}>Post Reply</button>
                       </div>
+                      </div>
                     </div>
+                  ) : (
+                    <div className="card" style={{ textAlign: "center" }}>
+                      <p style={{ fontSize: 38, margin: "0 0 10px" }}>🕳️</p>
+                      <p className="bangers" style={{ fontSize: 22, margin: "0 0 8px" }}>Pick a case room</p>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: 0 }}>Select a visible case on the left to read it, clap back, or apologize.</p>
+                    </div>
+                  )}
                   </div>
-                ) : (
-                  <div className="debrief-column-card">
-                  <div className="card" style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 38, margin: "0 0 10px" }}>🕳️</p>
-                  <p className="bangers" style={{ fontSize: 22, margin: "0 0 8px" }}>Pick a case room</p>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: 0 }}>Select a visible case on the left to read it, clap back, or apologize.</p>
-                  </div>
-                  </div>
-                )}
+                </div>
               </div>
               </>
             )}

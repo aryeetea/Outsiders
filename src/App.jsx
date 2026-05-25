@@ -13,6 +13,7 @@ import OutsidersCreateCrew from "./OutsidersCreateCrew";
 import OutsidersDashboard from "./OutsidersDashboard";
 import OutsidersDebrief from "./OutsidersDebrief";
 import OutsidersFriendGroups from "./OutsidersFriendGroups";
+import OutsidersHangouts from "./OutsidersHangouts";
 import OutsidersJoinHangout from "./Outsidersjoinhangout";
 import OutsidersLanding from "./OutsidersLanding";
 import OutsidersLogIn from "./OutsidersLogIn";
@@ -34,6 +35,7 @@ const SCREEN_COMPONENTS = {
   "login": OutsidersLogIn,
   "signup": OutsidersSignUp,
   "dashboard": OutsidersDashboard,
+  "hangouts": OutsidersHangouts,
   "create-hangout": OutsidersCreateHangout,
   "create-crew": OutsidersCreateCrew,
   "join-hangout": OutsidersJoinHangout,
@@ -108,10 +110,28 @@ export default function App() {
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
+    const { data: tripRows, error: tripRowsError } = await supabase
+      .from("trips")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     const sharedGroups = !groupRowsError && Array.isArray(groupRows)
       ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
       : null;
+    const sharedGroupIds = Array.isArray(sharedGroups) ? sharedGroups.map((group) => String(group.id)) : [];
+    const sharedHangouts = Array.isArray(sharedGroups)
+      ? sharedGroups.flatMap((group) => (group.hangout_proposals || group.hangoutProposals || []).map((proposal) => ({
+        ...proposal,
+        groupId: proposal.groupId || group.id,
+        groupName: proposal.groupName || group.name,
+      })))
+      : previousAppData.hangouts;
+    const sharedTrips = !tripRowsError && Array.isArray(tripRows)
+      ? tripRows.filter((trip) => (
+        String(trip.creator_id) === String(user.id)
+        || (trip.group_id && sharedGroupIds.includes(String(trip.group_id)))
+      ))
+      : previousAppData.trips;
 
     return normalizeAppData({
       ...previousAppData,
@@ -128,6 +148,8 @@ export default function App() {
         availability: hydratedProfile.availability || previousAppData.profile?.availability,
       },
       avatar: profileRow?.avatar_url || user.user_metadata?.avatar_url || previousAppData.avatar || null,
+      hangouts: sharedHangouts,
+      trips: sharedTrips,
       notifications: !notificationRowsError && Array.isArray(notificationRows)
         ? notificationRows
         : previousAppData.notifications,

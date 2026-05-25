@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import OutsidersSideNav from "./OutsidersSideNav";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -265,7 +266,14 @@ function avgRating(outing) {
 }
 
 function normalizeRateableItems(appData) {
-  const hangouts = (appData?.hangouts || []).map((hangout, index) => ({
+  const sharedHangouts = (appData?.groups || []).flatMap((group) => (group.hangoutProposals || []).map((hangout) => ({
+    ...hangout,
+    groupId: hangout.groupId || group.id,
+    groupName: hangout.groupName || group.name,
+    location: hangout.location || hangout.finalizedChoice?.location?.label || hangout.finalizedChoice?.location || "",
+  })));
+
+  const hangouts = sharedHangouts.map((hangout, index) => ({
     ...hangout,
     itemType: "outing",
     ratings: hangout.ratings || [],
@@ -318,7 +326,7 @@ function createEmptyRating(itemType) {
 }
 
 export default function OutsidersRateOuting({ onNavigate, appData, setAppData }) {
-  const outings = normalizeRateableItems(appData);
+  const outings = useMemo(() => normalizeRateableItems(appData), [appData]);
   const [activeTab, setActiveTab] = useState("Rate");
   const [selectedOuting, setSelectedOuting] = useState(() => outings[0] || null);
   const [rating, setRating] = useState(() => createEmptyRating(outings[0]?.itemType || "outing"));
@@ -329,9 +337,15 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
   const alreadyRated = selectedOuting?.ratings.some(r => r.member === 0);
   const profileName = appData?.profile?.name || appData?.profile?.username || "You";
 
-  const updateSelectedFromAppData = (updatedItem) => {
+  const updateSelectedFromAppData = async (updatedItem) => {
     setSelectedOuting(updatedItem);
     if (updatedItem.itemType === "trip") {
+      if (isSupabaseConfigured && updatedItem.id && !String(updatedItem.id).startsWith("trip-")) {
+        await supabase
+          .from("trips")
+          .update({ ratings: updatedItem.ratings })
+          .eq("id", updatedItem.id);
+      }
       setAppData?.((prev) => ({
         ...prev,
         trips: prev.trips.map((trip) => trip.id === updatedItem.id ? { ...trip, ratings: updatedItem.ratings } : trip),
@@ -339,17 +353,44 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
       return;
     }
 
+    if (isSupabaseConfigured && updatedItem.groupId) {
+      const targetGroup = (appData?.groups || []).find((group) => String(group.id) === String(updatedItem.groupId));
+      const nextGroup = targetGroup
+        ? {
+            ...targetGroup,
+            hangoutProposals: (targetGroup.hangoutProposals || []).map((hangout) => (
+              hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout
+            )),
+          }
+        : null;
+      if (nextGroup) {
+        await supabase
+          .from("groups")
+          .update({ hangout_proposals: nextGroup.hangoutProposals })
+          .eq("id", nextGroup.id);
+      }
+    }
     setAppData?.((prev) => ({
       ...prev,
-      hangouts: prev.hangouts.map((hangout) => hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout),
+      groups: (prev.groups || []).map((group) => (
+        String(group.id) === String(updatedItem.groupId)
+          ? {
+              ...group,
+              hangoutProposals: (group.hangoutProposals || []).map((hangout) => (
+                hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout
+              )),
+            }
+          : group
+      )),
+      hangouts: (prev.hangouts || []).map((hangout) => hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout),
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (rating.overall === 0) return;
     const newRating = { member: 0, overall: rating.overall, categories: rating.categories, comment: rating.comment };
     const updatedOuting = { ...selectedOuting, ratings: [...selectedOuting.ratings.filter(r => r.member !== 0), newRating] };
-    updateSelectedFromAppData(updatedOuting);
+    await updateSelectedFromAppData(updatedOuting);
     setSubmitted(true);
   };
 
@@ -357,7 +398,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Ratings" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="Ratings" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
           <main className="main">
             <section className="rating-shell">
               <div className="rating-hero">

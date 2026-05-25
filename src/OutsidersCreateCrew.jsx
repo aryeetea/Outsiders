@@ -295,7 +295,7 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Create Crew" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="Create Crew" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
           <div className="shell">
             <section className="hero">
               <div className="bangers" style={{ fontSize: 18 }}>Crew Setup</div>

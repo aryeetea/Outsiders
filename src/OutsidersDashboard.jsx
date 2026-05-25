@@ -317,6 +317,7 @@ const STYLES = `
 `;
 
 const QUICK_ACTIONS = [
+  ["Hangouts", "hangouts", "Review live crew hangouts in one shared space."],
   ["Start a hangout", "create-hangout", "Share a time, place, and vibe with your crew."],
   ["Create a crew", "create-crew", "Start a new crew or use a code to join one."],
   ["My crew", "friend-groups", "See hangout voting, roast boards, and invites."],
@@ -360,7 +361,7 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
     <>
       <style>{STYLES}</style>
       <div className="dash-root">
-        <OutsidersSideNav activeLabel="Dashboard" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="Dashboard" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
         <div className="dash-shell">
           <section className="dashboard-board">
           <div className="dashboard-hero">
@@ -401,7 +402,7 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
                   <h2 className="section-title">Crew Hangouts</h2>
                   <p style={{ margin: 0, color: "#667085" }}>Every active hangout across your crews.</p>
                 </div>
-                <button type="button" className="chip-btn" onClick={() => onNavigate?.("friend-groups")}>Manage in crew</button>
+                <button type="button" className="chip-btn" onClick={() => onNavigate?.("hangouts")}>Open hangouts</button>
               </div>
               <div style={{ display: "grid", gap: 12 }}>
                 {proposals.length ? proposals.map((proposal) => {

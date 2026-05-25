@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
+import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildHangoutInviteLink } from "./siteConfig";
 import { availabilityToText, formatTimeLabel, recommendHangoutTimes } from "./scheduling";
@@ -549,6 +550,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       externalInvites,
       recommendations,
       finalizedChoice: null,
+      ratings: [],
     };
 
     let nextGroupMembers = selectedGroup.members || [];
@@ -560,18 +562,24 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       if (usernamesToResolve.length) {
         const { data: profileMatches } = await supabase
           .from("profiles")
-          .select("id, username")
+          .select("id, username, email, full_name")
           .in("username", usernamesToResolve);
 
-        const userIdByUsername = new Map(
-          (profileMatches || []).map((item) => [String(item.username || "").toLowerCase(), item.id])
+        const profileByUsername = new Map(
+          (profileMatches || []).map((item) => [String(item.username || "").toLowerCase(), item])
         );
 
         nextGroupMembers = nextGroupMembers.map((member) => {
           const normalizedUsername = String(member.username || "").replace(/^@/, "").toLowerCase();
-          return member.userId || !normalizedUsername || !userIdByUsername.has(normalizedUsername)
+          const profileMatch = profileByUsername.get(normalizedUsername);
+          return (!normalizedUsername || !profileMatch)
             ? member
-            : { ...member, userId: userIdByUsername.get(normalizedUsername) };
+            : {
+                ...member,
+                userId: member.userId || profileMatch.id,
+                email: member.email || profileMatch.email || "",
+                name: member.name || profileMatch.full_name || member.name,
+              };
         });
       }
     }
@@ -639,6 +647,23 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
           console.warn("Hangout notifications did not fully save:", notificationError.message);
         }
       }
+
+      try {
+        await sendNotificationEmails({
+          recipients: otherMembers.filter((member) => member.email).map((member) => ({ email: member.email, name: member.name })),
+          subject: `${getDisplayName(profile)} created a new hangout in ${selectedGroup.name}`,
+          intro: `${getDisplayName(profile)} just created "${proposal.name}" in ${selectedGroup.name}.`,
+          ctaLabel: "Open hangout",
+          ctaUrl: proposal.link,
+          details: [
+            `Crew: ${selectedGroup.name}`,
+            `Time options: ${proposal.timeOptions.length}`,
+            `Place options: ${proposal.locationOptions.length}`,
+          ],
+        });
+      } catch (emailError) {
+        console.warn("Hangout email notifications did not fully send:", emailError.message);
+      }
     }
 
     setAppData?.((prev) => ({
@@ -660,7 +685,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     <>
       <style>{STYLES}</style>
       <div className="root">
-        <OutsidersSideNav activeLabel="Hangouts" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length}>
+        <OutsidersSideNav activeLabel="Create Hangout" onNavigate={onNavigate} profileName={profileName} notificationCount={(appData?.notifications || []).filter((n) => !n.read).length} appData={appData} setAppData={setAppData}>
         <div className="shell">
           {!createdProposal ? (
             <section className="planner-board">
