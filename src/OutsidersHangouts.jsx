@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { getCurrentUserKey, getDisplayName } from "./appState";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -131,16 +132,89 @@ function leadingChoice(options = [], votes = {}) {
 
 export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
   const groups = useMemo(() => appData?.groups || [], [appData?.groups]);
+  const storedHangouts = useMemo(() => appData?.hangouts || [], [appData?.hangouts]);
   const profileName = appData?.profile?.name || appData?.profile?.username || "You";
   const currentProfile = appData?.profile || {};
   const currentUserKey = getCurrentUserKey(currentProfile);
   const currentDisplayName = getDisplayName(currentProfile);
   const proposals = useMemo(
-    () => groups.flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupName: group.name, groupId: group.id, groupEmoji: group.emoji }))),
-    [groups]
+    () => {
+      const proposalsById = new Map();
+
+      groups.forEach((group) => {
+        (group.hangoutProposals || []).forEach((proposal) => {
+          proposalsById.set(String(proposal.id), {
+            ...proposal,
+            groupName: proposal.groupName || group.name,
+            groupId: proposal.groupId || group.id,
+            groupEmoji: proposal.groupEmoji || group.emoji,
+          });
+        });
+      });
+
+      storedHangouts.forEach((proposal) => {
+        const groupMatch = groups.find((group) => String(group.id) === String(proposal.groupId));
+        const normalizedProposal = {
+          ...proposal,
+          groupName: proposal.groupName || groupMatch?.name || "Your crew",
+          groupId: proposal.groupId || groupMatch?.id || null,
+          groupEmoji: proposal.groupEmoji || groupMatch?.emoji || "👥",
+        };
+        proposalsById.set(String(proposal.id), {
+          ...normalizedProposal,
+          ...(proposalsById.get(String(proposal.id)) || {}),
+        });
+      });
+
+      return Array.from(proposalsById.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    },
+    [groups, storedHangouts]
   );
   const finalizedCount = proposals.filter((proposal) => proposal.status === "finalized").length;
   const pendingCount = proposals.filter((proposal) => proposal.status !== "finalized").length;
+
+  const deleteProposal = async (proposal) => {
+    if (!proposal?.groupId) return;
+    const isMine = proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName;
+    if (!isMine) return;
+
+    const confirmed = window.confirm(`Delete ${proposal.name}? This removes the hangout, its votes, and related notifications.`);
+    if (!confirmed) return;
+
+    const nextGroups = groups.map((group) => (
+      String(group.id) === String(proposal.groupId)
+        ? {
+            ...group,
+            hangoutProposals: (group.hangoutProposals || []).filter((item) => item.id !== proposal.id),
+          }
+        : group
+    ));
+    const nextGroup = nextGroups.find((group) => String(group.id) === String(proposal.groupId));
+
+    if (isSupabaseConfigured && nextGroup && !String(nextGroup.id).startsWith("group-")) {
+      const { error } = await supabase
+        .from("groups")
+        .update({ hangout_proposals: nextGroup.hangoutProposals || [] })
+        .eq("id", nextGroup.id);
+
+      if (error) {
+        window.alert(error.message || "We could not delete that hangout yet.");
+        return;
+      }
+
+      await supabase
+        .from("notifications")
+        .delete()
+        .eq("proposal_id", proposal.id);
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: nextGroups,
+      hangouts: (prev.hangouts || []).filter((item) => item.id !== proposal.id),
+      notifications: (prev.notifications || []).filter((notification) => notification.proposalId !== proposal.id),
+    }));
+  };
 
   return (
     <>
@@ -224,6 +298,9 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
                       <div className="actions">
                         <button type="button" className="btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open in crew</button>
                         <button type="button" className="btn ghost" onClick={() => onNavigate?.("join-hangout", { code: proposal.code })}>Open invite</button>
+                        {isMine ? (
+                          <button type="button" className="btn ghost" onClick={() => void deleteProposal(proposal)}>Delete hangout</button>
+                        ) : null}
                       </div>
                     </div>
                   );
