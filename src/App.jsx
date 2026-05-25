@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_PROFILE, normalizeAppData, persistStoredProfile, profileNeedsAvailability } from "./appState";
+import {
+  DEFAULT_PROFILE,
+  isProfileMemberOfGroup,
+  normalizeAppData,
+  persistStoredProfile,
+  profileNeedsAvailability,
+} from "./appState";
 import OutsidersAssistant from "./OutsidersAssistant";
 import OutsidersBillSplit from "./OutsidersBillSplit";
 import OutsidersCreateHangout from "./OutsidersCreateHangout";
@@ -119,24 +125,46 @@ export default function App() {
         .eq("id", user.id)
         .maybeSingle();
 
+      const hydratedProfile = {
+        name: profileRow?.full_name || user.user_metadata?.full_name || "",
+        username: profileRow?.username || user.user_metadata?.username || "",
+        email: profileRow?.email || user.email || "",
+        bio: user.user_metadata?.bio || "",
+        location: user.user_metadata?.location || "",
+        availability: profileRow?.availability || user.user_metadata?.availability || DEFAULT_PROFILE.availability,
+      };
+
+      const { data: groupRows, error: groupRowsError } = await supabase
+        .from("groups")
+        .select("*");
+
+      const sharedGroups = !groupRowsError && Array.isArray(groupRows)
+        ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
+        : null;
+
       if (!active) return;
 
       setAppData((prev) => normalizeAppData({
         ...prev,
-        groups: metadataGroups && metadataGroups.length ? metadataGroups : prev.groups,
+        groups:
+          sharedGroups
+          ?? (metadataGroups && metadataGroups.length ? metadataGroups : prev.groups),
         profile: {
           ...prev.profile,
-          name: profileRow?.full_name || user.user_metadata?.full_name || prev.profile?.name || "",
-          username: profileRow?.username || user.user_metadata?.username || prev.profile?.username || "",
-          email: profileRow?.email || user.email || prev.profile?.email || "",
-          bio: user.user_metadata?.bio || prev.profile?.bio || "",
-          location: user.user_metadata?.location || prev.profile?.location || "",
-          availability: profileRow?.availability || user.user_metadata?.availability || prev.profile?.availability,
+          name: hydratedProfile.name || prev.profile?.name || "",
+          username: hydratedProfile.username || prev.profile?.username || "",
+          email: hydratedProfile.email || prev.profile?.email || "",
+          bio: hydratedProfile.bio || prev.profile?.bio || "",
+          location: hydratedProfile.location || prev.profile?.location || "",
+          availability: hydratedProfile.availability || prev.profile?.availability,
         },
         avatar: profileRow?.avatar_url || user.user_metadata?.avatar_url || prev.avatar || null,
       }));
       groupsHydratedRef.current = true;
-      lastSyncedGroupsRef.current = metadataGroups ? JSON.stringify(metadataGroups) : "";
+      lastSyncedGroupsRef.current = JSON.stringify(
+        sharedGroups
+        ?? (metadataGroups && metadataGroups.length ? metadataGroups : [])
+      );
     }
 
     loadProfileFromAccount();
