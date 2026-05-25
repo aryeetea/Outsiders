@@ -86,7 +86,7 @@ export default function App() {
   const lastSyncedGroupsRef = useRef("");
   const latestAppDataRef = useRef(appData);
 
-  async function fetchSharedAppData(user, previousAppData = {}) {
+async function fetchSharedAppData(user, previousAppData = {}) {
     const metadataGroups = Array.isArray(user.user_metadata?.joined_groups) ? user.user_metadata.joined_groups : null;
     const { data: profileRow } = await supabase
       .from("profiles")
@@ -117,12 +117,25 @@ export default function App() {
       .select("*")
       .order("created_at", { ascending: false });
 
+    const metadataGroupIds = Array.isArray(metadataGroups)
+      ? metadataGroups.map((group) => String(group?.id || "")).filter(Boolean)
+      : [];
+    const metadataGroupCodes = Array.isArray(metadataGroups)
+      ? metadataGroups.map((group) => String(group?.code || "").toUpperCase()).filter(Boolean)
+      : [];
     const sharedGroups = !groupRowsError && Array.isArray(groupRows)
-      ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
+      ? groupRows.filter((group) => (
+        isProfileMemberOfGroup(group, hydratedProfile)
+        || metadataGroupIds.includes(String(group?.id || ""))
+        || (group?.code && metadataGroupCodes.includes(String(group.code).toUpperCase()))
+      ))
       : null;
-    const sharedGroupIds = Array.isArray(sharedGroups) ? sharedGroups.map((group) => String(group.id)) : [];
-    const sharedHangouts = Array.isArray(sharedGroups)
-      ? sharedGroups.flatMap((group) => (group.hangout_proposals || group.hangoutProposals || []).map((proposal) => ({
+    const effectiveGroups = Array.isArray(sharedGroups) && sharedGroups.length
+      ? sharedGroups
+      : (metadataGroups && metadataGroups.length ? metadataGroups : previousAppData.groups);
+    const sharedGroupIds = Array.isArray(effectiveGroups) ? effectiveGroups.map((group) => String(group.id)) : [];
+    const sharedHangouts = Array.isArray(effectiveGroups)
+      ? effectiveGroups.flatMap((group) => (group.hangout_proposals || group.hangoutProposals || []).map((proposal) => ({
         ...proposal,
         groupId: proposal.groupId || group.id,
         groupName: proposal.groupName || group.name,
@@ -139,8 +152,7 @@ export default function App() {
     return normalizeAppData({
       ...previousAppData,
       groups:
-        sharedGroups
-        ?? (metadataGroups && metadataGroups.length ? metadataGroups : previousAppData.groups),
+        effectiveGroups,
       profile: {
         ...previousAppData.profile,
         id: hydratedProfile.id || previousAppData.profile?.id || "",
