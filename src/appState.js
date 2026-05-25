@@ -43,6 +43,10 @@ export function isProfileMemberOfGroup(group = {}, profile = {}) {
     return true;
   }
 
+  if (username && normalizeUsername(group?.owner_username || group?.ownerUsername || "") === username) {
+    return true;
+  }
+
   return (group?.members || []).some((member) => (
     (currentUserId && String(member?.userId || "").trim() === currentUserId)
     || (username && normalizeUsername(member?.username || "") === username)

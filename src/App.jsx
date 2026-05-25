@@ -82,12 +82,9 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [sessionReady, setSessionReady] = useState(!isSupabaseConfigured);
   const [currentSession, setCurrentSession] = useState(null);
-  const groupsHydratedRef = useRef(false);
-  const lastSyncedGroupsRef = useRef("");
   const latestAppDataRef = useRef(appData);
 
 async function fetchSharedAppData(user, previousAppData = {}) {
-    const metadataGroups = Array.isArray(user.user_metadata?.joined_groups) ? user.user_metadata.joined_groups : null;
     const { data: profileRow } = await supabase
       .from("profiles")
       .select("full_name, username, email, availability, avatar_url")
@@ -117,22 +114,12 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       .select("*")
       .order("created_at", { ascending: false });
 
-    const metadataGroupIds = Array.isArray(metadataGroups)
-      ? metadataGroups.map((group) => String(group?.id || "")).filter(Boolean)
-      : [];
-    const metadataGroupCodes = Array.isArray(metadataGroups)
-      ? metadataGroups.map((group) => String(group?.code || "").toUpperCase()).filter(Boolean)
-      : [];
     const sharedGroups = !groupRowsError && Array.isArray(groupRows)
-      ? groupRows.filter((group) => (
-        isProfileMemberOfGroup(group, hydratedProfile)
-        || metadataGroupIds.includes(String(group?.id || ""))
-        || (group?.code && metadataGroupCodes.includes(String(group.code).toUpperCase()))
-      ))
+      ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
       : null;
-    const effectiveGroups = Array.isArray(sharedGroups) && sharedGroups.length
+    const effectiveGroups = Array.isArray(sharedGroups)
       ? sharedGroups
-      : (metadataGroups && metadataGroups.length ? metadataGroups : previousAppData.groups);
+      : previousAppData.groups;
     const sharedGroupIds = Array.isArray(effectiveGroups) ? effectiveGroups.map((group) => String(group.id)) : [];
     const hydratedHangouts = Array.isArray(effectiveGroups)
       ? effectiveGroups.flatMap((group) => (group.hangout_proposals || group.hangoutProposals || []).map((proposal) => ({
@@ -248,8 +235,6 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       if (!active) return;
 
       setAppData(nextAppData);
-      groupsHydratedRef.current = true;
-      lastSyncedGroupsRef.current = JSON.stringify(nextAppData.groups || []);
     }
 
     loadProfileFromAccount();
@@ -283,32 +268,19 @@ async function fetchSharedAppData(user, previousAppData = {}) {
   }, [currentSession, sessionReady]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !sessionReady || !currentSession?.user || !groupsHydratedRef.current) return;
+    if (!currentSession?.user?.id) return;
 
-    const nextSerializedGroups = JSON.stringify(appData.groups || []);
-    if (lastSyncedGroupsRef.current === nextSerializedGroups) return;
-
-    let cancelled = false;
-
-    async function persistJoinedGroups() {
-      const currentMetadata = currentSession.user.user_metadata || {};
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          ...currentMetadata,
-          joined_groups: appData.groups || [],
+    setAppData((prev) => {
+      if (prev.profile?.id === currentSession.user.id) return prev;
+      return {
+        ...prev,
+        profile: {
+          ...prev.profile,
+          id: currentSession.user.id,
         },
-      });
-
-      if (!cancelled && !error) {
-        lastSyncedGroupsRef.current = nextSerializedGroups;
-      }
-    }
-
-    persistJoinedGroups();
-    return () => {
-      cancelled = true;
-    };
-  }, [appData.groups, currentSession, sessionReady]);
+      };
+    });
+  }, [currentSession?.user?.id]);
 
   useEffect(() => {
     window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData));
