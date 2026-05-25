@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { getCurrentUserKey, getDisplayName } from "./appState";
 import { isSupabaseConfigured, supabase } from "./supabase";
@@ -61,6 +61,25 @@ const STYLES = `
   .section-grid {
     display: grid;
     gap: 14px;
+  }
+  .section-switcher {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .section-chip {
+    border-radius: 999px;
+    padding: 10px 14px;
+    border: 3px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    background: #fff;
+    color: #17151f;
+    cursor: pointer;
+    font: 400 14px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+  }
+  .section-chip.active {
+    background: #ffd93d;
   }
   .proposal {
     border-radius: 16px;
@@ -137,6 +156,7 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
   const currentProfile = appData?.profile || {};
   const currentUserKey = getCurrentUserKey(currentProfile);
   const currentDisplayName = getDisplayName(currentProfile);
+  const [activeSection, setActiveSection] = useState("voting");
   const proposals = useMemo(
     () => {
       const proposalsById = new Map();
@@ -169,6 +189,17 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
       return Array.from(proposalsById.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     },
     [groups, storedHangouts]
+  );
+  const myProposals = useMemo(
+    () => proposals.filter((proposal) => proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName),
+    [proposals, currentUserKey, currentDisplayName]
+  );
+  const votingProposals = useMemo(
+    () => proposals.filter((proposal) => (
+      proposal.status !== "finalized"
+      && (!proposal.votes?.time?.[currentUserKey] || !proposal.votes?.location?.[currentUserKey])
+    )),
+    [proposals, currentUserKey]
   );
   const finalizedCount = proposals.filter((proposal) => proposal.status === "finalized").length;
   const pendingCount = proposals.filter((proposal) => proposal.status !== "finalized").length;
@@ -216,6 +247,54 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
     }));
   };
 
+  const renderProposalCard = (proposal) => {
+    const topTime = leadingChoice(proposal.timeOptions, proposal.votes?.time);
+    const topLocation = leadingChoice(proposal.locationOptions, proposal.votes?.location);
+    const isMine = proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName;
+    const myTimeVote = proposal.votes?.time?.[currentUserKey];
+    const myLocationVote = proposal.votes?.location?.[currentUserKey];
+
+    return (
+      <div key={proposal.id} className="proposal">
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <strong className="bangers" style={{ display: "block", fontSize: 22 }}>{proposal.name}</strong>
+            <span style={{ color: "#667085", fontWeight: 700 }}>{proposal.groupEmoji} {proposal.groupName} · started by {proposal.proposerName}</span>
+          </div>
+          <span className="chip" style={{ background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>
+            {proposal.status}
+          </span>
+        </div>
+        <p style={{ margin: 0, color: "#475467" }}>{proposal.description || "No description added yet."}</p>
+        <div className="meta-row">
+          <span className="chip" style={{ background: "#eef8ff", color: "#155e75" }}>Top time: {topTime?.label || "No votes yet"}</span>
+          <span className="chip" style={{ background: "#fff7da", color: "#9a6700" }}>Top place: {topLocation?.label || "No votes yet"}</span>
+          <span className="chip" style={{ background: isMine ? "#eefdf5" : "#fff", color: isMine ? "#0f766e" : "#555" }}>{isMine ? "You started this" : "Crew plan"}</span>
+          <span className="chip" style={{ background: myTimeVote && myLocationVote ? "#eefdf5" : "#fff4e6", color: myTimeVote && myLocationVote ? "#0f766e" : "#9a6700" }}>
+            {myTimeVote && myLocationVote ? "Your vote is in" : "Your vote is still needed"}
+          </span>
+        </div>
+        {proposal.agenda?.length ? (
+          <div style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px dashed rgba(23,21,31,0.18)", background: "#fffdf7" }}>
+            <strong className="bangers" style={{ fontSize: 18 }}>Shared run of show</strong>
+            {proposal.agenda.map((item) => (
+              <div key={item.id} style={{ color: "#475467", fontWeight: 700 }}>
+                {item.section}{item.time ? ` · ${item.time}` : ""}: {item.title}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <div className="actions">
+          <button type="button" className="btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open in crew</button>
+          <button type="button" className="btn ghost" onClick={() => onNavigate?.("join-hangout", { code: proposal.code })}>Open invite</button>
+          {isMine ? (
+            <button type="button" className="btn ghost" onClick={() => void deleteProposal(proposal)}>Delete hangout</button>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <style>{STYLES}</style>
@@ -256,60 +335,59 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
 
               <div className="section-grid">
                 <div>
-                  <h3 className="bangers" style={{ margin: "0 0 8px", fontSize: 22 }}>Live hangouts</h3>
-                  <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>Use this page to review hangouts. Use Create Hangout when you want to post a new one.</p>
+                  <h3 className="bangers" style={{ margin: "0 0 8px", fontSize: 22 }}>Choose a hangout section</h3>
+                  <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>Use one section for voting, one for what you created, and one for everything else.</p>
                 </div>
-                {proposals.length ? proposals.map((proposal) => {
-                  const topTime = leadingChoice(proposal.timeOptions, proposal.votes?.time);
-                  const topLocation = leadingChoice(proposal.locationOptions, proposal.votes?.location);
-                  const isMine = proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName;
-                  const myTimeVote = proposal.votes?.time?.[currentUserKey];
-                  const myLocationVote = proposal.votes?.location?.[currentUserKey];
-                  return (
-                    <div key={proposal.id} className="proposal">
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                        <div>
-                          <strong className="bangers" style={{ display: "block", fontSize: 22 }}>{proposal.name}</strong>
-                          <span style={{ color: "#667085", fontWeight: 700 }}>{proposal.groupEmoji} {proposal.groupName} · started by {proposal.proposerName}</span>
-                        </div>
-                        <span className="chip" style={{ background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>
-                          {proposal.status}
-                        </span>
-                      </div>
-                      <p style={{ margin: 0, color: "#475467" }}>{proposal.description || "No description added yet."}</p>
-                      <div className="meta-row">
-                        <span className="chip" style={{ background: "#eef8ff", color: "#155e75" }}>Top time: {topTime?.label || "No votes yet"}</span>
-                        <span className="chip" style={{ background: "#fff7da", color: "#9a6700" }}>Top place: {topLocation?.label || "No votes yet"}</span>
-                        <span className="chip" style={{ background: isMine ? "#eefdf5" : "#fff", color: isMine ? "#0f766e" : "#555" }}>{isMine ? "You started this" : "Crew plan"}</span>
-                        <span className="chip" style={{ background: myTimeVote && myLocationVote ? "#eefdf5" : "#fff4e6", color: myTimeVote && myLocationVote ? "#0f766e" : "#9a6700" }}>
-                          {myTimeVote && myLocationVote ? "Your vote is in" : "Your vote is still needed"}
-                        </span>
-                      </div>
-                      {proposal.agenda?.length ? (
-                        <div style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px dashed rgba(23,21,31,0.18)", background: "#fffdf7" }}>
-                          <strong className="bangers" style={{ fontSize: 18 }}>Shared run of show</strong>
-                          {proposal.agenda.map((item) => (
-                            <div key={item.id} style={{ color: "#475467", fontWeight: 700 }}>
-                              {item.section}{item.time ? ` · ${item.time}` : ""}: {item.title}
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                      <div className="actions">
-                        <button type="button" className="btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open in crew</button>
-                        <button type="button" className="btn ghost" onClick={() => onNavigate?.("join-hangout", { code: proposal.code })}>Open invite</button>
-                        {isMine ? (
-                          <button type="button" className="btn ghost" onClick={() => void deleteProposal(proposal)}>Delete hangout</button>
-                        ) : null}
-                      </div>
+                <div className="section-switcher">
+                  <button type="button" className={`section-chip ${activeSection === "voting" ? "active" : ""}`} onClick={() => setActiveSection("voting")}>Vote On Hangouts</button>
+                  <button type="button" className={`section-chip ${activeSection === "created" ? "active" : ""}`} onClick={() => setActiveSection("created")}>Your Hangouts</button>
+                  <button type="button" className={`section-chip ${activeSection === "all" ? "active" : ""}`} onClick={() => setActiveSection("all")}>See All Hangouts</button>
+                </div>
+
+                {activeSection === "voting" ? (
+                  <>
+                    <div>
+                      <h3 className="bangers" style={{ margin: "0 0 8px", fontSize: 22 }}>Vote on hangouts</h3>
+                      <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>These are the open hangouts that still need your vote.</p>
                     </div>
-                  );
-                }) : (
-                  <div className="proposal">
-                    <strong>No hangouts yet.</strong>
-                    <p style={{ margin: 0, color: "#667085" }}>Create one from the new Create Hangout section when you are ready to start planning.</p>
-                  </div>
-                )}
+                    {votingProposals.length ? votingProposals.map(renderProposalCard) : (
+                      <div className="proposal">
+                        <strong>No hangouts need your vote right now.</strong>
+                        <p style={{ margin: 0, color: "#667085" }}>When a crew hangout is still open and your vote is missing, it will show here.</p>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+
+                {activeSection === "created" ? (
+                  <>
+                    <div>
+                      <h3 className="bangers" style={{ margin: "0 0 8px", fontSize: 22 }}>Your created hangouts</h3>
+                      <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>Anything you started should show here first.</p>
+                    </div>
+                    {myProposals.length ? myProposals.map(renderProposalCard) : (
+                      <div className="proposal">
+                        <strong>You have not posted a hangout yet.</strong>
+                        <p style={{ margin: 0, color: "#667085" }}>When you create one, it should show up here first.</p>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+
+                {activeSection === "all" ? (
+                  <>
+                    <div>
+                      <h3 className="bangers" style={{ margin: "0 0 8px", fontSize: 22 }}>See all hangouts</h3>
+                      <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>This is the full crew hangout board, including yours and everyone else’s.</p>
+                    </div>
+                    {proposals.length ? proposals.map(renderProposalCard) : (
+                      <div className="proposal">
+                        <strong>No hangouts yet.</strong>
+                        <p style={{ margin: 0, color: "#667085" }}>Create one from the Create Hangout page when you are ready to start planning.</p>
+                      </div>
+                    )}
+                  </>
+                ) : null}
               </div>
             </section>
           </div>
