@@ -151,6 +151,9 @@ function normalizeTrip(trip = {}) {
     savingsProgress: Array.isArray(trip.savingsProgress) ? trip.savingsProgress : (Array.isArray(trip.savings_progress) ? trip.savings_progress : []),
     planningChecklist: Array.isArray(trip.planningChecklist) ? trip.planningChecklist : (Array.isArray(trip.planning_checklist) ? trip.planning_checklist : []),
     itinerarySuggestions: Array.isArray(trip.itinerarySuggestions) ? trip.itinerarySuggestions : (Array.isArray(trip.itinerary_suggestions) ? trip.itinerary_suggestions : []),
+    bookingInfo: trip.bookingInfo && typeof trip.bookingInfo === "object" ? trip.bookingInfo : (trip.booking_info && typeof trip.booking_info === "object" ? trip.booking_info : {}),
+    tripPreferences: Array.isArray(trip.tripPreferences) ? trip.tripPreferences : (Array.isArray(trip.trip_preferences) ? trip.trip_preferences : []),
+    hiddenFor: Array.isArray(trip.hiddenFor) ? trip.hiddenFor : (Array.isArray(trip.hidden_for) ? trip.hidden_for : []),
   };
 }
 

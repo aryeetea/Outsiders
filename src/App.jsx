@@ -79,6 +79,7 @@ function getInitialAppData() {
 export default function App() {
   const [route, setRoute] = useState(getRouteFromLocation);
   const [appData, setAppData] = useState(getInitialAppData);
+  const [toast, setToast] = useState(null);
   const [sessionReady, setSessionReady] = useState(!isSupabaseConfigured);
   const [currentSession, setCurrentSession] = useState(null);
   const groupsHydratedRef = useRef(false);
@@ -128,8 +129,9 @@ export default function App() {
       : previousAppData.hangouts;
     const sharedTrips = !tripRowsError && Array.isArray(tripRows)
       ? tripRows.filter((trip) => (
-        String(trip.creator_id) === String(user.id)
-        || (trip.group_id && sharedGroupIds.includes(String(trip.group_id)))
+        (String(trip.creator_id) === String(user.id)
+        || (trip.group_id && sharedGroupIds.includes(String(trip.group_id))))
+        && !(Array.isArray(trip.hidden_for) && trip.hidden_for.includes(user.id))
       ))
       : previousAppData.trips;
 
@@ -159,6 +161,29 @@ export default function App() {
   useEffect(() => {
     latestAppDataRef.current = appData;
   }, [appData]);
+
+  useEffect(() => {
+    let timeoutId = null;
+    const handleToast = (event) => {
+      const nextToast = event?.detail?.message ? event.detail : null;
+      if (!nextToast) return;
+      setToast({
+        id: Date.now(),
+        message: nextToast.message,
+        tone: nextToast.tone || "success",
+      });
+      if (timeoutId) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        setToast(null);
+      }, Number(nextToast.duration) || 1100);
+    };
+
+    window.addEventListener("outsiders:toast", handleToast);
+    return () => {
+      window.removeEventListener("outsiders:toast", handleToast);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     const handleHashChange = () => setRoute(getRouteFromLocation());
@@ -391,9 +416,42 @@ export default function App() {
           from { opacity: 0; transform: translateY(16px) scale(0.98); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
+        .outsiders-toast {
+          position: fixed;
+          left: 50%;
+          bottom: 24px;
+          transform: translateX(-50%);
+          z-index: 900;
+          min-width: min(320px, calc(100vw - 32px));
+          max-width: 520px;
+          padding: 12px 18px;
+          border-radius: 18px;
+          border: 3px solid #1a1a2e;
+          box-shadow: 6px 6px 0 #1a1a2e;
+          background: #fff7de;
+          color: #1a1a2e;
+          font: 900 14px 'Nunito', sans-serif;
+          letter-spacing: 0.01em;
+          animation: toastPop 180ms ease;
+        }
+        .outsiders-toast.success {
+          background: #fff0b8;
+        }
+        .outsiders-toast.error {
+          background: #ffd8d8;
+        }
+        @keyframes toastPop {
+          from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.98); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
       `}</style>
       <Screen onNavigate={navigate} onLogout={logout} appData={appData} setAppData={setAppData} routeParams={route.params} />
       <OutsidersAssistant route={route} appData={appData} />
+      {toast ? (
+        <div className={`outsiders-toast ${toast.tone || "success"}`}>
+          {toast.message}
+        </div>
+      ) : null}
       {availabilityRequired ? (
         <div className="availability-gate">
           <div className="availability-gate-card">

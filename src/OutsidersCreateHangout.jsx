@@ -407,6 +407,10 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     manualTime: "",
     manualLocation: "",
     externalInvite: "",
+    reservationStatus: "no",
+    reservationName: "",
+    meetingPoint: "",
+    followUpNotes: "",
   });
   const [duration, setDuration] = useState("");
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -550,6 +554,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       participants: proposalParticipants,
       externalInvites,
       recommendations,
+      planningDetails: {
+        reservationStatus: form.reservationStatus,
+        reservationName: form.reservationName.trim(),
+        meetingPoint: form.meetingPoint.trim(),
+        followUpNotes: form.followUpNotes.trim(),
+      },
       finalizedChoice: null,
       ratings: [],
     };
@@ -881,7 +891,34 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                   <div className="section-divider" />
 
                   <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>6. Review Before Posting</h3>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>6. Planning Notes</h3>
+                    <div className="form-grid">
+                      <div className="field">
+                        <label>Any booking yet?</label>
+                        <select value={form.reservationStatus} onChange={(event) => setForm((prev) => ({ ...prev, reservationStatus: event.target.value }))}>
+                          <option value="no">Not yet</option>
+                          <option value="yes">Yes, reserved</option>
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label>Reservation Name</label>
+                        <input value={form.reservationName} onChange={(event) => setForm((prev) => ({ ...prev, reservationName: event.target.value }))} placeholder="Optional venue or reservation name" />
+                      </div>
+                      <div className="field full">
+                        <label>Meeting Point</label>
+                        <input value={form.meetingPoint} onChange={(event) => setForm((prev) => ({ ...prev, meetingPoint: event.target.value }))} placeholder="Where should everyone meet first?" />
+                      </div>
+                      <div className="field full">
+                        <label>Follow-up Notes</label>
+                        <textarea value={form.followUpNotes} onChange={(event) => setForm((prev) => ({ ...prev, followUpNotes: event.target.value }))} placeholder="Anything the crew should know before the day comes?" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="section-divider" />
+
+                  <div>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>7. Review Before Posting</h3>
                     <div className="summary-box">
                       <p style={{ margin: "0 0 10px", fontWeight: 700 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
                       <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(durationHours)}</p>
@@ -909,6 +946,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(createdProposal.durationHours)}</p>
                 <div className="bangers" style={{ fontSize: 42, letterSpacing: "0.18em" }}>{createdProposal.code}</div>
                 <p style={{ margin: "10px 0 0", color: "#667085" }}>{createdProposal.link}</p>
+              </div>
+              <div className="summary-box" style={{ marginTop: 14 }}>
+                <strong style={{ display: "block", marginBottom: 8 }}>What to do next</strong>
+                <p style={{ margin: "0 0 8px", color: "#667085" }}>1. Confirm the best time after voting.</p>
+                <p style={{ margin: "0 0 8px", color: "#667085" }}>2. Share the meeting point and reservation details.</p>
+                <p style={{ margin: 0, color: "#667085" }}>3. Check whether anyone else needs the invite link.</p>
               </div>
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
                 <button type="button" className="btn ghost" onClick={() => void copyTextWithAlert(createdProposal.code, "Hangout code copied.")}>Copy code</button>

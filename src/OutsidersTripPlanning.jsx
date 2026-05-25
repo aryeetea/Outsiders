@@ -377,6 +377,29 @@ const STYLES = `
     overflow-wrap: anywhere;
   }
 
+  .tag-toggle {
+    border: 3px solid #1a1a2e;
+    border-radius: 999px;
+    background: #fff;
+    color: #1a1a2e;
+    padding: 10px 14px;
+    font: 400 14px 'Bangers', cursive;
+    letter-spacing: 0.05em;
+    box-shadow: 3px 3px 0 #1a1a2e;
+    cursor: pointer;
+  }
+  .tag-toggle.active {
+    background: #ffd93d;
+  }
+  .trip-section-box {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    background: #fffdf7;
+    border: 2px dashed rgba(26, 26, 46, 0.18);
+  }
+
   .trip-card {
     background: #fff;
     border: 3px solid #1a1a2e;
@@ -634,10 +657,36 @@ function generateCode() {
 function buildDefaultChecklist() {
   return [
     { id: createId("trip-check"), label: "Confirm who is going", done: false },
-    { id: createId("trip-check"), label: "Lock the budget plan", done: false },
+    { id: createId("trip-check"), label: "Lock transport and stay details", done: false },
     { id: createId("trip-check"), label: "Pick the must-do stops", done: false },
+    { id: createId("trip-check"), label: "Double-check arrival and check-in timing", done: false },
     { id: createId("trip-check"), label: "Double-check packing", done: false },
   ];
+}
+
+const TRIP_INTEREST_OPTIONS = [
+  "Food",
+  "History",
+  "Nature",
+  "Shopping",
+  "Nightlife",
+  "Faith",
+  "Museums",
+  "Relaxing",
+];
+
+function getDefaultBookingInfo() {
+  return {
+    hasBookingInfo: "no",
+    arrivalDate: "",
+    arrivalTime: "",
+    departureTime: "",
+    arrivalCity: "",
+    layoverCity: "",
+    stayName: "",
+    stayArea: "",
+    notes: "",
+  };
 }
 
 function buildSavingsProgress(members = [], profile = {}, currentUserId = null) {
@@ -673,6 +722,9 @@ async function requestTripItinerarySuggestions(trip) {
         endDate: trip.endDate,
         budget: trip.budget,
         days: trip.itinerary?.length || 0,
+        bookingInfo: trip.bookingInfo || {},
+        tripPreferences: trip.tripPreferences || [],
+        members: trip.members || [],
       },
     }),
   });
@@ -694,7 +746,16 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newActivity, setNewActivity] = useState({ day: 1, time: "", name: "" });
   const [newPackItem, setNewPackItem] = useState("");
-  const [newTripForm, setNewTripForm] = useState({ name: "", destination: "", startDate: "", endDate: "", budget: "", groupId: "" });
+  const [newTripForm, setNewTripForm] = useState({
+    name: "",
+    destination: "",
+    startDate: "",
+    endDate: "",
+    budget: "",
+    groupId: "",
+    tripPreferences: [],
+    bookingInfo: getDefaultBookingInfo(),
+  });
   const [formError, setFormError] = useState("");
   const [aiError, setAiError] = useState("");
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
@@ -750,6 +811,16 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   const tripComHotelsLink = selectedTrip ? buildTripComHotelsLink(selectedTrip.destination) : "";
   const tripComFlightsLink = buildTripComFlightsLink();
   const tripComPackagesLink = buildTripComPackagesLink();
+  const bookingInfo = selectedTrip?.bookingInfo || {};
+
+  const togglePreference = (preference) => {
+    setNewTripForm((prev) => ({
+      ...prev,
+      tripPreferences: prev.tripPreferences.includes(preference)
+        ? prev.tripPreferences.filter((item) => item !== preference)
+        : [...prev.tripPreferences, preference],
+    }));
+  };
 
   const updateTrip = async (updatedTrip) => {
     if (isSupabaseConfigured && currentUserId && updatedTrip?.id && !String(updatedTrip.id).startsWith("trip-")) {
@@ -772,6 +843,9 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           savings_progress: updatedTrip.savingsProgress || [],
           planning_checklist: updatedTrip.planningChecklist || [],
           itinerary_suggestions: updatedTrip.itinerarySuggestions || [],
+          booking_info: updatedTrip.bookingInfo || {},
+          trip_preferences: updatedTrip.tripPreferences || [],
+          hidden_for: updatedTrip.hiddenFor || [],
         })
         .eq("id", updatedTrip.id);
       if (error) return;
@@ -957,16 +1031,44 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
 
   const deleteTrip = async () => {
     if (!selectedTrip) return;
-    const confirmed = window.confirm(`Delete ${selectedTrip.name}? This removes its itinerary and packing list.`);
-    if (!confirmed) return;
-    if (isSupabaseConfigured && currentUserId && selectedTrip?.id && !String(selectedTrip.id).startsWith("trip-")) {
-      const { error } = await supabase.from("trips").delete().eq("id", selectedTrip.id);
-      if (error) return;
+    const isCreator = currentUserId && String(selectedTrip.creatorId || "") === String(currentUserId);
+    const isSharedTrip = Boolean(selectedTrip.groupId);
+
+    if (isCreator && isSharedTrip) {
+      const choice = window.prompt(
+        `Type "me" to remove ${selectedTrip.name} only for yourself, or type "team" to delete it for everyone.`
+      );
+      if (!choice) return;
+
+      if (choice.trim().toLowerCase() === "team") {
+        const confirmed = window.confirm(`Delete ${selectedTrip.name} for the whole team?`);
+        if (!confirmed) return;
+        if (isSupabaseConfigured && currentUserId && selectedTrip?.id && !String(selectedTrip.id).startsWith("trip-")) {
+          const { error } = await supabase.from("trips").delete().eq("id", selectedTrip.id);
+          if (error) return;
+        }
+        persistTrips((previousTrips) => previousTrips.filter((trip) => trip.id !== selectedTrip.id), null);
+      } else if (choice.trim().toLowerCase() === "me") {
+        const nextHiddenFor = Array.from(new Set([...(selectedTrip.hiddenFor || []), currentUserId]));
+        const updatedTrip = { ...selectedTrip, hiddenFor: nextHiddenFor };
+        await updateTrip(updatedTrip);
+        persistTrips((previousTrips) => previousTrips.filter((trip) => trip.id !== selectedTrip.id), null);
+      }
+    } else {
+      const confirmed = window.confirm(`Remove ${selectedTrip.name} from your trip list?`);
+      if (!confirmed) return;
+      if (isCreator && !isSharedTrip) {
+        if (isSupabaseConfigured && currentUserId && selectedTrip?.id && !String(selectedTrip.id).startsWith("trip-")) {
+          const { error } = await supabase.from("trips").delete().eq("id", selectedTrip.id);
+          if (error) return;
+        }
+      } else {
+        const nextHiddenFor = Array.from(new Set([...(selectedTrip.hiddenFor || []), currentUserId]));
+        const updatedTrip = { ...selectedTrip, hiddenFor: nextHiddenFor };
+        await updateTrip(updatedTrip);
+      }
+      persistTrips((previousTrips) => previousTrips.filter((trip) => trip.id !== selectedTrip.id), null);
     }
-    persistTrips(
-      (previousTrips) => previousTrips.filter((trip) => trip.id !== selectedTrip.id),
-      null
-    );
     setActiveTab("Overview");
   };
 
@@ -1017,6 +1119,12 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       ),
       planningChecklist: buildDefaultChecklist(),
       itinerarySuggestions: [],
+      bookingInfo: {
+        ...getDefaultBookingInfo(),
+        ...(newTripForm.bookingInfo || {}),
+      },
+      tripPreferences: newTripForm.tripPreferences || [],
+      hiddenFor: [],
     };
     let savedTrip = newTrip;
     if (isSupabaseConfigured && currentUserId) {
@@ -1041,6 +1149,9 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           savings_progress: newTrip.savingsProgress,
           planning_checklist: newTrip.planningChecklist,
           itinerary_suggestions: [],
+          booking_info: newTrip.bookingInfo,
+          trip_preferences: newTrip.tripPreferences,
+          hidden_for: [],
         })
         .select("*")
         .single();
@@ -1057,6 +1168,9 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           savingsProgress: data.savings_progress || newTrip.savingsProgress,
           planningChecklist: data.planning_checklist || newTrip.planningChecklist,
           itinerarySuggestions: data.itinerary_suggestions || [],
+          bookingInfo: data.booking_info || newTrip.bookingInfo,
+          tripPreferences: data.trip_preferences || newTrip.tripPreferences,
+          hiddenFor: data.hidden_for || [],
         };
       }
 
@@ -1118,7 +1232,16 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
     }
     persistTrips((previousTrips) => [...previousTrips, savedTrip], savedTrip.id);
     setShowCreateModal(false);
-    setNewTripForm({ name: "", destination: "", startDate: "", endDate: "", budget: "", groupId: "" });
+    setNewTripForm({
+      name: "",
+      destination: "",
+      startDate: "",
+      endDate: "",
+      budget: "",
+      groupId: "",
+      tripPreferences: [],
+      bookingInfo: getDefaultBookingInfo(),
+    });
     setFormError("");
     setActiveTab("Overview");
   };
@@ -1366,6 +1489,26 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                           Target per traveler: ${personalSavingsTarget}
                         </p>
                       </div>
+                      <div className="section-divider" />
+                      <div style={{ display: "grid", gap: 12 }}>
+                        <div className="section-header">
+                          <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Booking details</h3>
+                          <span className="badge" style={{ background: "#e8f4fd", color: "#155eef", borderColor: "#155eef" }}>
+                            {bookingInfo.hasBookingInfo === "yes" ? "Saved" : "Planning"}
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
+                          {bookingInfo.hasBookingInfo === "yes"
+                            ? "Your itinerary can use your arrival, stay, and layover details."
+                            : "If you add booking details later, regenerate the itinerary to make it more exact."}
+                        </p>
+                        <div style={{ display: "grid", gap: 8 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Arrival city: {bookingInfo.arrivalCity || "Not added yet"}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Arrival time: {bookingInfo.arrivalDate || bookingInfo.arrivalTime ? `${bookingInfo.arrivalDate || "Date TBD"} ${bookingInfo.arrivalTime || ""}`.trim() : "Not added yet"}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Stay: {bookingInfo.stayName || bookingInfo.stayArea || "Not added yet"}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Interests: {(selectedTrip.tripPreferences || []).length ? selectedTrip.tripPreferences.join(", ") : "Pick interests in the trip setup modal for more tailored itinerary ideas."}</div>
+                        </div>
+                      </div>
                       <div className="section-header">
                         <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Trip checklist</h3>
                         <span className="badge" style={{ background: "#eefdf5", color: "#0f766e", borderColor: "#0f766e" }}>
@@ -1383,6 +1526,13 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                             </span>
                           </div>
                         ))}
+                      </div>
+                      <div className="section-divider" />
+                      <div style={{ display: "grid", gap: 10 }}>
+                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>What to do next</h3>
+                        <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
+                          1. Save your booking details if you have them. 2. Pick your interests. 3. Tap the AI itinerary button. 4. Keep the plans you like and check them off during the trip.
+                        </p>
                       </div>
                     </div>
                   )}
@@ -1536,34 +1686,112 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                 <p style={{ fontSize: 14, color: "#888", fontWeight: 700, margin: 0 }}>Where is the crew headed?</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div>
-                  <label className="form-label">Crew</label>
-                  <select className="form-input" value={newTripForm.groupId} onChange={e => setNewTripForm(p => ({ ...p, groupId: e.target.value }))} style={{ padding: "10px 12px" }}>
-                    <option value="">Just me for now</option>
-                    {groups.map((group) => <option key={group.id} value={group.id}>{group.emoji} {group.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Trip Name *</label>
-                  <input className="form-input" type="text" placeholder="e.g. Miami Beach Trip" value={newTripForm.name} onChange={e => setNewTripForm(p => ({ ...p, name: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="form-label">Destination *</label>
-                  <input className="form-input" type="text" placeholder="e.g. Miami, Florida" value={newTripForm.destination} onChange={e => setNewTripForm(p => ({ ...p, destination: e.target.value }))} />
-                </div>
-                <div className="trip-modal-grid" style={{ display: "grid", gap: 14 }}>
+                <div className="trip-section-box">
+                  <label className="form-label">1. Trip basics</label>
                   <div>
-                    <label className="form-label">Start Date *</label>
-                    <input className="form-input" type="date" value={newTripForm.startDate} onChange={e => setNewTripForm(p => ({ ...p, startDate: e.target.value }))} />
+                    <label className="form-label">Crew</label>
+                    <select className="form-input" value={newTripForm.groupId} onChange={e => setNewTripForm(p => ({ ...p, groupId: e.target.value }))} style={{ padding: "10px 12px" }}>
+                      <option value="">Just me for now</option>
+                      {groups.map((group) => <option key={group.id} value={group.id}>{group.emoji} {group.name}</option>)}
+                    </select>
                   </div>
                   <div>
-                    <label className="form-label">End Date *</label>
-                    <input className="form-input" type="date" value={newTripForm.endDate} onChange={e => setNewTripForm(p => ({ ...p, endDate: e.target.value }))} />
+                    <label className="form-label">Trip Name *</label>
+                    <input className="form-input" type="text" placeholder="e.g. Guangzhou Food Trip" value={newTripForm.name} onChange={e => setNewTripForm(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="form-label">Destination *</label>
+                    <input className="form-input" type="text" placeholder="e.g. Guangzhou, Guangdong, China" value={newTripForm.destination} onChange={e => setNewTripForm(p => ({ ...p, destination: e.target.value }))} />
+                  </div>
+                  <div className="trip-modal-grid" style={{ display: "grid", gap: 14 }}>
+                    <div>
+                      <label className="form-label">Start Date *</label>
+                      <input className="form-input" type="date" value={newTripForm.startDate} onChange={e => setNewTripForm(p => ({ ...p, startDate: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="form-label">End Date *</label>
+                      <input className="form-input" type="date" value={newTripForm.endDate} onChange={e => setNewTripForm(p => ({ ...p, endDate: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="form-label">Total Budget ($)</label>
+                    <input className="form-input" type="number" placeholder="e.g. 1500" value={newTripForm.budget} onChange={e => setNewTripForm(p => ({ ...p, budget: e.target.value }))} />
                   </div>
                 </div>
-                <div>
-                  <label className="form-label">Total Budget ($)</label>
-                  <input className="form-input" type="number" placeholder="e.g. 1500" value={newTripForm.budget} onChange={e => setNewTripForm(p => ({ ...p, budget: e.target.value }))} />
+                <div className="trip-section-box">
+                  <label className="form-label">2. What kind of trip is this?</label>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {TRIP_INTEREST_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`tag-toggle ${newTripForm.tripPreferences.includes(option) ? "active" : ""}`}
+                        onClick={() => togglePreference(option)}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                  <p style={{ margin: 0, color: "#777", fontSize: 13, fontWeight: 700 }}>
+                    Pick a few interests so the itinerary suggestions feel more like your actual trip.
+                  </p>
+                </div>
+                <div className="trip-section-box">
+                  <label className="form-label">3. Do you already have booking info?</label>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {["yes", "no"].map((choice) => (
+                      <button
+                        key={choice}
+                        type="button"
+                        className={`tag-toggle ${newTripForm.bookingInfo.hasBookingInfo === choice ? "active" : ""}`}
+                        onClick={() => setNewTripForm((prev) => ({
+                          ...prev,
+                          bookingInfo: {
+                            ...prev.bookingInfo,
+                            hasBookingInfo: choice,
+                          },
+                        }))}
+                      >
+                        {choice === "yes" ? "Yes, we do" : "Not yet"}
+                      </button>
+                    ))}
+                  </div>
+                  {newTripForm.bookingInfo.hasBookingInfo === "yes" ? (
+                    <div className="trip-modal-grid" style={{ display: "grid", gap: 14 }}>
+                      <div>
+                        <label className="form-label">Arrival Date</label>
+                        <input className="form-input" type="date" value={newTripForm.bookingInfo.arrivalDate} onChange={e => setNewTripForm(p => ({ ...p, bookingInfo: { ...p.bookingInfo, arrivalDate: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label className="form-label">Arrival Time</label>
+                        <input className="form-input" type="time" value={newTripForm.bookingInfo.arrivalTime} onChange={e => setNewTripForm(p => ({ ...p, bookingInfo: { ...p.bookingInfo, arrivalTime: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label className="form-label">Arrival City / Airport</label>
+                        <input className="form-input" type="text" placeholder="e.g. Shanghai Pudong" value={newTripForm.bookingInfo.arrivalCity} onChange={e => setNewTripForm(p => ({ ...p, bookingInfo: { ...p.bookingInfo, arrivalCity: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label className="form-label">Layover City</label>
+                        <input className="form-input" type="text" placeholder="Optional" value={newTripForm.bookingInfo.layoverCity} onChange={e => setNewTripForm(p => ({ ...p, bookingInfo: { ...p.bookingInfo, layoverCity: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label className="form-label">Stay Name</label>
+                        <input className="form-input" type="text" placeholder="e.g. The Garden Hotel" value={newTripForm.bookingInfo.stayName} onChange={e => setNewTripForm(p => ({ ...p, bookingInfo: { ...p.bookingInfo, stayName: e.target.value } }))} />
+                      </div>
+                      <div>
+                        <label className="form-label">Stay Area</label>
+                        <input className="form-input" type="text" placeholder="e.g. Yuexiu District" value={newTripForm.bookingInfo.stayArea} onChange={e => setNewTripForm(p => ({ ...p, bookingInfo: { ...p.bookingInfo, stayArea: e.target.value } }))} />
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label className="form-label">Booking Notes</label>
+                        <input className="form-input" type="text" placeholder="Late check-in, train arrival, anything important..." value={newTripForm.bookingInfo.notes} onChange={e => setNewTripForm(p => ({ ...p, bookingInfo: { ...p.bookingInfo, notes: e.target.value } }))} />
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={{ margin: 0, color: "#777", fontSize: 13, fontWeight: 700 }}>
+                      No problem. You can still create the trip now and add the booking details later before generating the itinerary again.
+                    </p>
+                  )}
                 </div>
                 {formError && <p style={{ fontFamily: "'Bangers', cursive", fontSize: 15, color: "#ff6b6b", margin: 0, letterSpacing: "0.04em" }}>{formError}</p>}
                 <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px", marginTop: 4 }} onClick={createTrip}>

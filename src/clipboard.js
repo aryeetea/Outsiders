@@ -22,10 +22,22 @@ export async function copyTextWithAlert(text, successMessage = "Copied to clipbo
       }
     }
 
-    window.alert(successMessage);
+    window.dispatchEvent(new CustomEvent("outsiders:toast", {
+      detail: {
+        message: successMessage,
+        tone: "success",
+        duration: 1100,
+      },
+    }));
     return true;
   } catch (error) {
-    window.alert(error?.message || "We could not copy that just yet.");
+    window.dispatchEvent(new CustomEvent("outsiders:toast", {
+      detail: {
+        message: error?.message || "We could not copy that just yet.",
+        tone: "error",
+        duration: 1500,
+      },
+    }));
     return false;
   }
 }

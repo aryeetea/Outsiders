@@ -446,6 +446,9 @@ create table if not exists public.trips (
   packing_list jsonb not null default '[]'::jsonb,
   savings_progress jsonb not null default '[]'::jsonb,
   planning_checklist jsonb not null default '[]'::jsonb,
+  booking_info jsonb not null default '{}'::jsonb,
+  trip_preferences jsonb not null default '[]'::jsonb,
+  hidden_for jsonb not null default '[]'::jsonb,
   ratings jsonb not null default '[]'::jsonb,
   creator_id uuid not null references auth.users(id) on delete cascade,
   group_id uuid references public.groups(id) on delete set null,
@@ -469,6 +472,9 @@ alter table public.trips
   add column if not exists packing_list jsonb not null default '[]'::jsonb,
   add column if not exists savings_progress jsonb not null default '[]'::jsonb,
   add column if not exists planning_checklist jsonb not null default '[]'::jsonb,
+  add column if not exists booking_info jsonb not null default '{}'::jsonb,
+  add column if not exists trip_preferences jsonb not null default '[]'::jsonb,
+  add column if not exists hidden_for jsonb not null default '[]'::jsonb,
   add column if not exists ratings jsonb not null default '[]'::jsonb,
   add column if not exists creator_id uuid references auth.users(id) on delete cascade,
   add column if not exists group_id uuid references public.groups(id) on delete set null,
@@ -507,6 +513,18 @@ where savings_progress is null;
 update public.trips
 set planning_checklist = '[]'::jsonb
 where planning_checklist is null;
+
+update public.trips
+set booking_info = '{}'::jsonb
+where booking_info is null;
+
+update public.trips
+set trip_preferences = '[]'::jsonb
+where trip_preferences is null;
+
+update public.trips
+set hidden_for = '[]'::jsonb
+where hidden_for is null;
 
 drop trigger if exists set_trips_updated_at on public.trips;
 create trigger set_trips_updated_at
