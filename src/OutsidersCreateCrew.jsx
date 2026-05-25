@@ -141,6 +141,10 @@ function normalizeSupabaseGroup(group = {}) {
     name: group.name || "Untitled Crew",
     emoji: group.emoji || "👥",
     code: group.code || "",
+    owner_id: group.owner_id || group.ownerId || null,
+    ownerId: group.ownerId || group.owner_id || null,
+    owner_username: group.owner_username || group.ownerUsername || "",
+    ownerUsername: group.ownerUsername || group.owner_username || "",
     members: Array.isArray(group.members) ? group.members : [],
     pending: Array.isArray(group.pending) ? group.pending : [],
     cases: Array.isArray(group.cases) ? group.cases : [],
@@ -181,12 +185,23 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
       return;
     }
 
+    let resolvedUserId = currentUserId;
+    if (isSupabaseConfigured && !resolvedUserId) {
+      const { data } = await supabase.auth.getUser();
+      resolvedUserId = data.user?.id || null;
+      if (resolvedUserId) setCurrentUserId(resolvedUserId);
+    }
+
     const nextGroup = {
       id: `group-${Date.now()}`,
       name: newGroupName.trim(),
       emoji: newGroupEmoji,
       code: generateCode(),
-      members: [buildMember(profile, currentName, "Admin", currentUserId, appData?.avatar)],
+      owner_id: resolvedUserId,
+      ownerId: resolvedUserId,
+      owner_username: profile.username || "",
+      ownerUsername: profile.username || "",
+      members: [buildMember(profile, currentName, "Admin", resolvedUserId, appData?.avatar)],
       pending: [],
       cases: [],
       hangoutProposals: [],
@@ -195,14 +210,14 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
     };
 
     let savedGroup = nextGroup;
-    if (isSupabaseConfigured && currentUserId) {
+    if (isSupabaseConfigured && resolvedUserId) {
       const { data, error } = await supabase
         .from("groups")
         .insert({
           name: nextGroup.name,
           emoji: nextGroup.emoji,
           code: nextGroup.code,
-          owner_id: currentUserId,
+          owner_id: resolvedUserId,
           owner_username: profile.username || "",
           members: nextGroup.members,
           pending: [],
