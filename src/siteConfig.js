@@ -1,4 +1,5 @@
 const DEFAULT_SITE_URL = "https://outsiders-alpha.vercel.app";
+const DEFAULT_TRIP_COM_URL = "https://us.trip.com";
 
 export function getSiteUrl() {
   const configured = import.meta.env.VITE_SITE_URL?.trim();
@@ -20,6 +21,22 @@ export function buildTripInviteLink(codeOrParams) {
     : codeOrParams;
   const safeCode = encodeURIComponent(String(inviteCode || "").trim().toUpperCase());
   return `${getSiteUrl()}/#/trip-planning${safeCode ? `?tripCode=${safeCode}` : ""}`;
+}
+
+export function buildTripComHotelsLink(destination) {
+  const params = new URLSearchParams();
+  if (destination) params.set("searchWord", String(destination).trim());
+  params.set("locale", "en-US");
+  params.set("curr", "USD");
+  return `${DEFAULT_TRIP_COM_URL}/hotels/${params.size ? `?${params.toString()}` : ""}`;
+}
+
+export function buildTripComFlightsLink() {
+  return `${DEFAULT_TRIP_COM_URL}/flights/?curr=USD&locale=en-US`;
+}
+
+export function buildTripComPackagesLink() {
+  return `${DEFAULT_TRIP_COM_URL}/packages//`;
 }
 
 export function buildGroupInviteLink(codeOrParams, inviteParams = {}) {

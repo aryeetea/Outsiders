@@ -3,7 +3,7 @@ import { createId, getDisplayName, getVisibleGroupsForProfile } from "./appState
 import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { buildTripInviteLink } from "./siteConfig";
+import { buildTripComFlightsLink, buildTripComHotelsLink, buildTripComPackagesLink, buildTripInviteLink } from "./siteConfig";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
@@ -737,14 +737,19 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
     ? groups.find((group) => String(group.id) === String(selectedTrip.groupId)) || null
     : null;
   const tripInviteLink = selectedTrip?.inviteCode ? buildTripInviteLink(selectedTrip.inviteCode) : "";
-  const savingsTotal = (selectedTrip?.savingsProgress || []).reduce((sum, entry) => sum + (Number(entry.saved) || 0), 0);
-  const remainingToSave = selectedTrip ? Math.max((Number(selectedTrip.budget) || 0) - savingsTotal, 0) : 0;
-  const savingsPct = selectedTrip?.budget ? Math.min(Math.round((savingsTotal / selectedTrip.budget) * 100), 100) : 0;
   const editableSavingsEntry = (selectedTrip?.savingsProgress || []).find((entry) => (
     (entry.userId && currentUserId && String(entry.userId) === String(currentUserId))
     || (entry.username && currentUsername && String(entry.username).toLowerCase() === currentUsername)
     || String(entry.name || "").trim().toLowerCase() === currentUserDisplayName.trim().toLowerCase()
   )) || null;
+  const travelerCount = Math.max(selectedTrip?.members?.length || 0, 1);
+  const personalSavingsTarget = selectedTrip?.budget ? Math.round(((Number(selectedTrip.budget) || 0) / travelerCount) * 100) / 100 : 0;
+  const personalSavings = Number(editableSavingsEntry?.saved) || 0;
+  const remainingToSave = selectedTrip ? Math.max(personalSavingsTarget - personalSavings, 0) : 0;
+  const savingsPct = personalSavingsTarget ? Math.min(Math.round((personalSavings / personalSavingsTarget) * 100), 100) : 0;
+  const tripComHotelsLink = selectedTrip ? buildTripComHotelsLink(selectedTrip.destination) : "";
+  const tripComFlightsLink = buildTripComFlightsLink();
+  const tripComPackagesLink = buildTripComPackagesLink();
 
   const updateTrip = async (updatedTrip) => {
     if (isSupabaseConfigured && currentUserId && updatedTrip?.id && !String(updatedTrip.id).startsWith("trip-")) {
@@ -860,16 +865,28 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const updateMySavings = (value) => {
-    if (!selectedTrip || !editableSavingsEntry) return;
-    const nextSavings = (selectedTrip.savingsProgress || []).map((entry) => (
-      entry.id === editableSavingsEntry.id
-        ? { ...entry, saved: Math.max(Number(value) || 0, 0) }
-        : entry
-    ));
+    if (!selectedTrip) return;
+    const nextAmount = Math.max(Number(value) || 0, 0);
+    const updatedSavings = editableSavingsEntry
+      ? (selectedTrip.savingsProgress || []).map((entry) => (
+        entry.id === editableSavingsEntry.id
+          ? { ...entry, saved: nextAmount }
+          : entry
+      ))
+      : [
+        ...(selectedTrip.savingsProgress || []),
+        {
+          id: createId("saving"),
+          userId: currentUserId || null,
+          username: currentUsername,
+          name: currentUserDisplayName,
+          saved: nextAmount,
+        },
+      ];
     const updated = {
       ...selectedTrip,
-      savingsProgress: nextSavings,
-      spent: nextSavings.reduce((sum, entry) => sum + (Number(entry.saved) || 0), 0),
+      savingsProgress: updatedSavings,
+      spent: nextAmount,
     };
     void updateTrip(updated);
   };
@@ -1108,7 +1125,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
 
   const packedCount = selectedTrip?.packingList.filter(p => p.packed).length || 0;
   const totalPack = selectedTrip?.packingList.length || 0;
-  const budgetPct = selectedTrip?.budget ? savingsPct : 0;
+  const budgetPct = personalSavingsTarget ? savingsPct : 0;
   const budgetColor = budgetPct >= 100 ? "#51cf66" : budgetPct > 65 ? "#4ecdc4" : "#ff9a3c";
   const profileName = appData?.profile?.name || appData?.profile?.username || "You";
 
@@ -1249,14 +1266,14 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                     {selectedTrip.budget > 0 && (
                       <div style={{ marginTop: 16 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span className="bangers" style={{ fontSize: 14, color: "#1a1a2e" }}>💸 Savings progress</span>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: budgetColor }}>${savingsTotal} saved / ${selectedTrip.budget} goal</span>
+                          <span className="bangers" style={{ fontSize: 14, color: "#1a1a2e" }}>💸 Your savings progress</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: budgetColor }}>${personalSavings} saved / ${personalSavingsTarget} target</span>
                         </div>
                         <div className="budget-bar">
                           <div className="budget-fill" style={{ width: `${budgetPct}%`, background: budgetColor }} />
                         </div>
                         <p style={{ margin: "10px 0 0", fontSize: 12, fontWeight: 800, color: "#666" }}>
-                          ${remainingToSave} left to save for this trip.
+                          ${remainingToSave} left for your share of this trip.
                         </p>
                       </div>
                     )}
@@ -1281,6 +1298,22 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                         <div className="invite-value">{tripInviteLink}</div>
                       </div>
                     </div>
+
+                    <div style={{ marginTop: 16, display: "grid", gap: 10, background: "rgba(255,255,255,0.72)", border: "2px dashed rgba(26,26,46,0.22)", borderRadius: 16, padding: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                        <div>
+                          <p className="bangers" style={{ fontSize: 16, margin: 0, color: "#1a1a2e" }}>Search or book on Trip.com</p>
+                          <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 800, color: "#666" }}>
+                            Search stays, flights, or packages using this trip as your starting point.
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <a className="btn-secondary" href={tripComHotelsLink} target="_blank" rel="noreferrer">Search hotels</a>
+                          <a className="btn-secondary" href={tripComFlightsLink} target="_blank" rel="noreferrer">Search flights</a>
+                          <a className="btn-secondary" href={tripComPackagesLink} target="_blank" rel="noreferrer">Book package</a>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Tabs */}
@@ -1292,64 +1325,47 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
 
                   {/* Overview */}
                   {activeTab === "Overview" && (
-                    <div className="trip-overview-grid" style={{ display: "grid", gap: 16 }}>
-                      {[
-                        { label: "Days", value: getDays(selectedTrip.startDate, selectedTrip.endDate), emoji: "🌙", color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
-                        { label: "Going", value: selectedTrip.members.length, emoji: "👥", color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
-                        { label: "Left To Save", value: `$${remainingToSave}`, emoji: "💸", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
-                        { label: "Packed", value: `${packedCount}/${totalPack}`, emoji: "🎒", color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
-                      ].map(s => (
-                        <div key={s.label} style={{ background: s.bg, border: `3px solid ${s.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: `4px 4px 0 ${s.border}` }}>
-                          <p style={{ fontSize: 13, fontWeight: 800, color: "#888", margin: "0 0 6px" }}>{s.emoji} {s.label}</p>
-                          <p className="bangers" style={{ fontSize: 32, margin: 0, color: s.color }}>{s.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                    <div className="card" style={{ display: "grid", gap: 20 }}>
+                      <div className="trip-overview-grid" style={{ display: "grid", gap: 16 }}>
+                        {[
+                          { label: "Days", value: getDays(selectedTrip.startDate, selectedTrip.endDate), emoji: "🌙", color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
+                          { label: "Going", value: selectedTrip.members.length, emoji: "👥", color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
+                          { label: "Your Target Left", value: `$${remainingToSave}`, emoji: "💸", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
+                          { label: "Packed", value: `${packedCount}/${totalPack}`, emoji: "🎒", color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
+                        ].map(s => (
+                          <div key={s.label} style={{ background: s.bg, border: `3px solid ${s.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: `4px 4px 0 ${s.border}` }}>
+                            <p style={{ fontSize: 13, fontWeight: 800, color: "#888", margin: "0 0 6px" }}>{s.emoji} {s.label}</p>
+                            <p className="bangers" style={{ fontSize: 32, margin: 0, color: s.color }}>{s.value}</p>
+                          </div>
+                        ))}
+                      </div>
 
-                  {activeTab === "Overview" && (
-                    <div className="card" style={{ marginTop: 16 }}>
                       <div className="section-header">
-                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Money tracker</h3>
+                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Personal savings</h3>
                         <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>
-                          ${savingsTotal} saved
+                          ${personalSavings} saved
                         </span>
                       </div>
                       <p style={{ margin: "0 0 14px", color: "#666", fontWeight: 800 }}>
-                        Everyone can update what they have saved so the crew sees how close the trip is to fully funded.
+                        This is your own savings tracker for this trip. Other people manage their savings from their own account.
                       </p>
-                      <div style={{ display: "grid", gap: 12 }}>
-                        {(selectedTrip.savingsProgress || []).map((entry) => {
-                          const isMe = editableSavingsEntry?.id === entry.id;
-                          return (
-                            <div key={entry.id} style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                                <strong>{entry.name}</strong>
-                                <span style={{ fontWeight: 900, color: "#666" }}>${Number(entry.saved) || 0} saved</span>
-                              </div>
-                              {isMe ? (
-                                <input
-                                  className="form-input"
-                                  type="number"
-                                  min="0"
-                                  value={Number(entry.saved) || 0}
-                                  onChange={(event) => updateMySavings(event.target.value)}
-                                  placeholder="How much have you saved?"
-                                />
-                              ) : (
-                                <div style={{ fontSize: 13, fontWeight: 700, color: "#888" }}>
-                                  This updates from {entry.name}&apos;s account.
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                      <div style={{ display: "grid", gap: 12, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                          <strong>{currentUserDisplayName}</strong>
+                          <span style={{ fontWeight: 900, color: "#666" }}>${personalSavings} saved</span>
+                        </div>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="0"
+                          value={personalSavings}
+                          onChange={(event) => updateMySavings(event.target.value)}
+                          placeholder="How much have you saved?"
+                        />
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#888" }}>
+                          Target per traveler: ${personalSavingsTarget}
+                        </p>
                       </div>
-                    </div>
-                  )}
-
-                  {activeTab === "Overview" && (
-                    <div className="card" style={{ marginTop: 16 }}>
                       <div className="section-header">
                         <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Trip checklist</h3>
                         <span className="badge" style={{ background: "#eefdf5", color: "#0f766e", borderColor: "#0f766e" }}>

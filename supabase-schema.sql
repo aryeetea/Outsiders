@@ -29,6 +29,18 @@ alter table public.profiles
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 
+update public.profiles
+set
+  full_name = coalesce(nullif(full_name, ''), split_part(email, '@', 1), 'User'),
+  username = coalesce(nullif(username, ''), split_part(email, '@', 1), 'user-' || substring(replace(id::text, '-', '') from 1 for 8)),
+  email = coalesce(nullif(email, ''), 'missing-email-' || substring(replace(id::text, '-', '') from 1 for 8) || '@example.com')
+where full_name is null
+   or full_name = ''
+   or username is null
+   or username = ''
+   or email is null
+   or email = '';
+
 alter table public.profiles
   alter column full_name set not null,
   alter column username set not null,
@@ -137,6 +149,7 @@ create table if not exists public.groups (
 );
 
 alter table public.groups
+  add column if not exists name text,
   add column if not exists emoji text not null default '👥',
   add column if not exists code text,
   add column if not exists owner_id uuid references auth.users(id) on delete cascade,
@@ -150,6 +163,10 @@ alter table public.groups
   add column if not exists color_index integer not null default 0,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
+
+update public.groups
+set name = coalesce(nullif(name, ''), 'Untitled Crew')
+where name is null or name = '';
 
 create unique index if not exists groups_code_key on public.groups (code);
 
@@ -347,6 +364,7 @@ create table if not exists public.hangouts (
 );
 
 alter table public.hangouts
+  add column if not exists name text,
   add column if not exists date text,
   add column if not exists time text,
   add column if not exists location text,
@@ -359,6 +377,15 @@ alter table public.hangouts
   add column if not exists ratings jsonb not null default '[]'::jsonb,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
+
+update public.hangouts
+set
+  name = coalesce(nullif(name, ''), 'Untitled Hangout'),
+  location = coalesce(nullif(location, ''), 'TBD')
+where name is null
+   or name = ''
+   or location is null
+   or location = '';
 
 create unique index if not exists hangouts_code_key on public.hangouts (code);
 
@@ -427,6 +454,7 @@ create table if not exists public.trips (
 );
 
 alter table public.trips
+  add column if not exists name text,
   add column if not exists destination text,
   add column if not exists start_date text,
   add column if not exists end_date text,
@@ -446,6 +474,21 @@ alter table public.trips
   add column if not exists group_id uuid references public.groups(id) on delete set null,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
+
+update public.trips
+set
+  name = coalesce(nullif(name, ''), 'Untitled Trip'),
+  destination = coalesce(nullif(destination, ''), 'TBD destination'),
+  start_date = coalesce(nullif(start_date, ''), current_date::text),
+  end_date = coalesce(nullif(end_date, ''), current_date::text)
+where name is null
+   or name = ''
+   or destination is null
+   or destination = ''
+   or start_date is null
+   or start_date = ''
+   or end_date is null
+   or end_date = '';
 
 create unique index if not exists trips_invite_code_key on public.trips (invite_code);
 
@@ -473,6 +516,7 @@ for each row execute procedure public.set_updated_at();
 alter table public.trips enable row level security;
 
 drop policy if exists "Users can read their own trips" on public.trips;
+drop policy if exists "Users can read their own or crew trips" on public.trips;
 create policy "Users can read their own or crew trips"
 on public.trips
 for select
@@ -499,6 +543,7 @@ to authenticated
 with check (auth.uid() = creator_id);
 
 drop policy if exists "Users can update their own trips" on public.trips;
+drop policy if exists "Users can update their own or crew trips" on public.trips;
 create policy "Users can update their own or crew trips"
 on public.trips
 for update
