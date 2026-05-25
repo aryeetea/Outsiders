@@ -262,6 +262,38 @@ const STYLES = `
   .proposal-card {
     animation: fadeSlide 300ms ease both;
   }
+  .vote-inline-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .vote-inline-panel {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 3px solid #17151f;
+    background: #fffdf7;
+    box-shadow: 4px 4px 0 #17151f;
+  }
+  .vote-inline-btn {
+    width: 100%;
+    border: 3px solid #17151f;
+    border-radius: 12px;
+    background: #fff7e4;
+    box-shadow: 3px 3px 0 #17151f;
+    padding: 11px 12px;
+    text-align: left;
+    cursor: pointer;
+    font: 800 14px 'Nunito', sans-serif;
+    color: #17151f;
+  }
+  .vote-inline-btn.active {
+    background: #eefdf5;
+    border-color: #0f766e;
+    box-shadow: 3px 3px 0 #0f766e;
+  }
   .quick-btn {
     background: #fff5de;
     min-height: 112px;
@@ -312,6 +344,7 @@ const STYLES = `
     .dash-shell { padding: 16px 12px 36px; }
     .hero, .card, .glass { padding: 18px; border-radius: 24px; }
     .quick-grid { grid-template-columns: 1fr; }
+    .vote-inline-grid { grid-template-columns: 1fr; }
     .dashboard-board { padding: 24px 18px 28px; }
     .dashboard-kicker { min-width: 0; width: 100%; }
   }
@@ -333,6 +366,10 @@ function leadingChoice(options = [], votes = {}) {
     count: Object.values(votes).filter((value) => value === option.id).length,
   }));
   return counts.sort((a, b) => b.count - a.count)[0] || null;
+}
+
+function countVotes(votes = {}, optionId) {
+  return Object.values(votes || {}).filter((value) => value === optionId).length;
 }
 
 export default function OutsidersDashboard({ onNavigate, appData, setAppData }) {
@@ -395,6 +432,62 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
     proposal.status !== "finalized"
     && !Object.prototype.hasOwnProperty.call(proposal.votes?.time || {}, currentUserKey)
   ));
+  const castProposalVote = async (proposal, category, optionId) => {
+    if (!proposal?.groupId || !category || !optionId) return;
+
+    const nextGroups = groups.map((group) => {
+      if (String(group.id) !== String(proposal.groupId)) return group;
+      return {
+        ...group,
+        hangoutProposals: (group.hangoutProposals || []).map((item) => (
+          item.id === proposal.id
+            ? {
+                ...item,
+                votes: {
+                  ...(item.votes || {}),
+                  [category]: {
+                    ...(item.votes?.[category] || {}),
+                    [currentUserKey]: optionId,
+                  },
+                },
+              }
+            : item
+        )),
+      };
+    });
+    const nextGroup = nextGroups.find((group) => String(group.id) === String(proposal.groupId));
+
+    if (isSupabaseConfigured && nextGroup && !String(nextGroup.id).startsWith("group-")) {
+      const { error } = await supabase
+        .from("groups")
+        .update({ hangout_proposals: nextGroup.hangoutProposals || [] })
+        .eq("id", nextGroup.id);
+
+      if (error) {
+        window.alert(error.message || "We could not save that vote yet.");
+        return;
+      }
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: nextGroups,
+      hangouts: (prev.hangouts || []).map((item) => (
+        item.id === proposal.id
+          ? {
+              ...item,
+              votes: {
+                ...(item.votes || {}),
+                [category]: {
+                  ...(item.votes?.[category] || {}),
+                  [currentUserKey]: optionId,
+                },
+              },
+            }
+          : item
+      )),
+    }));
+  };
   const nextSteps = [
     unreadNotifications.length ? `You have ${unreadNotifications.length} unread update${unreadNotifications.length === 1 ? "" : "s"}.` : null,
     needsMyVote.length ? `${needsMyVote.length} hangout vote${needsMyVote.length === 1 ? "" : "s"} still need your input.` : null,
@@ -452,6 +545,8 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
                 {proposals.length ? proposals.map((proposal) => {
                   const topTime = leadingChoice(proposal.timeOptions, proposal.votes?.time);
                   const topLocation = leadingChoice(proposal.locationOptions, proposal.votes?.location);
+                  const myTimeVote = proposal.votes?.time?.[currentUserKey];
+                  const myLocationVote = proposal.votes?.location?.[currentUserKey];
                   return (
                     <div key={proposal.id} className="proposal-card">
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
@@ -468,6 +563,42 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
                         <span className="chip-btn" style={{ cursor: "default" }}>Top time: {topTime?.label || "No votes yet"}</span>
                         <span className="chip-btn" style={{ cursor: "default" }}>Top place: {topLocation?.label || "No votes yet"}</span>
                       </div>
+                      {proposal.status !== "finalized" ? (
+                        <div className="vote-inline-grid">
+                          <div className="vote-inline-panel">
+                            <strong className="bangers" style={{ fontSize: 16 }}>Vote time</strong>
+                            {(proposal.timeOptions || []).map((option) => (
+                              <button
+                                key={option.id}
+                                type="button"
+                                className={`vote-inline-btn ${myTimeVote === option.id ? "active" : ""}`}
+                                onClick={() => void castProposalVote(proposal, "time", option.id)}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                  <span>{option.label}</span>
+                                  <strong>{countVotes(proposal.votes?.time, option.id)}</strong>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="vote-inline-panel">
+                            <strong className="bangers" style={{ fontSize: 16 }}>Vote place</strong>
+                            {(proposal.locationOptions || []).map((option) => (
+                              <button
+                                key={option.id}
+                                type="button"
+                                className={`vote-inline-btn ${myLocationVote === option.id ? "active" : ""}`}
+                                onClick={() => void castProposalVote(proposal, "location", option.id)}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                  <span>{option.label}</span>
+                                  <strong>{countVotes(proposal.votes?.location, option.id)}</strong>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 }) : (

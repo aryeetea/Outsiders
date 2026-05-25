@@ -1558,13 +1558,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
                   {activeTab === "Hangouts" ? (
                     <div className="section-grid" style={{ marginTop: 20 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
-                        <div>
-                          <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Crew hangouts</h3>
-                          <p className="section-copy">Every crew member can see and vote on each hangout below. Each card separates the basics, the vote choices, and the current leader so it is easier to read.</p>
-                        </div>
-                        <button type="button" className="btn primary" onClick={() => onNavigate?.("create-hangout")}>Start a hangout</button>
-                      </div>
                       <div className="vote-grid">
                         {selectedGroup.hangoutProposals?.length ? selectedGroup.hangoutProposals.map((proposal) => {
                           const topTime = pickWinner(proposal.timeOptions, proposal.votes?.time);
