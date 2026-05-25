@@ -399,6 +399,37 @@ const STYLES = `
     background: #fffdf7;
     border: 2px dashed rgba(26, 26, 46, 0.18);
   }
+  .collapsible-block {
+    border: 2px dashed rgba(26, 26, 46, 0.18);
+    border-radius: 16px;
+    background: #fffdf7;
+    overflow: hidden;
+  }
+  .collapsible-block summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 18px;
+    font: 400 20px 'Bangers', cursive;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .collapsible-block summary::-webkit-details-marker {
+    display: none;
+  }
+  .collapsible-content {
+    display: grid;
+    gap: 14px;
+    padding: 0 18px 18px;
+  }
+  .itinerary-workspace {
+    display: grid;
+    grid-template-columns: minmax(270px, 340px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
 
   .trip-card {
     background: #fff;
@@ -614,7 +645,7 @@ const STYLES = `
   .trip-activity-grid { grid-template-columns: 100px 80px minmax(0, 1fr) auto; }
   @media (max-width: 1024px) {
     .main { padding: 24px 20px; }
-    .trip-detail-layout, .trip-overview-grid, .trip-modal-grid, .trip-activity-grid { grid-template-columns: 1fr; }
+    .trip-detail-layout, .trip-overview-grid, .trip-modal-grid, .trip-activity-grid, .itinerary-workspace { grid-template-columns: 1fr; }
     .trip-planning-shell { padding: 28px 22px 36px; }
     .trip-empty-panel { min-height: 380px; }
   }
@@ -707,6 +738,17 @@ function buildSavingsProgress(members = [], profile = {}, currentUserId = null) 
     username: member.username || "",
     name: member.name || member.username || fallbackName,
     saved: Number(member.saved) || 0,
+  }));
+}
+
+function buildMemberSavingsTargets(members = [], totalGoal = 0) {
+  const targetPerPerson = members.length ? Math.round((Number(totalGoal || 0) / members.length) * 100) / 100 : 0;
+  return members.map((member, index) => ({
+    id: member.id || member.userId || createId(`target-${index}`),
+    userId: member.userId || null,
+    username: member.username || "",
+    name: member.name || member.username || `Traveler ${index + 1}`,
+    target: targetPerPerson,
   }));
 }
 
@@ -804,13 +846,26 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
     || String(entry.name || "").trim().toLowerCase() === currentUserDisplayName.trim().toLowerCase()
   )) || null;
   const travelerCount = Math.max(selectedTrip?.members?.length || 0, 1);
-  const personalSavingsTarget = selectedTrip?.budget ? Math.round(((Number(selectedTrip.budget) || 0) / travelerCount) * 100) / 100 : 0;
-  const personalSavings = Number(editableSavingsEntry?.saved) || 0;
-  const remainingToSave = selectedTrip ? Math.max(personalSavingsTarget - personalSavings, 0) : 0;
-  const savingsPct = personalSavingsTarget ? Math.min(Math.round((personalSavings / personalSavingsTarget) * 100), 100) : 0;
   const tripComHotelsLink = selectedTrip ? buildTripComHotelsLink(selectedTrip.destination) : "";
   const tripComFlightsLink = buildTripComFlightsLink();
   const tripComPackagesLink = buildTripComPackagesLink();
+  const isTripHost = Boolean(currentUserId && String(selectedTrip?.creatorId || "") === String(currentUserId));
+  const totalGroupSaved = (selectedTrip?.savingsProgress || []).reduce((sum, entry) => sum + (Number(entry.saved) || 0), 0);
+  const groupSavingsGoal = Number(selectedTrip?.groupSavingsGoal) || Number(selectedTrip?.budget) || 0;
+  const memberSavingsTargets = (selectedTrip?.memberSavingsTargets || []).length
+    ? (selectedTrip.memberSavingsTargets || [])
+    : buildMemberSavingsTargets((selectedTrip?.savingsProgress || []).map((entry) => ({
+      id: entry.id,
+      userId: entry.userId,
+      username: entry.username,
+      name: entry.name,
+    })), groupSavingsGoal);
+  const personalSavingsTarget = Number(
+    memberSavingsTargets.find((item) => item.name === currentUserDisplayName || item.userId === currentUserId || item.username === currentUsername)?.target
+  ) || (groupSavingsGoal ? Math.round((groupSavingsGoal / travelerCount) * 100) / 100 : 0);
+  const personalSavings = Number(editableSavingsEntry?.saved) || 0;
+  const remainingToSave = selectedTrip ? Math.max(personalSavingsTarget - personalSavings, 0) : 0;
+  const savingsPct = personalSavingsTarget ? Math.min(Math.round((personalSavings / personalSavingsTarget) * 100), 100) : 0;
   const bookingInfo = selectedTrip?.bookingInfo || {};
 
   const togglePreference = (preference) => {
@@ -846,6 +901,8 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           booking_info: updatedTrip.bookingInfo || {},
           trip_preferences: updatedTrip.tripPreferences || [],
           hidden_for: updatedTrip.hiddenFor || [],
+          group_savings_goal: updatedTrip.groupSavingsGoal || 0,
+          member_savings_targets: updatedTrip.memberSavingsTargets || [],
         })
         .eq("id", updatedTrip.id);
       if (error) return;
@@ -963,6 +1020,37 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       spent: nextAmount,
     };
     void updateTrip(updated);
+  };
+
+  const updateGroupSavingsGoal = (value) => {
+    if (!selectedTrip || !isTripHost) return;
+    const nextGoal = Math.max(Number(value) || 0, 0);
+    const nextTargets = buildMemberSavingsTargets(
+      (selectedTrip.savingsProgress || []).map((entry) => ({
+        id: entry.id,
+        userId: entry.userId,
+        username: entry.username,
+        name: entry.name,
+      })),
+      nextGoal
+    );
+    void updateTrip({
+      ...selectedTrip,
+      groupSavingsGoal: nextGoal,
+      memberSavingsTargets: nextTargets,
+    });
+  };
+
+  const updateMemberTarget = (targetId, value) => {
+    if (!selectedTrip || !isTripHost) return;
+    void updateTrip({
+      ...selectedTrip,
+      memberSavingsTargets: (memberSavingsTargets || []).map((entry) => (
+        entry.id === targetId
+          ? { ...entry, target: Math.max(Number(value) || 0, 0) }
+          : entry
+      )),
+    });
   };
 
   const addSuggestionToItinerary = (suggestion) => {
@@ -1125,6 +1213,15 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       },
       tripPreferences: newTripForm.tripPreferences || [],
       hiddenFor: [],
+      groupSavingsGoal: Number(newTripForm.budget) || 0,
+      memberSavingsTargets: buildMemberSavingsTargets(
+        selectedGroup ? resolvedGroupMembers : [{
+          userId: currentUserId || null,
+          username: currentProfile?.username ? `@${String(currentProfile.username).replace(/^@/, "")}` : "",
+          name: currentUserDisplayName,
+        }],
+        Number(newTripForm.budget) || 0
+      ),
     };
     let savedTrip = newTrip;
     if (isSupabaseConfigured && currentUserId) {
@@ -1152,6 +1249,8 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           booking_info: newTrip.bookingInfo,
           trip_preferences: newTrip.tripPreferences,
           hidden_for: [],
+          group_savings_goal: newTrip.groupSavingsGoal,
+          member_savings_targets: newTrip.memberSavingsTargets,
         })
         .select("*")
         .single();
@@ -1171,6 +1270,8 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           bookingInfo: data.booking_info || newTrip.bookingInfo,
           tripPreferences: data.trip_preferences || newTrip.tripPreferences,
           hiddenFor: data.hidden_for || [],
+          groupSavingsGoal: Number(data.group_savings_goal) || newTrip.groupSavingsGoal,
+          memberSavingsTargets: data.member_savings_targets || newTrip.memberSavingsTargets,
         };
       }
 
@@ -1453,7 +1554,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                         {[
                           { label: "Days", value: getDays(selectedTrip.startDate, selectedTrip.endDate), emoji: "🌙", color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
                           { label: "Going", value: selectedTrip.members.length, emoji: "👥", color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
-                          { label: "Your Target Left", value: `$${remainingToSave}`, emoji: "💸", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
+                          { label: "Group Goal Left", value: `$${Math.max(groupSavingsGoal - totalGroupSaved, 0)}`, emoji: "🏦", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
                           { label: "Packed", value: `${packedCount}/${totalPack}`, emoji: "🎒", color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
                         ].map(s => (
                           <div key={s.label} style={{ background: s.bg, border: `3px solid ${s.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: `4px 4px 0 ${s.border}` }}>
@@ -1463,77 +1564,120 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                         ))}
                       </div>
 
-                      <div className="section-header">
-                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Personal savings</h3>
-                        <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>
-                          ${personalSavings} saved
-                        </span>
-                      </div>
-                      <p style={{ margin: "0 0 14px", color: "#666", fontWeight: 800 }}>
-                        This is your own savings tracker for this trip. Other people manage their savings from their own account.
-                      </p>
-                      <div style={{ display: "grid", gap: 12, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                          <strong>{currentUserDisplayName}</strong>
-                          <span style={{ fontWeight: 900, color: "#666" }}>${personalSavings} saved</span>
-                        </div>
-                        <input
-                          className="form-input"
-                          type="number"
-                          min="0"
-                          value={personalSavings}
-                          onChange={(event) => updateMySavings(event.target.value)}
-                          placeholder="How much have you saved?"
-                        />
-                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#888" }}>
-                          Target per traveler: ${personalSavingsTarget}
-                        </p>
-                      </div>
-                      <div className="section-divider" />
-                      <div style={{ display: "grid", gap: 12 }}>
-                        <div className="section-header">
-                          <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Booking details</h3>
-                          <span className="badge" style={{ background: "#e8f4fd", color: "#155eef", borderColor: "#155eef" }}>
-                            {bookingInfo.hasBookingInfo === "yes" ? "Saved" : "Planning"}
-                          </span>
-                        </div>
-                        <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
-                          {bookingInfo.hasBookingInfo === "yes"
-                            ? "Your itinerary can use your arrival, stay, and layover details."
-                            : "If you add booking details later, regenerate the itinerary to make it more exact."}
-                        </p>
-                        <div style={{ display: "grid", gap: 8 }}>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Arrival city: {bookingInfo.arrivalCity || "Not added yet"}</div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Arrival time: {bookingInfo.arrivalDate || bookingInfo.arrivalTime ? `${bookingInfo.arrivalDate || "Date TBD"} ${bookingInfo.arrivalTime || ""}`.trim() : "Not added yet"}</div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Stay: {bookingInfo.stayName || bookingInfo.stayArea || "Not added yet"}</div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Interests: {(selectedTrip.tripPreferences || []).length ? selectedTrip.tripPreferences.join(", ") : "Pick interests in the trip setup modal for more tailored itinerary ideas."}</div>
-                        </div>
-                      </div>
-                      <div className="section-header">
-                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Trip checklist</h3>
-                        <span className="badge" style={{ background: "#eefdf5", color: "#0f766e", borderColor: "#0f766e" }}>
-                          {(selectedTrip.planningChecklist || []).filter((item) => item.done).length}/{(selectedTrip.planningChecklist || []).length}
-                        </span>
-                      </div>
-                      <div style={{ display: "grid", gap: 10 }}>
-                        {(selectedTrip.planningChecklist || []).map((item) => (
-                          <div key={item.id} className="pack-item" onClick={() => toggleChecklistItem(item.id)}>
-                            <div className="checkbox" style={{ background: item.done ? "#51cf66" : "#fff", borderColor: item.done ? "#51cf66" : "#1a1a2e" }}>
-                              {item.done && <IconCheck />}
+                      <details className="collapsible-block" open>
+                        <summary>
+                          <span>Group Savings</span>
+                          <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>${totalGroupSaved} saved</span>
+                        </summary>
+                        <div className="collapsible-content">
+                          <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
+                            The trip host sets the full savings goal here and can guide what each person should aim for.
+                          </p>
+                          <div style={{ display: "grid", gap: 12, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                              <strong>Whole trip goal</strong>
+                              <span style={{ fontWeight: 900, color: "#666" }}>${groupSavingsGoal}</span>
                             </div>
-                            <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: item.done ? "#888" : "#1a1a2e", textDecoration: item.done ? "line-through" : "none" }}>
-                              {item.label}
-                            </span>
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="0"
+                              disabled={!isTripHost}
+                              value={groupSavingsGoal}
+                              onChange={(event) => updateGroupSavingsGoal(event.target.value)}
+                              placeholder="Set the total group goal"
+                            />
+                            {!isTripHost ? <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#888" }}>Only the trip host can edit the overall group goal.</p> : null}
                           </div>
-                        ))}
-                      </div>
-                      <div className="section-divider" />
-                      <div style={{ display: "grid", gap: 10 }}>
-                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>What to do next</h3>
-                        <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
-                          1. Save your booking details if you have them. 2. Pick your interests. 3. Tap the AI itinerary button. 4. Keep the plans you like and check them off during the trip.
-                        </p>
-                      </div>
+                          <div style={{ display: "grid", gap: 10 }}>
+                            {memberSavingsTargets.map((entry) => {
+                              const saved = (selectedTrip.savingsProgress || []).find((item) => item.id === entry.id || item.userId === entry.userId || item.username === entry.username || item.name === entry.name);
+                              return (
+                                <div key={entry.id} style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                    <strong>{entry.name}</strong>
+                                    <span style={{ fontWeight: 900, color: "#666" }}>${Number(saved?.saved) || 0} saved</span>
+                                  </div>
+                                  <input
+                                    className="form-input"
+                                    type="number"
+                                    min="0"
+                                    disabled={!isTripHost}
+                                    value={Number(entry.target) || 0}
+                                    onChange={(event) => updateMemberTarget(entry.id, event.target.value)}
+                                    placeholder="Target for this person"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </details>
+
+                      <details className="collapsible-block" open>
+                        <summary>
+                          <span>My Savings</span>
+                          <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>${personalSavings} saved</span>
+                        </summary>
+                        <div className="collapsible-content">
+                          <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
+                            This is your own savings tracker for this trip.
+                          </p>
+                          <div style={{ display: "grid", gap: 12, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                              <strong>{currentUserDisplayName}</strong>
+                              <span style={{ fontWeight: 900, color: "#666" }}>${personalSavings} saved</span>
+                            </div>
+                            <input className="form-input" type="number" min="0" value={personalSavings} onChange={(event) => updateMySavings(event.target.value)} placeholder="How much have you saved?" />
+                            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#888" }}>
+                              Your target: ${memberSavingsTargets.find((item) => item.name === currentUserDisplayName || item.userId === currentUserId || item.username === currentUsername)?.target ?? personalSavingsTarget}
+                            </p>
+                          </div>
+                        </div>
+                      </details>
+
+                      <details className="collapsible-block" open>
+                        <summary>
+                          <span>Booking Details</span>
+                          <span className="badge" style={{ background: "#e8f4fd", color: "#155eef", borderColor: "#155eef" }}>{bookingInfo.hasBookingInfo === "yes" ? "Saved" : "Planning"}</span>
+                        </summary>
+                        <div className="collapsible-content">
+                          <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
+                            {bookingInfo.hasBookingInfo === "yes"
+                              ? "Your itinerary can use your arrival, stay, and layover details."
+                              : "If you add booking details later, regenerate the itinerary to make it more exact."}
+                          </p>
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Arrival city: {bookingInfo.arrivalCity || "Not added yet"}</div>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Arrival time: {bookingInfo.arrivalDate || bookingInfo.arrivalTime ? `${bookingInfo.arrivalDate || "Date TBD"} ${bookingInfo.arrivalTime || ""}`.trim() : "Not added yet"}</div>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Stay: {bookingInfo.stayName || bookingInfo.stayArea || "Not added yet"}</div>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>Interests: {(selectedTrip.tripPreferences || []).length ? selectedTrip.tripPreferences.join(", ") : "Pick interests in the trip setup modal for more tailored itinerary ideas."}</div>
+                          </div>
+                        </div>
+                      </details>
+
+                      <details className="collapsible-block" open>
+                        <summary>
+                          <span>Checklist</span>
+                          <span className="badge" style={{ background: "#eefdf5", color: "#0f766e", borderColor: "#0f766e" }}>
+                            {(selectedTrip.planningChecklist || []).filter((item) => item.done).length}/{(selectedTrip.planningChecklist || []).length}
+                          </span>
+                        </summary>
+                        <div className="collapsible-content">
+                          <div style={{ display: "grid", gap: 10 }}>
+                            {(selectedTrip.planningChecklist || []).map((item) => (
+                              <div key={item.id} className="pack-item" onClick={() => toggleChecklistItem(item.id)}>
+                                <div className="checkbox" style={{ background: item.done ? "#51cf66" : "#fff", borderColor: item.done ? "#51cf66" : "#1a1a2e" }}>
+                                  {item.done && <IconCheck />}
+                                </div>
+                                <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: item.done ? "#888" : "#1a1a2e", textDecoration: item.done ? "line-through" : "none" }}>
+                                  {item.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </details>
                     </div>
                   )}
 
@@ -1549,85 +1693,99 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                       <p style={{ margin: "0 0 16px", color: "#666", fontWeight: 800 }}>
                         Add your own plan, then pull in AI suggestions and check things off as your crew does them.
                       </p>
-
-                      <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
-                        {aiError ? <p style={{ margin: 0, color: "#b42318", fontWeight: 800 }}>{aiError}</p> : null}
-                        {(selectedTrip.itinerarySuggestions || []).length ? (
-                          <div style={{ display: "grid", gap: 12 }}>
-                            {(selectedTrip.itinerarySuggestions || []).map((suggestion) => (
-                              <div key={suggestion.id} style={{ border: "2px solid #e7dcc5", borderRadius: 16, background: "#fffdf7", padding: 14, display: "grid", gap: 8 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                                  <strong>Day {suggestion.day} · {suggestion.time || "Flexible time"}</strong>
-                                  <span className="badge" style={{ background: suggestion.added ? "#eefdf5" : "#fff4e6", color: suggestion.added ? "#0f766e" : "#b54708", borderColor: suggestion.added ? "#0f766e" : "#f79009" }}>
-                                    {suggestion.added ? "Added" : (suggestion.category || "Idea")}
-                                  </span>
+                      <div className="itinerary-workspace">
+                        <div style={{ display: "grid", gap: 12 }}>
+                          <div className="trip-section-box">
+                            <strong className="bangers" style={{ fontSize: 18 }}>AI Suggestions</strong>
+                            <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
+                              These stay separate from your final itinerary until you choose to add them.
+                            </p>
+                          </div>
+                          {aiError ? <p style={{ margin: 0, color: "#b42318", fontWeight: 800 }}>{aiError}</p> : null}
+                          {(selectedTrip.itinerarySuggestions || []).length ? (
+                            <div style={{ display: "grid", gap: 12 }}>
+                              {(selectedTrip.itinerarySuggestions || []).map((suggestion) => (
+                                <div key={suggestion.id} style={{ border: "2px solid #e7dcc5", borderRadius: 16, background: "#fffdf7", padding: 14, display: "grid", gap: 8 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                    <strong>Day {suggestion.day} · {suggestion.time || "Flexible time"}</strong>
+                                    <span className="badge" style={{ background: suggestion.added ? "#eefdf5" : "#fff4e6", color: suggestion.added ? "#0f766e" : "#b54708", borderColor: suggestion.added ? "#0f766e" : "#f79009" }}>
+                                      {suggestion.added ? "Added" : (suggestion.category || "Idea")}
+                                    </span>
+                                  </div>
+                                  <div className="bangers" style={{ fontSize: 19, color: "#1a1a2e" }}>{suggestion.title}</div>
+                                  <p style={{ margin: 0, color: "#666", fontWeight: 700 }}>{suggestion.notes}</p>
+                                  <div>
+                                    <button type="button" className="btn-secondary" disabled={suggestion.added} onClick={() => addSuggestionToItinerary(suggestion)}>
+                                      {suggestion.added ? "Added to itinerary" : "Add this plan"}
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="bangers" style={{ fontSize: 19, color: "#1a1a2e" }}>{suggestion.title}</div>
-                                <p style={{ margin: 0, color: "#666", fontWeight: 700 }}>{suggestion.notes}</p>
-                                <div>
-                                  <button type="button" className="btn-secondary" disabled={suggestion.added} onClick={() => addSuggestionToItinerary(suggestion)}>
-                                    {suggestion.added ? "Added to itinerary" : "Add this plan"}
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ border: "2px dashed #d8ccb6", borderRadius: 16, background: "#fffdf7", padding: 16, color: "#666", fontWeight: 800 }}>
+                              Ask the AI planner for starter ideas and then keep only the ones you want.
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: "grid", gap: 14 }}>
+                          <div className="trip-section-box">
+                            <strong className="bangers" style={{ fontSize: 18 }}>My Final Itinerary</strong>
+                            <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
+                              This is the actual plan you are keeping. Manual items and chosen AI ideas end up here.
+                            </p>
+                          </div>
+                          {selectedTrip.itinerary.map((day) => (
+                            <div key={day.day} className="day-card">
+                              <p className="bangers" style={{ fontSize: 17, margin: "0 0 10px", color: "#1a1a2e" }}>Day {day.day} — {day.date}</p>
+                              {day.activities.length === 0 && (
+                                <p style={{ fontSize: 13, fontWeight: 700, color: "#ccc", margin: "0 0 8px" }}>Nothing planned yet — add something!</p>
+                              )}
+                              {day.activities.map((a, i) => (
+                                <div key={a.id || `${a.time}-${a.name}-${i}`} className="activity-row">
+                                  <button
+                                    type="button"
+                                    className="checkbox"
+                                    style={{ background: a.done ? "#51cf66" : "#fff", borderColor: a.done ? "#51cf66" : "#1a1a2e" }}
+                                    onClick={() => toggleActivityDone(day.day, a.id)}
+                                  >
+                                    {a.done ? <IconCheck /> : null}
+                                  </button>
+                                  <span style={{ fontSize: 12, fontWeight: 900, color: "#aaa", minWidth: 60 }}>{a.time}</span>
+                                  <div style={{ width: 8, height: 8, background: selectedTrip.color.border, borderRadius: "50%", border: "2px solid #1a1a2e", flexShrink: 0 }} />
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, textDecoration: a.done ? "line-through" : "none", color: a.done ? "#999" : "#1a1a2e" }}>{a.name}</div>
+                                    {a.notes ? <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>{a.notes}</div> : null}
+                                  </div>
+                                  <button type="button" className="btn-danger" style={{ padding: "4px 8px" }} onClick={() => deleteActivity(day.day, a.id)}>
+                                    <IconTrash />
                                   </button>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div style={{ border: "2px dashed #d8ccb6", borderRadius: 16, background: "#fffdf7", padding: 16, color: "#666", fontWeight: 800 }}>
-                            Ask the AI planner for starter ideas and then keep the ones your crew actually wants.
-                          </div>
-                        )}
-                      </div>
-
-                      {selectedTrip.itinerary.map((day) => (
-                        <div key={day.day} className="day-card">
-                          <p className="bangers" style={{ fontSize: 17, margin: "0 0 10px", color: "#1a1a2e" }}>Day {day.day} — {day.date}</p>
-                          {day.activities.length === 0 && (
-                            <p style={{ fontSize: 13, fontWeight: 700, color: "#ccc", margin: "0 0 8px" }}>Nothing planned yet — add something!</p>
-                          )}
-                          {day.activities.map((a, i) => (
-                            <div key={a.id || `${a.time}-${a.name}-${i}`} className="activity-row">
-                              <button
-                                type="button"
-                                className="checkbox"
-                                style={{ background: a.done ? "#51cf66" : "#fff", borderColor: a.done ? "#51cf66" : "#1a1a2e" }}
-                                onClick={() => toggleActivityDone(day.day, a.id)}
-                              >
-                                {a.done ? <IconCheck /> : null}
-                              </button>
-                              <span style={{ fontSize: 12, fontWeight: 900, color: "#aaa", minWidth: 60 }}>{a.time}</span>
-                              <div style={{ width: 8, height: 8, background: selectedTrip.color.border, borderRadius: "50%", border: "2px solid #1a1a2e", flexShrink: 0 }} />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 14, fontWeight: 700, textDecoration: a.done ? "line-through" : "none", color: a.done ? "#999" : "#1a1a2e" }}>{a.name}</div>
-                                {a.notes ? <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>{a.notes}</div> : null}
-                              </div>
-                              <button type="button" className="btn-danger" style={{ padding: "4px 8px" }} onClick={() => deleteActivity(day.day, a.id)}>
-                                <IconTrash />
-                              </button>
+                              ))}
                             </div>
                           ))}
-                        </div>
-                      ))}
 
-                      {/* Add activity */}
-                      <div style={{ background: "#fffdf9", border: "3px dashed #ccc", borderRadius: 12, padding: "16px" }}>
-                        <p className="bangers" style={{ fontSize: 15, margin: "0 0 12px" }}>+ Add Activity</p>
-                        <div className="trip-activity-grid" style={{ display: "grid", gap: 10, alignItems: "end" }}>
-                          <div>
-                            <label className="form-label">Day</label>
-                            <select className="form-input" value={newActivity.day} onChange={e => setNewActivity(p => ({ ...p, day: Number(e.target.value) }))} style={{ padding: "10px 12px" }}>
-                              {selectedTrip.itinerary.map(d => <option key={d.day} value={d.day}>Day {d.day}</option>)}
-                            </select>
+                          <div style={{ background: "#fffdf9", border: "3px dashed #ccc", borderRadius: 12, padding: "16px" }}>
+                            <p className="bangers" style={{ fontSize: 15, margin: "0 0 12px" }}>+ Add Activity</p>
+                            <div className="trip-activity-grid" style={{ display: "grid", gap: 10, alignItems: "end" }}>
+                              <div>
+                                <label className="form-label">Day</label>
+                                <select className="form-input" value={newActivity.day} onChange={e => setNewActivity(p => ({ ...p, day: Number(e.target.value) }))} style={{ padding: "10px 12px" }}>
+                                  {selectedTrip.itinerary.map(d => <option key={d.day} value={d.day}>Day {d.day}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="form-label">Time</label>
+                                <input className="form-input" type="time" value={newActivity.time} onChange={e => setNewActivity(p => ({ ...p, time: e.target.value }))} />
+                              </div>
+                              <div>
+                                <label className="form-label">Activity</label>
+                                <input className="form-input" type="text" placeholder="e.g. Temple visit or food street run" value={newActivity.name} onChange={e => setNewActivity(p => ({ ...p, name: e.target.value }))} onKeyDown={e => e.key === "Enter" && addActivity()} />
+                              </div>
+                              <button className="btn-secondary" onClick={addActivity} style={{ marginBottom: 0 }}>Add</button>
+                            </div>
                           </div>
-                          <div>
-                            <label className="form-label">Time</label>
-                            <input className="form-input" type="time" value={newActivity.time} onChange={e => setNewActivity(p => ({ ...p, time: e.target.value }))} />
-                          </div>
-                          <div>
-                            <label className="form-label">Activity</label>
-                            <input className="form-input" type="text" placeholder="e.g. Beach day ☀️" value={newActivity.name} onChange={e => setNewActivity(p => ({ ...p, name: e.target.value }))} onKeyDown={e => e.key === "Enter" && addActivity()} />
-                          </div>
-                          <button className="btn-secondary" onClick={addActivity} style={{ marginBottom: 0 }}>Add</button>
                         </div>
                       </div>
                     </div>

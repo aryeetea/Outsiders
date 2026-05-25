@@ -449,6 +449,8 @@ create table if not exists public.trips (
   booking_info jsonb not null default '{}'::jsonb,
   trip_preferences jsonb not null default '[]'::jsonb,
   hidden_for jsonb not null default '[]'::jsonb,
+  group_savings_goal numeric not null default 0,
+  member_savings_targets jsonb not null default '[]'::jsonb,
   ratings jsonb not null default '[]'::jsonb,
   creator_id uuid not null references auth.users(id) on delete cascade,
   group_id uuid references public.groups(id) on delete set null,
@@ -475,6 +477,8 @@ alter table public.trips
   add column if not exists booking_info jsonb not null default '{}'::jsonb,
   add column if not exists trip_preferences jsonb not null default '[]'::jsonb,
   add column if not exists hidden_for jsonb not null default '[]'::jsonb,
+  add column if not exists group_savings_goal numeric not null default 0,
+  add column if not exists member_savings_targets jsonb not null default '[]'::jsonb,
   add column if not exists ratings jsonb not null default '[]'::jsonb,
   add column if not exists creator_id uuid references auth.users(id) on delete cascade,
   add column if not exists group_id uuid references public.groups(id) on delete set null,
@@ -525,6 +529,15 @@ where trip_preferences is null;
 update public.trips
 set hidden_for = '[]'::jsonb
 where hidden_for is null;
+
+update public.trips
+set group_savings_goal = coalesce(group_savings_goal, budget, 0)
+where group_savings_goal is null
+   or group_savings_goal = 0;
+
+update public.trips
+set member_savings_targets = '[]'::jsonb
+where member_savings_targets is null;
 
 drop trigger if exists set_trips_updated_at on public.trips;
 create trigger set_trips_updated_at

@@ -103,6 +103,9 @@ function normalizeProposal(proposal = {}) {
     participants: Array.isArray(proposal.participants) ? proposal.participants : [],
     externalInvites: Array.isArray(proposal.externalInvites) ? proposal.externalInvites : [],
     recommendations: Array.isArray(proposal.recommendations) ? proposal.recommendations : [],
+    agenda: Array.isArray(proposal.agenda) ? proposal.agenda : [],
+    agendaSuggestions: Array.isArray(proposal.agendaSuggestions) ? proposal.agendaSuggestions : [],
+    planningDetails: proposal.planningDetails && typeof proposal.planningDetails === "object" ? proposal.planningDetails : {},
     finalizedChoice: proposal.finalizedChoice || null,
     ratings: Array.isArray(proposal.ratings) ? proposal.ratings : [],
     location: proposal.location || proposal.finalizedChoice?.location?.label || proposal.finalizedChoice?.location || "",
@@ -154,6 +157,8 @@ function normalizeTrip(trip = {}) {
     bookingInfo: trip.bookingInfo && typeof trip.bookingInfo === "object" ? trip.bookingInfo : (trip.booking_info && typeof trip.booking_info === "object" ? trip.booking_info : {}),
     tripPreferences: Array.isArray(trip.tripPreferences) ? trip.tripPreferences : (Array.isArray(trip.trip_preferences) ? trip.trip_preferences : []),
     hiddenFor: Array.isArray(trip.hiddenFor) ? trip.hiddenFor : (Array.isArray(trip.hidden_for) ? trip.hidden_for : []),
+    groupSavingsGoal: Number(trip.groupSavingsGoal ?? trip.group_savings_goal) || Number(trip.budget) || 0,
+    memberSavingsTargets: Array.isArray(trip.memberSavingsTargets) ? trip.memberSavingsTargets : (Array.isArray(trip.member_savings_targets) ? trip.member_savings_targets : []),
   };
 }
 

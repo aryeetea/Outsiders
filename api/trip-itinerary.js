@@ -123,6 +123,32 @@ function parseJsonResponse(text) {
   return Array.isArray(parsed?.suggestions) ? parsed.suggestions : (Array.isArray(parsed) ? parsed : []);
 }
 
+function buildTripContextSummary(trip = {}) {
+  const bookingInfo = trip.bookingInfo || {};
+  const preferences = Array.isArray(trip.tripPreferences) ? trip.tripPreferences : [];
+  const members = Array.isArray(trip.members) ? trip.members : [];
+
+  return [
+    `Trip name: ${trip.name || "Trip"}`,
+    `Destination: ${trip.destination}`,
+    `Start date: ${trip.startDate}`,
+    `End date: ${trip.endDate}`,
+    `Budget: ${trip.budget || 0}`,
+    `Days: ${trip.days || 1}`,
+    `Trip interests: ${preferences.join(", ") || "none listed"}`,
+    `Travelers: ${members.join(", ") || "not listed"}`,
+    `Has booking info: ${bookingInfo.hasBookingInfo || "no"}`,
+    `Arrival city: ${bookingInfo.arrivalCity || ""}`,
+    `Arrival date: ${bookingInfo.arrivalDate || ""}`,
+    `Arrival time: ${bookingInfo.arrivalTime || ""}`,
+    `Departure time: ${bookingInfo.departureTime || ""}`,
+    `Layover city: ${bookingInfo.layoverCity || ""}`,
+    `Stay name: ${bookingInfo.stayName || ""}`,
+    `Stay area: ${bookingInfo.stayArea || ""}`,
+    `Trip notes: ${bookingInfo.notes || ""}`,
+  ].join("\n");
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed." });
@@ -140,24 +166,33 @@ export default async function handler(req, res) {
     return;
   }
 
+  const destinationGuide = [
+    "Important: read the destination carefully and tailor the itinerary to the exact place the user typed.",
+    "If they typed a city, include that city and its region/province/state in your plan notes.",
+    "If they typed a country plus a city or province, use that specific place rather than generic country-wide ideas.",
+    "If they typed something like 'Guangzhou, Guangdong, China', suggestions should mention places in Guangzhou and note Guangdong Province where natural.",
+    "Organize the suggestions like sections of a real trip: arrival / daytime explore / food / evening / optional backup.",
+  ].join("\n");
+
   const prompt = [
     "Create a useful, realistic group trip itinerary draft.",
     "Return strict JSON with this shape: {\"suggestions\":[{\"id\":\"...\",\"day\":1,\"time\":\"09:00\",\"title\":\"...\",\"category\":\"food|explore|rest|nightlife|travel|general\",\"notes\":\"...\"}]}",
-    "Make 2 to 4 suggestions per day.",
+    "Make 3 to 5 suggestions per day.",
+    "Every suggestion should be something the user could potentially choose to add to their main itinerary.",
+    "Do not be generic. Avoid vague lines like 'explore the area' unless you name the actual district, city zone, market, landmark, neighborhood, or province context.",
     "Use actual named places, neighborhoods, landmarks, cities, and provinces whenever possible.",
     "If the destination is in China, include real city and province context instead of generic wording.",
     "Respect arrival timing, layovers, and stay location if booking info is provided.",
+    "If arrival timing is late, make day 1 lighter. If there is a layover, account for that. If a stay area is provided, cluster nearby ideas when reasonable.",
+    "Use the trip interests to bias what gets suggested.",
+    "The output should feel sectionalized and grounded in what the user already entered.",
     "Keep the suggestions flexible, budget-aware, and group-friendly.",
     "Do not include markdown outside JSON.",
     "",
-    `Trip name: ${trip.name || "Trip"}`,
-    `Destination: ${trip.destination}`,
-    `Start date: ${trip.startDate}`,
-    `End date: ${trip.endDate}`,
-    `Budget: ${trip.budget || 0}`,
-    `Days: ${trip.days || 1}`,
-    `Trip interests: ${Array.isArray(trip.tripPreferences) ? trip.tripPreferences.join(", ") : ""}`,
-    `Booking info JSON: ${JSON.stringify(trip.bookingInfo || {})}`,
+    destinationGuide,
+    "",
+    "Full trip context:",
+    buildTripContextSummary(trip),
   ].join("\n");
 
   try {
@@ -191,7 +226,17 @@ export default async function handler(req, res) {
       return;
     }
 
-    res.status(200).json({ suggestions, source: "openai" });
+    res.status(200).json({
+      suggestions: suggestions.map((item, index) => ({
+        id: item.id || `ai-${index + 1}`,
+        day: Number(item.day) || 1,
+        time: item.time || "",
+        title: item.title || "Trip idea",
+        category: item.category || "general",
+        notes: item.notes || "",
+      })),
+      source: "openai",
+    });
   } catch (error) {
     res.status(200).json({ suggestions: buildFallbackSuggestions(trip), source: "fallback", warning: error?.message || "" });
   }
