@@ -90,6 +90,15 @@ const STYLES = `
     display: grid;
     gap: 12px;
   }
+  .vote-callout {
+    border-radius: 14px;
+    border: 3px solid #17151f;
+    background: #fff0c2;
+    box-shadow: 4px 4px 0 #17151f;
+    padding: 14px;
+    display: grid;
+    gap: 8px;
+  }
   .meta-row {
     display: flex;
     gap: 10px;
@@ -253,6 +262,7 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
     const isMine = proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName;
     const myTimeVote = proposal.votes?.time?.[currentUserKey];
     const myLocationVote = proposal.votes?.location?.[currentUserKey];
+    const voteStillNeeded = proposal.status !== "finalized" && (!myTimeVote || !myLocationVote);
 
     return (
       <div key={proposal.id} className="proposal">
@@ -274,6 +284,12 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
             {myTimeVote && myLocationVote ? "Your vote is in" : "Your vote is still needed"}
           </span>
         </div>
+        {voteStillNeeded ? (
+          <div className="vote-callout">
+            <strong className="bangers" style={{ fontSize: 20 }}>Vote Here Next</strong>
+            <p style={{ margin: 0, color: "#5f4b00", fontWeight: 800 }}>Voting happens inside the crew view for this hangout. Use the button below to open the voting screen.</p>
+          </div>
+        ) : null}
         {proposal.agenda?.length ? (
           <div style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px dashed rgba(23,21,31,0.18)", background: "#fffdf7" }}>
             <strong className="bangers" style={{ fontSize: 18 }}>Shared run of show</strong>
@@ -285,7 +301,9 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
           </div>
         ) : null}
         <div className="actions">
-          <button type="button" className="btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open in crew</button>
+          <button type="button" className={voteStillNeeded ? "btn primary" : "btn secondary"} onClick={() => onNavigate?.("friend-groups")}>
+            {voteStillNeeded ? "Vote now in crew" : "Open in crew"}
+          </button>
           <button type="button" className="btn ghost" onClick={() => onNavigate?.("join-hangout", { code: proposal.code })}>Open invite</button>
           {isMine ? (
             <button type="button" className="btn ghost" onClick={() => void deleteProposal(proposal)}>Delete hangout</button>
@@ -348,7 +366,7 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
                   <>
                     <div>
                       <h3 className="bangers" style={{ margin: "0 0 8px", fontSize: 22 }}>Vote on hangouts</h3>
-                      <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>These are the open hangouts that still need your vote.</p>
+                      <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>These are the open hangouts that still need your vote. Open any card below and press `Vote now in crew`.</p>
                     </div>
                     {votingProposals.length ? votingProposals.map(renderProposalCard) : (
                       <div className="proposal">
