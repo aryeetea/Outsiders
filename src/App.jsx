@@ -134,13 +134,19 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       ? sharedGroups
       : (metadataGroups && metadataGroups.length ? metadataGroups : previousAppData.groups);
     const sharedGroupIds = Array.isArray(effectiveGroups) ? effectiveGroups.map((group) => String(group.id)) : [];
-    const sharedHangouts = Array.isArray(effectiveGroups)
+    const hydratedHangouts = Array.isArray(effectiveGroups)
       ? effectiveGroups.flatMap((group) => (group.hangout_proposals || group.hangoutProposals || []).map((proposal) => ({
         ...proposal,
         groupId: proposal.groupId || group.id,
         groupName: proposal.groupName || group.name,
       })))
       : previousAppData.hangouts;
+    const sharedHangouts = Array.from(
+      new Map(
+        [...(Array.isArray(previousAppData.hangouts) ? previousAppData.hangouts : []), ...(hydratedHangouts || [])]
+          .map((proposal) => [String(proposal?.id || ""), proposal])
+      ).values()
+    ).filter((proposal) => proposal?.id);
     const sharedTrips = !tripRowsError && Array.isArray(tripRows)
       ? tripRows.filter((trip) => (
         (String(trip.creator_id) === String(user.id)
