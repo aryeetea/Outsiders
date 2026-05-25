@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getDisplayName } from "./appState";
+import { copyTextWithAlert } from "./clipboard";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildGroupInviteLink } from "./siteConfig";
 import { isSupabaseConfigured, supabase } from "./supabase";
@@ -158,6 +159,7 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
   const [joinCode, setJoinCode] = useState(String(routeParams?.inviteCode || routeParams?.groupCode || "").toUpperCase());
   const [notice, setNotice] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
+  const [generatedInviteCode, setGeneratedInviteCode] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
@@ -224,6 +226,7 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
       groups: [...(prev.groups || []), savedGroup],
     }));
     setGeneratedInviteLink(buildGroupInviteLink(savedGroup.code));
+    setGeneratedInviteCode(savedGroup.code);
     setNotice(`Created ${savedGroup.name}.`);
     setNewGroupName("");
   };
@@ -321,6 +324,12 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
                 <button type="button" className="btn primary" style={{ width: "100%", marginTop: 18 }} onClick={createCrew}>Create crew</button>
                 {generatedInviteLink ? (
                   <div className="invite-box" style={{ marginTop: 16 }}>
+                    <strong>Crew code</strong>
+                    <div className="invite-value">{generatedInviteCode}</div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <button type="button" className="btn ghost" onClick={() => void copyTextWithAlert(generatedInviteCode, "Crew code copied.")}>Copy code</button>
+                      <button type="button" className="btn ghost" onClick={() => void copyTextWithAlert(generatedInviteLink, "Crew invite link copied.")}>Copy link</button>
+                    </div>
                     <strong>Invite link</strong>
                     <div className="invite-value">{generatedInviteLink}</div>
                   </div>

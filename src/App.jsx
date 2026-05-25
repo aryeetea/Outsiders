@@ -224,6 +224,8 @@ export default function App() {
       setAppData((prev) => ({
         ...prev,
         groups: nextAppData.groups,
+        hangouts: nextAppData.hangouts,
+        trips: nextAppData.trips,
         notifications: nextAppData.notifications,
       }));
     }

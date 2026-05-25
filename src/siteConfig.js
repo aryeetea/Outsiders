@@ -14,6 +14,14 @@ export function buildHangoutInviteLink(code) {
   return `${getSiteUrl()}/#/join-hangout?code=${safeCode}`;
 }
 
+export function buildTripInviteLink(codeOrParams) {
+  const inviteCode = typeof codeOrParams === "object" && codeOrParams !== null
+    ? codeOrParams.tripCode
+    : codeOrParams;
+  const safeCode = encodeURIComponent(String(inviteCode || "").trim().toUpperCase());
+  return `${getSiteUrl()}/#/trip-planning${safeCode ? `?tripCode=${safeCode}` : ""}`;
+}
+
 export function buildGroupInviteLink(codeOrParams, inviteParams = {}) {
   const params = typeof codeOrParams === "object" && codeOrParams !== null
     ? codeOrParams

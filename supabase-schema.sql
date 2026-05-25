@@ -310,6 +310,7 @@ using (true)
 with check (true);
 
 drop policy if exists "Only owners can delete groups" on public.groups;
+drop policy if exists "Owners or crew admins can delete groups" on public.groups;
 create policy "Owners or crew admins can delete groups"
 on public.groups
 for delete
@@ -407,13 +408,17 @@ create table if not exists public.trips (
   destination text not null,
   start_date text not null,
   end_date text not null,
+  invite_code text unique,
   budget numeric not null default 0,
   spent numeric not null default 0,
   members jsonb not null default '[]'::jsonb,
   color jsonb not null default '{}'::jsonb,
   status text not null default 'Planning',
   itinerary jsonb not null default '[]'::jsonb,
+  itinerary_suggestions jsonb not null default '[]'::jsonb,
   packing_list jsonb not null default '[]'::jsonb,
+  savings_progress jsonb not null default '[]'::jsonb,
+  planning_checklist jsonb not null default '[]'::jsonb,
   ratings jsonb not null default '[]'::jsonb,
   creator_id uuid not null references auth.users(id) on delete cascade,
   group_id uuid references public.groups(id) on delete set null,
@@ -425,18 +430,40 @@ alter table public.trips
   add column if not exists destination text,
   add column if not exists start_date text,
   add column if not exists end_date text,
+  add column if not exists invite_code text,
   add column if not exists budget numeric not null default 0,
   add column if not exists spent numeric not null default 0,
   add column if not exists members jsonb not null default '[]'::jsonb,
   add column if not exists color jsonb not null default '{}'::jsonb,
   add column if not exists status text not null default 'Planning',
   add column if not exists itinerary jsonb not null default '[]'::jsonb,
+  add column if not exists itinerary_suggestions jsonb not null default '[]'::jsonb,
   add column if not exists packing_list jsonb not null default '[]'::jsonb,
+  add column if not exists savings_progress jsonb not null default '[]'::jsonb,
+  add column if not exists planning_checklist jsonb not null default '[]'::jsonb,
   add column if not exists ratings jsonb not null default '[]'::jsonb,
   add column if not exists creator_id uuid references auth.users(id) on delete cascade,
   add column if not exists group_id uuid references public.groups(id) on delete set null,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
+
+create unique index if not exists trips_invite_code_key on public.trips (invite_code);
+
+update public.trips
+set invite_code = upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 6))
+where coalesce(invite_code, '') = '';
+
+update public.trips
+set itinerary_suggestions = '[]'::jsonb
+where itinerary_suggestions is null;
+
+update public.trips
+set savings_progress = '[]'::jsonb
+where savings_progress is null;
+
+update public.trips
+set planning_checklist = '[]'::jsonb
+where planning_checklist is null;
 
 drop trigger if exists set_trips_updated_at on public.trips;
 create trigger set_trips_updated_at

@@ -111,6 +111,25 @@ function normalizeProposal(proposal = {}) {
 }
 
 function normalizeTrip(trip = {}) {
+  const normalizedItinerary = Array.isArray(trip.itinerary)
+    ? trip.itinerary.map((day, index) => ({
+      day: Number(day?.day) || index + 1,
+      date: day?.date || "",
+      activities: Array.isArray(day?.activities)
+        ? day.activities.map((activity, activityIndex) => ({
+          id: activity?.id || createId("activity"),
+          time: activity?.time || "",
+          name: activity?.name || "Trip plan",
+          notes: activity?.notes || "",
+          done: Boolean(activity?.done),
+          source: activity?.source || "manual",
+          suggestionId: activity?.suggestionId || "",
+          order: Number(activity?.order) || activityIndex,
+        }))
+        : [],
+    }))
+    : [];
+
   return {
     ...trip,
     id: trip.id || createId("trip"),
@@ -123,11 +142,15 @@ function normalizeTrip(trip = {}) {
     members: Array.isArray(trip.members) ? trip.members : [],
     color: trip.color && typeof trip.color === "object" ? trip.color : { bg: "#fff4e6", border: "#ff9a3c", emoji: "🏝" },
     status: trip.status || "Planning",
-    itinerary: Array.isArray(trip.itinerary) ? trip.itinerary : [],
+    itinerary: normalizedItinerary,
     packingList: Array.isArray(trip.packingList) ? trip.packingList : (Array.isArray(trip.packing_list) ? trip.packing_list : []),
     ratings: Array.isArray(trip.ratings) ? trip.ratings : [],
     groupId: trip.groupId || trip.group_id || null,
     creatorId: trip.creatorId || trip.creator_id || null,
+    inviteCode: trip.inviteCode || trip.invite_code || "",
+    savingsProgress: Array.isArray(trip.savingsProgress) ? trip.savingsProgress : (Array.isArray(trip.savings_progress) ? trip.savings_progress : []),
+    planningChecklist: Array.isArray(trip.planningChecklist) ? trip.planningChecklist : (Array.isArray(trip.planning_checklist) ? trip.planning_checklist : []),
+    itinerarySuggestions: Array.isArray(trip.itinerarySuggestions) ? trip.itinerarySuggestions : (Array.isArray(trip.itinerary_suggestions) ? trip.itinerary_suggestions : []),
   };
 }
 

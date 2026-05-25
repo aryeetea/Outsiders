@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
+import { copyTextWithAlert } from "./clipboard";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildGroupInviteLink } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
@@ -896,27 +897,19 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     }
 
     setGeneratedInvite({ groupId: selectedGroup.id, link: inviteLink });
-    try {
-      if (window.navigator?.clipboard && window.isSecureContext) {
-        await window.navigator.clipboard.writeText(inviteLink);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = inviteLink;
-        textArea.setAttribute("readonly", "");
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        document.body.appendChild(textArea);
-        textArea.select();
-        const copied = document.execCommand("copy");
-        document.body.removeChild(textArea);
-        if (!copied) throw new Error("Clipboard copy was blocked.");
-      }
+    const copied = await copyTextWithAlert(
+      inviteLink,
+      inviteUsername.trim()
+        ? "Personalized crew invite link copied."
+        : `Crew invite link copied for ${selectedGroup.name}.`
+    );
+    if (copied) {
       setNotice(
         inviteUsername.trim()
           ? "Personalized invite link generated and copied."
           : `Invite link generated and copied for ${selectedGroup.name}.`
       );
-    } catch {
+    } else {
       setNotice("Invite link generated. Copy it from the box below.");
     }
   };
@@ -1613,10 +1606,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                             type="button"
                             className="btn ghost"
                             style={{ whiteSpace: "nowrap" }}
-                            onClick={() => {
-                              navigator.clipboard.writeText(selectedGroup.code);
-                              setNotice("Crew code copied!");
-                            }}
+                            onClick={() => void copyTextWithAlert(selectedGroup.code, "Crew code copied.")}
                           >
                             Copy code
                           </button>
@@ -1624,10 +1614,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                             type="button"
                             className="btn ghost"
                             style={{ whiteSpace: "nowrap" }}
-                            onClick={() => {
-                              navigator.clipboard.writeText(buildGroupInviteLink(selectedGroup.code));
-                              setNotice("Invite link copied!");
-                            }}
+                            onClick={() => void copyTextWithAlert(buildGroupInviteLink(selectedGroup.code), "Crew invite link copied.")}
                           >
                             Copy link
                           </button>
@@ -1663,10 +1650,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                 type="button"
                                 className="btn ghost"
                                 style={{ padding: "8px 12px", fontSize: 13 }}
-                                onClick={() => {
-                                  navigator.clipboard.writeText(invite.inviteCode || selectedGroup.code);
-                                  setNotice(`Invite code copied for ${invite.username}.`);
-                                }}
+                                onClick={() => void copyTextWithAlert(invite.inviteCode || selectedGroup.code, `Invite code copied for ${invite.username}.`)}
                               >
                                 Copy code
                               </button>
@@ -1674,10 +1658,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                 type="button"
                                 className="btn ghost"
                                 style={{ padding: "8px 12px", fontSize: 13 }}
-                                onClick={() => {
-                                  navigator.clipboard.writeText(invite.inviteLink || buildGroupInviteLink(selectedGroup.code));
-                                  setNotice(`Invite link copied for ${invite.username}.`);
-                                }}
+                                onClick={() => void copyTextWithAlert(invite.inviteLink || buildGroupInviteLink(selectedGroup.code), `Invite link copied for ${invite.username}.`)}
                               >
                                 Copy link
                               </button>

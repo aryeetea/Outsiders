@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { getDisplayName, getVisibleGroupsForProfile } from "./appState";
+import { createId, getDisplayName, getVisibleGroupsForProfile } from "./appState";
+import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
+import { buildTripInviteLink } from "./siteConfig";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
@@ -365,6 +367,16 @@ const STYLES = `
     padding: 22px 24px;
   }
 
+  .invite-value {
+    border-radius: 12px;
+    border: 2px dashed rgba(26, 26, 46, 0.25);
+    background: #fffdf7;
+    padding: 10px 12px;
+    font: 800 13px 'Nunito', sans-serif;
+    color: #475467;
+    overflow-wrap: anywhere;
+  }
+
   .trip-card {
     background: #fff;
     border: 3px solid #1a1a2e;
@@ -614,8 +626,67 @@ const getDays = (start, end) => {
   return Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
 };
 
-export default function OutsidersTripPlanning({ onNavigate, appData, setAppData }) {
-  const trips = appData?.trips || [];
+function generateCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
+function buildDefaultChecklist() {
+  return [
+    { id: createId("trip-check"), label: "Confirm who is going", done: false },
+    { id: createId("trip-check"), label: "Lock the budget plan", done: false },
+    { id: createId("trip-check"), label: "Pick the must-do stops", done: false },
+    { id: createId("trip-check"), label: "Double-check packing", done: false },
+  ];
+}
+
+function buildSavingsProgress(members = [], profile = {}, currentUserId = null) {
+  const fallbackName = getDisplayName(profile);
+  if (!members.length) {
+    return [{
+      id: createId("saving"),
+      userId: currentUserId || null,
+      username: profile?.username ? `@${String(profile.username).replace(/^@/, "")}` : "",
+      name: fallbackName,
+      saved: 0,
+    }];
+  }
+
+  return members.map((member, index) => ({
+    id: member.id || member.userId || createId(`saving-${index}`),
+    userId: member.userId || null,
+    username: member.username || "",
+    name: member.name || member.username || fallbackName,
+    saved: Number(member.saved) || 0,
+  }));
+}
+
+async function requestTripItinerarySuggestions(trip) {
+  const response = await fetch("/api/trip-itinerary", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      trip: {
+        name: trip.name,
+        destination: trip.destination,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
+        budget: trip.budget,
+        days: trip.itinerary?.length || 0,
+      },
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || "We could not build itinerary ideas right now.");
+  }
+
+  return Array.isArray(payload?.suggestions) ? payload.suggestions : [];
+}
+
+export default function OutsidersTripPlanning({ onNavigate, appData, setAppData, routeParams = {} }) {
+  const trips = useMemo(() => appData?.trips || [], [appData?.trips]);
   const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], appData?.profile || {}), [appData?.groups, appData?.profile]);
   const [selectedTripId, setSelectedTripId] = useState(() => (appData?.trips?.[0]?.id || null));
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -625,8 +696,19 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
   const [newPackItem, setNewPackItem] = useState("");
   const [newTripForm, setNewTripForm] = useState({ name: "", destination: "", startDate: "", endDate: "", budget: "", groupId: "" });
   const [formError, setFormError] = useState("");
+  const [aiError, setAiError] = useState("");
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
 
-  const selectedTrip = trips.find((trip) => trip.id === selectedTripId) || trips[0] || null;
+  const routeTripCode = String(routeParams?.tripCode || "").trim().toUpperCase();
+  const selectedTrip = (
+    (routeTripCode ? trips.find((trip) => String(trip.inviteCode || "").toUpperCase() === routeTripCode) : null)
+    || trips.find((trip) => trip.id === selectedTripId)
+    || trips[0]
+    || null
+  );
+  const currentProfile = appData?.profile || {};
+  const currentUserDisplayName = getDisplayName(currentProfile);
+  const currentUsername = currentProfile?.username ? `@${String(currentProfile.username).replace(/^@/, "").toLowerCase()}` : "";
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -651,6 +733,19 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
     });
   };
 
+  const selectedTripGroup = selectedTrip?.groupId
+    ? groups.find((group) => String(group.id) === String(selectedTrip.groupId)) || null
+    : null;
+  const tripInviteLink = selectedTrip?.inviteCode ? buildTripInviteLink(selectedTrip.inviteCode) : "";
+  const savingsTotal = (selectedTrip?.savingsProgress || []).reduce((sum, entry) => sum + (Number(entry.saved) || 0), 0);
+  const remainingToSave = selectedTrip ? Math.max((Number(selectedTrip.budget) || 0) - savingsTotal, 0) : 0;
+  const savingsPct = selectedTrip?.budget ? Math.min(Math.round((savingsTotal / selectedTrip.budget) * 100), 100) : 0;
+  const editableSavingsEntry = (selectedTrip?.savingsProgress || []).find((entry) => (
+    (entry.userId && currentUserId && String(entry.userId) === String(currentUserId))
+    || (entry.username && currentUsername && String(entry.username).toLowerCase() === currentUsername)
+    || String(entry.name || "").trim().toLowerCase() === currentUserDisplayName.trim().toLowerCase()
+  )) || null;
+
   const updateTrip = async (updatedTrip) => {
     if (isSupabaseConfigured && currentUserId && updatedTrip?.id && !String(updatedTrip.id).startsWith("trip-")) {
       const { error } = await supabase
@@ -668,6 +763,10 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
           itinerary: updatedTrip.itinerary,
           packing_list: updatedTrip.packingList,
           ratings: updatedTrip.ratings || [],
+          invite_code: updatedTrip.inviteCode || "",
+          savings_progress: updatedTrip.savingsProgress || [],
+          planning_checklist: updatedTrip.planningChecklist || [],
+          itinerary_suggestions: updatedTrip.itinerarySuggestions || [],
         })
         .eq("id", updatedTrip.id);
       if (error) return;
@@ -698,12 +797,42 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
       ...selectedTrip,
       itinerary: selectedTrip.itinerary.map(d =>
         d.day === newActivity.day
-          ? { ...d, activities: [...d.activities, { id: Date.now(), time: newActivity.time, name: newActivity.name.trim() }].sort((a, b) => a.time.localeCompare(b.time)) }
+          ? {
+            ...d,
+            activities: [...d.activities, {
+              id: createId("activity"),
+              time: newActivity.time,
+              name: newActivity.name.trim(),
+              notes: "",
+              done: false,
+              source: "manual",
+            }].sort((a, b) => a.time.localeCompare(b.time)),
+          }
           : d
       )
     };
     void updateTrip(updated);
     setNewActivity({ day: newActivity.day, time: "", name: "" });
+  };
+
+  const toggleActivityDone = (dayNumber, activityId) => {
+    if (!selectedTrip) return;
+    const updated = {
+      ...selectedTrip,
+      itinerary: selectedTrip.itinerary.map((day) => (
+        day.day === dayNumber
+          ? {
+            ...day,
+            activities: day.activities.map((activity) => (
+              activity.id === activityId
+                ? { ...activity, done: !activity.done }
+                : activity
+            )),
+          }
+          : day
+      )),
+    };
+    void updateTrip(updated);
   };
 
   const deleteActivity = (dayNumber, activityId) => {
@@ -717,6 +846,96 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
       )),
     };
     void updateTrip(updated);
+  };
+
+  const toggleChecklistItem = (itemId) => {
+    if (!selectedTrip) return;
+    const updated = {
+      ...selectedTrip,
+      planningChecklist: (selectedTrip.planningChecklist || []).map((item) => (
+        item.id === itemId ? { ...item, done: !item.done } : item
+      )),
+    };
+    void updateTrip(updated);
+  };
+
+  const updateMySavings = (value) => {
+    if (!selectedTrip || !editableSavingsEntry) return;
+    const nextSavings = (selectedTrip.savingsProgress || []).map((entry) => (
+      entry.id === editableSavingsEntry.id
+        ? { ...entry, saved: Math.max(Number(value) || 0, 0) }
+        : entry
+    ));
+    const updated = {
+      ...selectedTrip,
+      savingsProgress: nextSavings,
+      spent: nextSavings.reduce((sum, entry) => sum + (Number(entry.saved) || 0), 0),
+    };
+    void updateTrip(updated);
+  };
+
+  const addSuggestionToItinerary = (suggestion) => {
+    if (!selectedTrip) return;
+    const targetDay = Number(suggestion.day) || 1;
+    const updated = {
+      ...selectedTrip,
+      itinerary: selectedTrip.itinerary.map((day) => (
+        day.day === targetDay
+          ? {
+            ...day,
+            activities: [...day.activities, {
+              id: createId("activity"),
+              time: suggestion.time || "",
+              name: suggestion.title || "AI suggestion",
+              notes: suggestion.notes || "",
+              done: false,
+              source: "ai",
+              suggestionId: suggestion.id || "",
+            }].sort((a, b) => a.time.localeCompare(b.time)),
+          }
+          : day
+      )),
+      itinerarySuggestions: (selectedTrip.itinerarySuggestions || []).map((item) => (
+        item.id === suggestion.id ? { ...item, added: true } : item
+      )),
+    };
+    void updateTrip(updated);
+  };
+
+  const generateSuggestions = async () => {
+    if (!selectedTrip) return;
+    setIsGeneratingSuggestions(true);
+    setAiError("");
+    try {
+      const suggestions = await requestTripItinerarySuggestions(selectedTrip);
+      const updated = {
+        ...selectedTrip,
+        itinerarySuggestions: suggestions.map((item, index) => ({
+          id: item.id || createId(`suggestion-${index}`),
+          day: Number(item.day) || 1,
+          time: item.time || "",
+          title: item.title || "Trip idea",
+          notes: item.notes || "",
+          category: item.category || "general",
+          added: false,
+        })),
+      };
+      await updateTrip(updated);
+    } catch (error) {
+      setAiError(error.message || "We could not generate itinerary ideas right now.");
+    } finally {
+      setIsGeneratingSuggestions(false);
+    }
+  };
+
+  const copyTripCode = async () => {
+    if (!selectedTrip?.inviteCode) return;
+    await copyTextWithAlert(selectedTrip.inviteCode, "Trip code copied.");
+  };
+
+  const copyTripLink = async () => {
+    if (!tripInviteLink) return;
+    await copyTextWithAlert(tripInviteLink, "Trip invite link copied.");
   };
 
   const deleteTrip = async () => {
@@ -745,6 +964,12 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
     }
     const days = getDays(newTripForm.startDate, newTripForm.endDate);
     const selectedGroup = groups.find((group) => String(group.id) === String(newTripForm.groupId)) || null;
+    const resolvedGroupMembers = (selectedGroup?.members || []).map((member) => ({
+      userId: member.userId || null,
+      username: member.username || "",
+      name: member.name || member.username || "Crew",
+      email: member.email || "",
+    }));
     const itinerary = Array.from({ length: days }, (_, i) => ({
       day: i + 1,
       date: formatDate(new Date(new Date(newTripForm.startDate).getTime() + i * 86400000).toISOString().split("T")[0]),
@@ -767,6 +992,14 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
       packingList: [{ id: 1, item: "Passport / ID 🛂", packed: false }, { id: 2, item: "Phone charger 🔋", packed: false }],
       ratings: [],
       groupId: selectedGroup?.id || null,
+      inviteCode: generateCode(),
+      savingsProgress: buildSavingsProgress(
+        selectedGroup ? resolvedGroupMembers : [],
+        currentProfile,
+        currentUserId
+      ),
+      planningChecklist: buildDefaultChecklist(),
+      itinerarySuggestions: [],
     };
     let savedTrip = newTrip;
     if (isSupabaseConfigured && currentUserId) {
@@ -787,6 +1020,10 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
           ratings: [],
           creator_id: currentUserId,
           group_id: newTrip.groupId,
+          invite_code: newTrip.inviteCode,
+          savings_progress: newTrip.savingsProgress,
+          planning_checklist: newTrip.planningChecklist,
+          itinerary_suggestions: [],
         })
         .select("*")
         .single();
@@ -799,6 +1036,10 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
           packingList: data.packing_list || newTrip.packingList,
           creatorId: data.creator_id,
           groupId: data.group_id || newTrip.groupId,
+          inviteCode: data.invite_code || newTrip.inviteCode,
+          savingsProgress: data.savings_progress || newTrip.savingsProgress,
+          planningChecklist: data.planning_checklist || newTrip.planningChecklist,
+          itinerarySuggestions: data.itinerary_suggestions || [],
         };
       }
 
@@ -829,7 +1070,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
             group_id: selectedGroup.id,
             group_name: selectedGroup.name,
             action_screen: "trip-planning",
-            action_params: {},
+            action_params: { tripCode: savedTrip.inviteCode },
             type: "trip-created",
             message: `${getDisplayName(appData?.profile || {})} created a trip: ${savedTrip.name}.`,
             read: false,
@@ -846,8 +1087,8 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
               .map((member) => ({ email: member.email, name: member.name })),
             subject: `${getDisplayName(appData?.profile || {})} created a trip in ${selectedGroup.name}`,
             intro: `${getDisplayName(appData?.profile || {})} just planned "${savedTrip.name}" for ${selectedGroup.name}.`,
-            ctaLabel: "Open Outsiders",
-            ctaUrl: window.location.origin + "/#/trip-planning",
+            ctaLabel: "Open trip",
+            ctaUrl: buildTripInviteLink(savedTrip.inviteCode),
             details: [
               `Destination: ${savedTrip.destination}`,
               `Dates: ${savedTrip.startDate} to ${savedTrip.endDate}`,
@@ -867,8 +1108,8 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
 
   const packedCount = selectedTrip?.packingList.filter(p => p.packed).length || 0;
   const totalPack = selectedTrip?.packingList.length || 0;
-  const budgetPct = selectedTrip ? Math.min(Math.round((selectedTrip.spent / selectedTrip.budget) * 100), 100) : 0;
-  const budgetColor = budgetPct > 80 ? "#ff6b6b" : budgetPct > 50 ? "#ff9a3c" : "#51cf66";
+  const budgetPct = selectedTrip?.budget ? savingsPct : 0;
+  const budgetColor = budgetPct >= 100 ? "#51cf66" : budgetPct > 65 ? "#4ecdc4" : "#ff9a3c";
   const profileName = appData?.profile?.name || appData?.profile?.username || "You";
 
   return (
@@ -990,6 +1231,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                           <span style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>📍 {selectedTrip.destination}</span>
                           <span style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>📅 {formatDate(selectedTrip.startDate)} – {formatDate(selectedTrip.endDate)}</span>
                           <span style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>🌙 {getDays(selectedTrip.startDate, selectedTrip.endDate)} days</span>
+                          {selectedTripGroup ? <span style={{ fontSize: 13, fontWeight: 800, color: "#555" }}>{selectedTripGroup.emoji} {selectedTripGroup.name}</span> : null}
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: -8 }}>
@@ -1007,14 +1249,38 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                     {selectedTrip.budget > 0 && (
                       <div style={{ marginTop: 16 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span className="bangers" style={{ fontSize: 14, color: "#1a1a2e" }}>💸 Budget</span>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: budgetColor }}>${selectedTrip.spent} / ${selectedTrip.budget}</span>
+                          <span className="bangers" style={{ fontSize: 14, color: "#1a1a2e" }}>💸 Savings progress</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: budgetColor }}>${savingsTotal} saved / ${selectedTrip.budget} goal</span>
                         </div>
                         <div className="budget-bar">
                           <div className="budget-fill" style={{ width: `${budgetPct}%`, background: budgetColor }} />
                         </div>
+                        <p style={{ margin: "10px 0 0", fontSize: 12, fontWeight: 800, color: "#666" }}>
+                          ${remainingToSave} left to save for this trip.
+                        </p>
                       </div>
                     )}
+
+                    <div style={{ marginTop: 16, display: "grid", gap: 10, background: "rgba(255,255,255,0.72)", border: "2px dashed rgba(26,26,46,0.22)", borderRadius: 16, padding: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                        <div>
+                          <p className="bangers" style={{ fontSize: 16, margin: 0, color: "#1a1a2e" }}>Trip invite</p>
+                          <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 800, color: "#666" }}>
+                            Share this code or link so your crew opens this exact trip.
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button type="button" className="btn-secondary" onClick={copyTripCode}>Copy trip code</button>
+                          <button type="button" className="btn-secondary" onClick={copyTripLink}>Copy trip link</button>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: "#777" }}>Code</div>
+                        <div className="invite-value">{selectedTrip.inviteCode}</div>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: "#777" }}>Link</div>
+                        <div className="invite-value">{tripInviteLink}</div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Tabs */}
@@ -1030,7 +1296,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                       {[
                         { label: "Days", value: getDays(selectedTrip.startDate, selectedTrip.endDate), emoji: "🌙", color: "#4ecdc4", bg: "#e8f4fd", border: "#4ecdc4" },
                         { label: "Going", value: selectedTrip.members.length, emoji: "👥", color: "#51cf66", bg: "#e8fde8", border: "#51cf66" },
-                        { label: "Budget Left", value: `$${selectedTrip.budget - selectedTrip.spent}`, emoji: "💸", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
+                        { label: "Left To Save", value: `$${remainingToSave}`, emoji: "💸", color: "#ff9a3c", bg: "#fff4e6", border: "#ff9a3c" },
                         { label: "Packed", value: `${packedCount}/${totalPack}`, emoji: "🎒", color: "#a29bfe", bg: "#f3e8fd", border: "#9b59b6" },
                       ].map(s => (
                         <div key={s.label} style={{ background: s.bg, border: `3px solid ${s.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: `4px 4px 0 ${s.border}` }}>
@@ -1041,11 +1307,110 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                     </div>
                   )}
 
+                  {activeTab === "Overview" && (
+                    <div className="card" style={{ marginTop: 16 }}>
+                      <div className="section-header">
+                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Money tracker</h3>
+                        <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>
+                          ${savingsTotal} saved
+                        </span>
+                      </div>
+                      <p style={{ margin: "0 0 14px", color: "#666", fontWeight: 800 }}>
+                        Everyone can update what they have saved so the crew sees how close the trip is to fully funded.
+                      </p>
+                      <div style={{ display: "grid", gap: 12 }}>
+                        {(selectedTrip.savingsProgress || []).map((entry) => {
+                          const isMe = editableSavingsEntry?.id === entry.id;
+                          return (
+                            <div key={entry.id} style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                <strong>{entry.name}</strong>
+                                <span style={{ fontWeight: 900, color: "#666" }}>${Number(entry.saved) || 0} saved</span>
+                              </div>
+                              {isMe ? (
+                                <input
+                                  className="form-input"
+                                  type="number"
+                                  min="0"
+                                  value={Number(entry.saved) || 0}
+                                  onChange={(event) => updateMySavings(event.target.value)}
+                                  placeholder="How much have you saved?"
+                                />
+                              ) : (
+                                <div style={{ fontSize: 13, fontWeight: 700, color: "#888" }}>
+                                  This updates from {entry.name}&apos;s account.
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "Overview" && (
+                    <div className="card" style={{ marginTop: 16 }}>
+                      <div className="section-header">
+                        <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>Trip checklist</h3>
+                        <span className="badge" style={{ background: "#eefdf5", color: "#0f766e", borderColor: "#0f766e" }}>
+                          {(selectedTrip.planningChecklist || []).filter((item) => item.done).length}/{(selectedTrip.planningChecklist || []).length}
+                        </span>
+                      </div>
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {(selectedTrip.planningChecklist || []).map((item) => (
+                          <div key={item.id} className="pack-item" onClick={() => toggleChecklistItem(item.id)}>
+                            <div className="checkbox" style={{ background: item.done ? "#51cf66" : "#fff", borderColor: item.done ? "#51cf66" : "#1a1a2e" }}>
+                              {item.done && <IconCheck />}
+                            </div>
+                            <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: item.done ? "#888" : "#1a1a2e", textDecoration: item.done ? "line-through" : "none" }}>
+                              {item.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Itinerary */}
                   {activeTab === "Itinerary" && (
                     <div className="card">
                       <div className="section-header">
                         <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>📅 Day by Day Plan</h3>
+                        <button type="button" className="btn-secondary" onClick={() => void generateSuggestions()} disabled={isGeneratingSuggestions}>
+                          {isGeneratingSuggestions ? "Building ideas..." : "AI build itinerary ideas"}
+                        </button>
+                      </div>
+                      <p style={{ margin: "0 0 16px", color: "#666", fontWeight: 800 }}>
+                        Add your own plan, then pull in AI suggestions and check things off as your crew does them.
+                      </p>
+
+                      <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
+                        {aiError ? <p style={{ margin: 0, color: "#b42318", fontWeight: 800 }}>{aiError}</p> : null}
+                        {(selectedTrip.itinerarySuggestions || []).length ? (
+                          <div style={{ display: "grid", gap: 12 }}>
+                            {(selectedTrip.itinerarySuggestions || []).map((suggestion) => (
+                              <div key={suggestion.id} style={{ border: "2px solid #e7dcc5", borderRadius: 16, background: "#fffdf7", padding: 14, display: "grid", gap: 8 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                  <strong>Day {suggestion.day} · {suggestion.time || "Flexible time"}</strong>
+                                  <span className="badge" style={{ background: suggestion.added ? "#eefdf5" : "#fff4e6", color: suggestion.added ? "#0f766e" : "#b54708", borderColor: suggestion.added ? "#0f766e" : "#f79009" }}>
+                                    {suggestion.added ? "Added" : (suggestion.category || "Idea")}
+                                  </span>
+                                </div>
+                                <div className="bangers" style={{ fontSize: 19, color: "#1a1a2e" }}>{suggestion.title}</div>
+                                <p style={{ margin: 0, color: "#666", fontWeight: 700 }}>{suggestion.notes}</p>
+                                <div>
+                                  <button type="button" className="btn-secondary" disabled={suggestion.added} onClick={() => addSuggestionToItinerary(suggestion)}>
+                                    {suggestion.added ? "Added to itinerary" : "Add this plan"}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ border: "2px dashed #d8ccb6", borderRadius: 16, background: "#fffdf7", padding: 16, color: "#666", fontWeight: 800 }}>
+                            Ask the AI planner for starter ideas and then keep the ones your crew actually wants.
+                          </div>
+                        )}
                       </div>
 
                       {selectedTrip.itinerary.map((day) => (
@@ -1056,9 +1421,20 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                           )}
                           {day.activities.map((a, i) => (
                             <div key={a.id || `${a.time}-${a.name}-${i}`} className="activity-row">
+                              <button
+                                type="button"
+                                className="checkbox"
+                                style={{ background: a.done ? "#51cf66" : "#fff", borderColor: a.done ? "#51cf66" : "#1a1a2e" }}
+                                onClick={() => toggleActivityDone(day.day, a.id)}
+                              >
+                                {a.done ? <IconCheck /> : null}
+                              </button>
                               <span style={{ fontSize: 12, fontWeight: 900, color: "#aaa", minWidth: 60 }}>{a.time}</span>
                               <div style={{ width: 8, height: 8, background: selectedTrip.color.border, borderRadius: "50%", border: "2px solid #1a1a2e", flexShrink: 0 }} />
-                              <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{a.name}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, textDecoration: a.done ? "line-through" : "none", color: a.done ? "#999" : "#1a1a2e" }}>{a.name}</div>
+                                {a.notes ? <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>{a.notes}</div> : null}
+                              </div>
                               <button type="button" className="btn-danger" style={{ padding: "4px 8px" }} onClick={() => deleteActivity(day.day, a.id)}>
                                 <IconTrash />
                               </button>

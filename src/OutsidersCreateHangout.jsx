@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
+import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildHangoutInviteLink } from "./siteConfig";
@@ -910,6 +911,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 <p style={{ margin: "10px 0 0", color: "#667085" }}>{createdProposal.link}</p>
               </div>
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+                <button type="button" className="btn ghost" onClick={() => void copyTextWithAlert(createdProposal.code, "Hangout code copied.")}>Copy code</button>
+                <button type="button" className="btn ghost" onClick={() => void copyTextWithAlert(createdProposal.link, "Hangout invite link copied.")}>Copy link</button>
                 <button type="button" className="btn primary" onClick={() => onNavigate?.("friend-groups")}>Open crew voting</button>
                 <button type="button" className="btn ghost" onClick={() => onNavigate?.("create-hangout")}>Create another</button>
               </div>
