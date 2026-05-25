@@ -649,9 +649,20 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     timeOptions: [],
     locationOptions: [],
     externalInvites: [],
+    agenda: [],
+    planningDetails: {
+      reservationStatus: "not-needed",
+      reservationName: "",
+      meetingPoint: "",
+      followUpNotes: "",
+    },
     newTime: "",
     newLocation: "",
     newInvite: "",
+    newAgendaSection: "",
+    newAgendaTime: "",
+    newAgendaTitle: "",
+    newAgendaNotes: "",
   });
   const [notice, setNotice] = useState("");
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
@@ -1070,9 +1081,20 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       timeOptions: proposal.timeOptions || [],
       locationOptions: proposal.locationOptions || [],
       externalInvites: proposal.externalInvites || [],
+      agenda: proposal.agenda || [],
+      planningDetails: {
+        reservationStatus: proposal.planningDetails?.reservationStatus || "not-needed",
+        reservationName: proposal.planningDetails?.reservationName || "",
+        meetingPoint: proposal.planningDetails?.meetingPoint || "",
+        followUpNotes: proposal.planningDetails?.followUpNotes || "",
+      },
       newTime: "",
       newLocation: "",
       newInvite: "",
+      newAgendaSection: "",
+      newAgendaTime: "",
+      newAgendaTitle: "",
+      newAgendaNotes: "",
     });
   };
 
@@ -1085,9 +1107,20 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       timeOptions: [],
       locationOptions: [],
       externalInvites: [],
+      agenda: [],
+      planningDetails: {
+        reservationStatus: "not-needed",
+        reservationName: "",
+        meetingPoint: "",
+        followUpNotes: "",
+      },
       newTime: "",
       newLocation: "",
       newInvite: "",
+      newAgendaSection: "",
+      newAgendaTime: "",
+      newAgendaTitle: "",
+      newAgendaNotes: "",
     });
   };
 
@@ -1125,6 +1158,31 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     }));
   };
 
+  const addEditAgendaStep = () => {
+    const title = editDraft.newAgendaTitle.trim();
+    const notes = editDraft.newAgendaNotes.trim();
+    if (!title && !notes) return;
+
+    setEditDraft((prev) => ({
+      ...prev,
+      agenda: [
+        ...prev.agenda,
+        {
+          id: createId("agenda"),
+          section: prev.newAgendaSection.trim() || "Custom",
+          time: prev.newAgendaTime.trim(),
+          title: title || notes.slice(0, 42) || "Hangout step",
+          notes,
+          source: "manual",
+        },
+      ],
+      newAgendaSection: "",
+      newAgendaTime: "",
+      newAgendaTitle: "",
+      newAgendaNotes: "",
+    }));
+  };
+
   const saveEditedProposal = async () => {
     if (!selectedGroup || !editingProposal) return;
     if (!editDraft.name.trim()) {
@@ -1153,6 +1211,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
         timeOptions: editDraft.timeOptions,
         locationOptions: editDraft.locationOptions,
         externalInvites: editDraft.externalInvites,
+        agenda: editDraft.agenda,
+        planningDetails: {
+          reservationStatus: editDraft.planningDetails.reservationStatus || "not-needed",
+          reservationName: editDraft.planningDetails.reservationName.trim(),
+          meetingPoint: editDraft.planningDetails.meetingPoint.trim(),
+          followUpNotes: editDraft.planningDetails.followUpNotes.trim(),
+        },
         votes: {
           ...(proposal.votes || {}),
           time: Object.fromEntries(Object.entries(proposal.votes?.time || {}).filter(([, value]) => allowedTimeIds.has(value))),
@@ -1469,11 +1534,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                 </div>
                                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
                                   <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
+                                  <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => startEditingProposal(proposal)}>
+                                    Plan together
+                                  </button>
                                   {(proposal.proposerName === currentName || isCurrentMemberAdmin) ? (
                                     <>
-                                      <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => startEditingProposal(proposal)}>
-                                        Edit hangout
-                                      </button>
                                       <button
                                         type="button"
                                         className="btn"
@@ -1500,6 +1565,20 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                       {item.section}{item.time ? ` · ${item.time}` : ""}: {item.title}
                                     </div>
                                   ))}
+                                </div>
+                              ) : null}
+                              {proposal.planningDetails?.meetingPoint || proposal.planningDetails?.reservationName || proposal.planningDetails?.followUpNotes ? (
+                                <div style={{ margin: "12px 0 0", display: "grid", gap: 6, padding: 14, borderRadius: 14, border: "2px dashed rgba(23,21,31,0.18)", background: "#fffdf7" }}>
+                                  <strong className="bangers" style={{ fontSize: 16 }}>Shared planning notes</strong>
+                                  {proposal.planningDetails?.reservationName ? (
+                                    <div style={{ color: "#475467", fontWeight: 700 }}>Reservation: {proposal.planningDetails.reservationName}</div>
+                                  ) : null}
+                                  {proposal.planningDetails?.meetingPoint ? (
+                                    <div style={{ color: "#475467", fontWeight: 700 }}>Meet at: {proposal.planningDetails.meetingPoint}</div>
+                                  ) : null}
+                                  {proposal.planningDetails?.followUpNotes ? (
+                                    <div style={{ color: "#475467", fontWeight: 700 }}>Notes: {proposal.planningDetails.followUpNotes}</div>
+                                  ) : null}
                                 </div>
                               ) : null}
                               <div className="proposal-columns" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
@@ -1890,6 +1969,136 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   </div>
                 )) : (
                   <div className="edit-row"><span>No outside invites yet.</span></div>
+                )}
+              </div>
+
+              <div className="field">
+                <label>Reservation status</label>
+                <select
+                  value={editDraft.planningDetails.reservationStatus}
+                  onChange={(event) => setEditDraft((prev) => ({
+                    ...prev,
+                    planningDetails: { ...prev.planningDetails, reservationStatus: event.target.value },
+                  }))}
+                >
+                  <option value="not-needed">No reservation needed</option>
+                  <option value="needed">Need to book</option>
+                  <option value="booked">Booked already</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>Reservation name</label>
+                <input
+                  value={editDraft.planningDetails.reservationName}
+                  onChange={(event) => setEditDraft((prev) => ({
+                    ...prev,
+                    planningDetails: { ...prev.planningDetails, reservationName: event.target.value },
+                  }))}
+                  placeholder="Venue or reservation name"
+                />
+              </div>
+              <div className="field">
+                <label>Meeting point</label>
+                <input
+                  value={editDraft.planningDetails.meetingPoint}
+                  onChange={(event) => setEditDraft((prev) => ({
+                    ...prev,
+                    planningDetails: { ...prev.planningDetails, meetingPoint: event.target.value },
+                  }))}
+                  placeholder="Where should everyone meet first?"
+                />
+              </div>
+              <div className="field">
+                <label>Shared notes</label>
+                <textarea
+                  value={editDraft.planningDetails.followUpNotes}
+                  onChange={(event) => setEditDraft((prev) => ({
+                    ...prev,
+                    planningDetails: { ...prev.planningDetails, followUpNotes: event.target.value },
+                  }))}
+                  placeholder="Parking, arrival details, what to bring, backup plan..."
+                />
+              </div>
+
+              <div className="field">
+                <label>Shared run of show</label>
+                <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>Everyone in the crew can keep shaping this plan together.</p>
+              </div>
+              <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                <input
+                  value={editDraft.newAgendaSection}
+                  onChange={(event) => setEditDraft((prev) => ({ ...prev, newAgendaSection: event.target.value }))}
+                  placeholder="Section name"
+                />
+                <input
+                  value={editDraft.newAgendaTime}
+                  onChange={(event) => setEditDraft((prev) => ({ ...prev, newAgendaTime: event.target.value }))}
+                  placeholder="Time"
+                />
+              </div>
+              <div className="field">
+                <input
+                  value={editDraft.newAgendaTitle}
+                  onChange={(event) => setEditDraft((prev) => ({ ...prev, newAgendaTitle: event.target.value }))}
+                  placeholder="Agenda title"
+                />
+              </div>
+              <div className="field">
+                <textarea
+                  value={editDraft.newAgendaNotes}
+                  onChange={(event) => setEditDraft((prev) => ({ ...prev, newAgendaNotes: event.target.value }))}
+                  placeholder="What happens in this step?"
+                />
+              </div>
+              <button type="button" className="btn secondary" onClick={addEditAgendaStep}>Add agenda step</button>
+              <div className="edit-list">
+                {editDraft.agenda.length ? editDraft.agenda.map((item) => (
+                  <div key={item.id} className="edit-row" style={{ alignItems: "stretch", display: "grid", gap: 8 }}>
+                    <input
+                      value={item.section || ""}
+                      onChange={(event) => setEditDraft((prev) => ({
+                        ...prev,
+                        agenda: prev.agenda.map((entry) => entry.id === item.id ? { ...entry, section: event.target.value } : entry),
+                      }))}
+                      placeholder="Section"
+                    />
+                    <input
+                      value={item.time || ""}
+                      onChange={(event) => setEditDraft((prev) => ({
+                        ...prev,
+                        agenda: prev.agenda.map((entry) => entry.id === item.id ? { ...entry, time: event.target.value } : entry),
+                      }))}
+                      placeholder="Time"
+                    />
+                    <input
+                      value={item.title || ""}
+                      onChange={(event) => setEditDraft((prev) => ({
+                        ...prev,
+                        agenda: prev.agenda.map((entry) => entry.id === item.id ? { ...entry, title: event.target.value } : entry),
+                      }))}
+                      placeholder="Title"
+                    />
+                    <textarea
+                      value={item.notes || ""}
+                      onChange={(event) => setEditDraft((prev) => ({
+                        ...prev,
+                        agenda: prev.agenda.map((entry) => entry.id === item.id ? { ...entry, notes: event.target.value } : entry),
+                      }))}
+                      placeholder="Notes"
+                    />
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        style={{ padding: "7px 10px", fontSize: 12 }}
+                        onClick={() => setEditDraft((prev) => ({ ...prev, agenda: prev.agenda.filter((entry) => entry.id !== item.id) }))}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="edit-row"><span>No shared agenda steps yet.</span></div>
                 )}
               </div>
 
