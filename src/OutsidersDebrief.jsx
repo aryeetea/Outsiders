@@ -148,6 +148,7 @@ const STYLES = `
   }
   @media (max-width: 640px) {
     .main { padding: 18px 14px; }
+    .debrief-shell { padding: 20px 16px 28px; }
     .debrief-kicker { min-width: 0; width: 100%; }
     .debrief-subtitle { padding: 14px 20px; }
   }

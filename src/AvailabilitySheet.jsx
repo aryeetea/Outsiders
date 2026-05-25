@@ -74,6 +74,22 @@ const STYLES = `
     gap: 14px;
   }
 
+  .availability-mobile-nav {
+    display: none;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 0 22px 18px;
+  }
+
+  .availability-mobile-days {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
   .availability-day-card {
     border: 3px solid #1a1a2e;
     border-radius: 16px;
@@ -120,6 +136,11 @@ const STYLES = `
     min-width: 900px;
   }
 
+  .availability-grid.single-day {
+    grid-template-columns: 86px minmax(180px, 1fr);
+    min-width: 0;
+  }
+
   .availability-head,
   .availability-time,
   .availability-slot {
@@ -150,7 +171,15 @@ const STYLES = `
     font-weight: 800;
   }
 
+  .availability-corner {
+    left: 0;
+    z-index: 4;
+  }
+
   .availability-time {
+    position: sticky;
+    left: 0;
+    z-index: 1;
     padding: 12px 10px;
     background: #fff;
     text-align: right;
@@ -246,6 +275,14 @@ const STYLES = `
     .availability-shortcuts {
       grid-template-columns: 1fr;
     }
+
+    .availability-mobile-nav {
+      display: grid;
+    }
+
+    .availability-frame {
+      overflow-x: hidden;
+    }
   }
 
   @media (max-width: 520px) {
@@ -270,6 +307,12 @@ function summaryText(availability) {
   return text === "No availability saved" ? "No availability saved yet." : text;
 }
 
+function getPreferredMobileDay() {
+  const todayIndex = new Date().getDay();
+  const mappedIndex = todayIndex === 0 ? 6 : todayIndex - 1;
+  return WEEK_DAYS[mappedIndex] || WEEK_DAYS[0];
+}
+
 export default function AvailabilitySheet({
   value,
   onChange,
@@ -283,10 +326,30 @@ export default function AvailabilitySheet({
   readOnly = false,
 }) {
   const [dragMode, setDragMode] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(getPreferredMobileDay);
+  const [isCondensedView, setIsCondensedView] = useState(false);
   const dragTouchedKeys = useRef(new Set());
   const activeBlocks = useMemo(() => getAvailabilityBlockSet(value), [value]);
   const ready = hasAvailability(value);
   const summary = useMemo(() => summaryText(value), [value]);
+  const visibleDays = isCondensedView ? [selectedDay] : WEEK_DAYS;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+    const mediaQuery = window.matchMedia("(max-width: 720px)");
+    const syncCondensedView = (event) => {
+      setIsCondensedView(event.matches);
+    };
+
+    syncCondensedView(mediaQuery);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", syncCondensedView);
+      return () => mediaQuery.removeEventListener("change", syncCondensedView);
+    }
+
+    mediaQuery.addListener(syncCondensedView);
+    return () => mediaQuery.removeListener(syncCondensedView);
+  }, []);
 
   useEffect(() => {
     if (!dragMode) return undefined;
@@ -301,6 +364,26 @@ export default function AvailabilitySheet({
       window.removeEventListener("touchend", stopDrag);
     };
   }, [dragMode]);
+
+  useEffect(() => {
+    if (!dragMode) return undefined;
+    const continueTouchDrag = (event) => {
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const slot = target?.closest?.("[data-availability-slot='true']");
+      const day = slot?.getAttribute("data-day");
+      const time = slot?.getAttribute("data-time");
+      if (!day || !time) return;
+      event.preventDefault();
+      continueDrag(day, time);
+    };
+
+    window.addEventListener("touchmove", continueTouchDrag, { passive: false });
+    return () => {
+      window.removeEventListener("touchmove", continueTouchDrag);
+    };
+  }, [dragMode, activeBlocks]);
 
   const setAvailabilityFromBlocks = (blocks) => {
     if (readOnly) return;
@@ -351,6 +434,15 @@ export default function AvailabilitySheet({
     if (readOnly) return;
     const hasAny = TIME_BLOCKS.some((time) => activeBlocks.has(`${day}-${time}`));
     applyPresetToDay(day, TIME_BLOCKS[0], TIME_BLOCKS[TIME_BLOCKS.length - 1] ? "23:00" : "23:00", hasAny ? "remove" : "add");
+  };
+
+  const changeSelectedDay = (direction) => {
+    setSelectedDay((currentDay) => {
+      const currentIndex = WEEK_DAYS.indexOf(currentDay);
+      const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+      const nextIndex = (safeIndex + direction + WEEK_DAYS.length) % WEEK_DAYS.length;
+      return WEEK_DAYS[nextIndex];
+    });
   };
 
   return (
@@ -409,10 +501,33 @@ export default function AvailabilitySheet({
           </div>
         </div>
 
+        {isCondensedView ? (
+          <div className="availability-mobile-nav">
+            <button type="button" className="availability-btn" onClick={() => changeSelectedDay(-1)}>
+              Prev day
+            </button>
+            <div className="availability-mobile-days">
+              {WEEK_DAYS.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  className={`availability-btn ${selectedDay === day ? "primary" : ""}`}
+                  onClick={() => setSelectedDay(day)}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="availability-btn" onClick={() => changeSelectedDay(1)}>
+              Next day
+            </button>
+          </div>
+        ) : null}
+
         <div className="availability-frame">
-          <div className="availability-grid">
-            <div className="availability-head" />
-            {WEEK_DAYS.map((day) => (
+          <div className={`availability-grid ${isCondensedView ? "single-day" : ""}`}>
+            <div className="availability-head availability-corner" />
+            {visibleDays.map((day) => (
               <div key={day} className="availability-head">
                 <strong>{day}</strong>
                 <span>{ready && (value?.slots?.[day]?.length || 0) > 0 ? "Free time saved" : "Tap to mark"}</span>
@@ -423,11 +538,12 @@ export default function AvailabilitySheet({
               <AvailabilityRow
                 key={time}
                 time={time}
+                visibleDays={visibleDays}
                 activeBlocks={activeBlocks}
                 dragMode={dragMode}
                 readOnly={readOnly}
                 onMouseDown={startDrag}
-                onMouseEnter={(day) => continueDrag(day, time)}
+                onMouseEnter={continueDrag}
               />
             ))}
           </div>
@@ -446,19 +562,22 @@ export default function AvailabilitySheet({
   );
 }
 
-function AvailabilityRow({ time, activeBlocks, dragMode, readOnly, onMouseDown, onMouseEnter }) {
+function AvailabilityRow({ time, visibleDays, activeBlocks, dragMode, readOnly, onMouseDown, onMouseEnter }) {
   return (
     <>
       <div className="availability-time">{formatTimeLabel(time)}</div>
-      {WEEK_DAYS.map((day) => {
+      {visibleDays.map((day) => {
         const key = `${day}-${time}`;
         return (
           <div
             key={key}
             className={`availability-slot ${activeBlocks.has(key) ? "active" : ""} ${dragMode ? "dragging" : ""}`}
             style={{ cursor: readOnly ? "default" : "pointer" }}
+            data-availability-slot="true"
+            data-day={day}
+            data-time={time}
             onMouseDown={() => !readOnly && onMouseDown(day, time)}
-            onMouseEnter={() => !readOnly && onMouseEnter(day)}
+            onMouseEnter={() => !readOnly && onMouseEnter(day, time)}
             onTouchStart={() => !readOnly && onMouseDown(day, time)}
           />
         );

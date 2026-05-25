@@ -176,7 +176,7 @@ const STYLES = `
   @media (max-width: 720px) {
     .shell { padding: 18px 14px 36px; }
     .hero, .card { padding: 20px; border-radius: 22px; }
-    .actions { grid-template-columns: 1fr; }
+    .actions { flex-direction: column; }
     .vote-panels { grid-template-columns: 1fr; }
   }
 `;

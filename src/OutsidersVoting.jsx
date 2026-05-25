@@ -270,6 +270,7 @@ const STYLES = `
   }
   @media (max-width: 640px) {
     .main { padding: 18px 14px; }
+    .voting-shell { padding: 20px 16px 28px; }
     .voting-kicker { min-width: 0; width: 100%; }
     .voting-subtitle { padding: 14px 20px; }
     .voting-summary-grid { grid-template-columns: 1fr; }

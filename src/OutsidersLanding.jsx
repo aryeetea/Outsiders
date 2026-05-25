@@ -248,6 +248,10 @@ const STYLES = `
     transform: rotate(-2deg);
     box-shadow: 3px 3px 0 #1a1a2e;
   }
+  @media (max-width: 640px) {
+    .shape { display: none; }
+    .feature-card { padding: 20px 16px !important; }
+  }
 `;
 
 const CARD_COLORS = [

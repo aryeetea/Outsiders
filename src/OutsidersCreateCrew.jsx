@@ -165,6 +165,7 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [generatedInviteCode, setGeneratedInviteCode] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -179,71 +180,94 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
     };
   }, []);
 
+  const resolveSignedInUserId = async () => {
+    if (!isSupabaseConfigured) return currentUserId || profile.id || null;
+    if (currentUserId) return currentUserId;
+
+    const [{ data: sessionData }, { data: userData }] = await Promise.all([
+      supabase.auth.getSession(),
+      supabase.auth.getUser(),
+    ]);
+
+    const resolvedUserId = sessionData.session?.user?.id || userData.user?.id || profile.id || null;
+    if (resolvedUserId) setCurrentUserId(resolvedUserId);
+    return resolvedUserId;
+  };
+
   const createCrew = async () => {
     if (!newGroupName.trim()) {
       setNotice("Give the crew a name first.");
       return;
     }
 
-    let resolvedUserId = currentUserId;
-    if (isSupabaseConfigured && !resolvedUserId) {
-      const { data } = await supabase.auth.getUser();
-      resolvedUserId = data.user?.id || null;
-      if (resolvedUserId) setCurrentUserId(resolvedUserId);
-    }
-
-    const nextGroup = {
-      id: `group-${Date.now()}`,
-      name: newGroupName.trim(),
-      emoji: newGroupEmoji,
-      code: generateCode(),
-      owner_id: resolvedUserId,
-      ownerId: resolvedUserId,
-      owner_username: profile.username || "",
-      ownerUsername: profile.username || "",
-      members: [buildMember(profile, currentName, "Admin", resolvedUserId, appData?.avatar)],
-      pending: [],
-      cases: [],
-      hangoutProposals: [],
-      billWatch: { electedMemberName: "", votes: {}, checklist: ["Track who paid", "Post the split", "Confirm balances"] },
-      peaceMaker: { electedMemberName: "", votes: {}, oath: "" },
-    };
-
-    let savedGroup = nextGroup;
-    if (isSupabaseConfigured && resolvedUserId) {
-      const { data, error } = await supabase
-        .from("groups")
-        .insert({
-          name: nextGroup.name,
-          emoji: nextGroup.emoji,
-          code: nextGroup.code,
-          owner_id: resolvedUserId,
-          owner_username: profile.username || "",
-          members: nextGroup.members,
-          pending: [],
-          cases: [],
-          hangout_proposals: [],
-          bill_watch: nextGroup.billWatch,
-          peace_maker: nextGroup.peaceMaker,
-        })
-        .select("*")
-        .single();
-
-      if (error) {
-        setNotice(error.message || "We could not create that crew yet.");
+    setIsSaving(true);
+    try {
+      const resolvedUserId = await resolveSignedInUserId();
+      if (isSupabaseConfigured && !resolvedUserId) {
+        setNotice("Log in first so your crew is saved to your account.");
+        onNavigate?.("login", { redirect: "create-crew" });
         return;
       }
-      savedGroup = normalizeSupabaseGroup(data);
-    }
 
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: [...(prev.groups || []), savedGroup],
-    }));
-    setGeneratedInviteLink(buildGroupInviteLink(savedGroup.code));
-    setGeneratedInviteCode(savedGroup.code);
-    setNotice(`Created ${savedGroup.name}.`);
-    setNewGroupName("");
+      const nextGroup = {
+        id: `group-${Date.now()}`,
+        name: newGroupName.trim(),
+        emoji: newGroupEmoji,
+        code: generateCode(),
+        owner_id: resolvedUserId,
+        ownerId: resolvedUserId,
+        owner_username: profile.username || "",
+        ownerUsername: profile.username || "",
+        members: [buildMember(profile, currentName, "Admin", resolvedUserId, appData?.avatar)],
+        pending: [],
+        cases: [],
+        hangoutProposals: [],
+        billWatch: { electedMemberName: "", votes: {}, checklist: ["Track who paid", "Post the split", "Confirm balances"] },
+        peaceMaker: { electedMemberName: "", votes: {}, oath: "" },
+      };
+
+      let savedGroup = nextGroup;
+      if (isSupabaseConfigured && resolvedUserId) {
+        const { data, error } = await supabase
+          .from("groups")
+          .insert({
+            name: nextGroup.name,
+            emoji: nextGroup.emoji,
+            code: nextGroup.code,
+            owner_id: resolvedUserId,
+            owner_username: profile.username || "",
+            members: nextGroup.members,
+            pending: [],
+            cases: [],
+            hangout_proposals: [],
+            bill_watch: nextGroup.billWatch,
+            peace_maker: nextGroup.peaceMaker,
+          })
+          .select("*")
+          .single();
+
+        if (error) {
+          setNotice(error.message || "We could not create that crew yet.");
+          return;
+        }
+        savedGroup = normalizeSupabaseGroup(data);
+      }
+
+      setAppData?.((prev) => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          id: resolvedUserId || prev.profile?.id || "",
+        },
+        groups: [...(prev.groups || []), savedGroup],
+      }));
+      setGeneratedInviteLink(buildGroupInviteLink(savedGroup.code));
+      setGeneratedInviteCode(savedGroup.code);
+      setNotice(`Created ${savedGroup.name}.`);
+      setNewGroupName("");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const joinCrew = async () => {
@@ -253,60 +277,78 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
       return;
     }
 
-    let target = (appData?.groups || []).find((group) => (
-      group.code === code || (group.pending || []).some((invite) => invite.inviteCode === code)
-    ));
-
-    if (!target && isSupabaseConfigured) {
-      const { data, error } = await supabase.rpc("find_group_by_join_code", { join_code: code });
-      if (error) {
-        setNotice(error.message || "We could not look up that crew code.");
+    setIsSaving(true);
+    try {
+      const resolvedUserId = await resolveSignedInUserId();
+      if (isSupabaseConfigured && !resolvedUserId) {
+        setNotice("Log in first so the crew can be added to your account.");
+        onNavigate?.("login", { redirect: "create-crew", groupCode: code });
         return;
       }
-      if (data) target = normalizeSupabaseGroup(data);
-    }
 
-    if (!target) {
-      setNotice("No crew was found with that code.");
-      return;
-    }
+      let target = (appData?.groups || []).find((group) => (
+        group.code === code || (group.pending || []).some((invite) => invite.inviteCode === code)
+      ));
 
-    const already = (target.members || []).some((member) => (
-      member.name === currentName || member.username === `@${profile.username}`
-    ));
-    if (already) {
-      setNotice("You are already in that crew.");
+      if (!target && isSupabaseConfigured) {
+        const { data, error } = await supabase.rpc("find_group_by_join_code", { join_code: code });
+        if (error) {
+          setNotice(error.message || "We could not look up that crew code.");
+          return;
+        }
+        if (data) target = normalizeSupabaseGroup(data);
+      }
+
+      if (!target) {
+        setNotice("No crew was found with that code.");
+        return;
+      }
+
+      const already = (target.members || []).some((member) => (
+        String(member.userId || "").trim() === String(resolvedUserId || "")
+        || member.name === currentName
+        || member.username === `@${profile.username}`
+      ));
+      if (already) {
+        setNotice("You are already in that crew.");
+        onNavigate?.("friend-groups");
+        return;
+      }
+
+      const matchedInvite = (target.pending || []).find((invite) => invite.inviteCode === code) || null;
+      const nextMembers = [...(target.members || []), buildMember(profile, currentName, "Member", resolvedUserId, appData?.avatar)];
+      const nextPending = matchedInvite
+        ? (target.pending || []).filter((invite) => invite.inviteCode !== matchedInvite.inviteCode)
+        : (target.pending || []);
+
+      if (isSupabaseConfigured && target.id) {
+        const { error } = await supabase
+          .from("groups")
+          .update({ members: nextMembers, pending: nextPending })
+          .eq("id", target.id);
+        if (error) {
+          setNotice(error.message || "We could not join that crew yet.");
+          return;
+        }
+      }
+
+      const nextGroup = { ...target, members: nextMembers, pending: nextPending };
+      setAppData?.((prev) => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          id: resolvedUserId || prev.profile?.id || "",
+        },
+        groups: (prev.groups || []).some((group) => String(group.id) === String(nextGroup.id))
+          ? (prev.groups || []).map((group) => (String(group.id) === String(nextGroup.id) ? nextGroup : group))
+          : [...(prev.groups || []), nextGroup],
+      }));
+      setNotice(`Joined ${target.name}.`);
+      setJoinCode("");
       onNavigate?.("friend-groups");
-      return;
+    } finally {
+      setIsSaving(false);
     }
-
-    const matchedInvite = (target.pending || []).find((invite) => invite.inviteCode === code) || null;
-    const nextMembers = [...(target.members || []), buildMember(profile, currentName, "Member", currentUserId, appData?.avatar)];
-    const nextPending = matchedInvite
-      ? (target.pending || []).filter((invite) => invite.inviteCode !== matchedInvite.inviteCode)
-      : (target.pending || []);
-
-    if (isSupabaseConfigured && target.id) {
-      const { error } = await supabase
-        .from("groups")
-        .update({ members: nextMembers, pending: nextPending })
-        .eq("id", target.id);
-      if (error) {
-        setNotice(error.message || "We could not join that crew yet.");
-        return;
-      }
-    }
-
-    const nextGroup = { ...target, members: nextMembers, pending: nextPending };
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: (prev.groups || []).some((group) => String(group.id) === String(nextGroup.id))
-        ? (prev.groups || []).map((group) => (String(group.id) === String(nextGroup.id) ? nextGroup : group))
-        : [...(prev.groups || []), nextGroup],
-    }));
-    setNotice(`Joined ${target.name}.`);
-    setJoinCode("");
-    onNavigate?.("friend-groups");
   };
 
   return (
@@ -336,7 +378,7 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
                     {["👥", "🎉", "🍕", "🏝", "🎮", "🌆", "🛼", "🎬"].map((emoji) => <option key={emoji} value={emoji}>{emoji}</option>)}
                   </select>
                 </div>
-                <button type="button" className="btn primary" style={{ width: "100%", marginTop: 18 }} onClick={createCrew}>Create crew</button>
+                <button type="button" className="btn primary" style={{ width: "100%", marginTop: 18 }} onClick={createCrew} disabled={isSaving}>{isSaving ? "Saving..." : "Create crew"}</button>
                 {generatedInviteLink ? (
                   <div className="invite-box" style={{ marginTop: 16 }}>
                     <strong>Crew code</strong>
@@ -357,7 +399,7 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
                   <label>Crew or invite code</label>
                   <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="ABC123 or ABC123-XY9Z" />
                 </div>
-                <button type="button" className="btn secondary" style={{ width: "100%", marginTop: 18 }} onClick={joinCrew}>Join crew</button>
+                <button type="button" className="btn secondary" style={{ width: "100%", marginTop: 18 }} onClick={joinCrew} disabled={isSaving}>{isSaving ? "Saving..." : "Join crew"}</button>
                 <button type="button" className="btn ghost" style={{ width: "100%", marginTop: 12 }} onClick={() => onNavigate?.("friend-groups")}>Open my crews</button>
               </section>
             </div>

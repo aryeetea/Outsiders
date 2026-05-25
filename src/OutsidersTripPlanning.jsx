@@ -577,6 +577,7 @@ const STYLES = `
   }
   @media (max-width: 640px) {
     .main { padding: 18px 14px; }
+    .trip-planning-shell { padding: 20px 16px 28px; }
     .trip-kicker { min-width: 0; width: 100%; }
     .speech-pill { padding: 14px 20px; }
     .trip-new-btn { width: 100%; justify-content: center; }

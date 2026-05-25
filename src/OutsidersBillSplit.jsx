@@ -145,6 +145,7 @@ const STYLES = `
   }
   @media (max-width: 640px) {
     .main { padding: 18px 14px; }
+    .bill-shell { padding: 20px 16px 28px; }
     .section-header, .expense-row, .settle-row { align-items: flex-start; flex-wrap: wrap; }
     .bill-kicker { min-width: 0; width: 100%; }
     .bill-subtitle { padding: 14px 20px; }

@@ -180,6 +180,9 @@ const STYLES = `
     align-items: center;
     gap: 12px;
   }
+  @media (max-width: 640px) {
+    .card { padding: 28px 20px; }
+  }
 `;
 
 const IconLogoMark = () => (
