@@ -337,7 +337,34 @@ function leadingChoice(options = [], votes = {}) {
 
 export default function OutsidersDashboard({ onNavigate, appData, setAppData }) {
   const groups = appData?.groups || [];
-  const proposals = groups.flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupName: group.name })));
+  const storedHangouts = appData?.hangouts || [];
+  const proposals = (() => {
+    const proposalsById = new Map();
+
+    groups.forEach((group) => {
+      (group.hangoutProposals || []).forEach((proposal) => {
+        proposalsById.set(String(proposal.id), {
+          ...proposal,
+          groupName: proposal.groupName || group.name,
+          groupId: proposal.groupId || group.id,
+          groupEmoji: proposal.groupEmoji || group.emoji || "👥",
+        });
+      });
+    });
+
+    storedHangouts.forEach((proposal) => {
+      const matchingGroup = groups.find((group) => String(group.id) === String(proposal.groupId));
+      proposalsById.set(String(proposal.id), {
+        ...proposal,
+        groupName: proposal.groupName || matchingGroup?.name || "Your crew",
+        groupId: proposal.groupId || matchingGroup?.id || null,
+        groupEmoji: proposal.groupEmoji || matchingGroup?.emoji || "👥",
+        ...(proposalsById.get(String(proposal.id)) || {}),
+      });
+    });
+
+    return Array.from(proposalsById.values()).filter((proposal) => proposal?.id);
+  })();
   const notifications = appData?.notifications || [];
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const markNotificationRead = async (notificationId) => {
