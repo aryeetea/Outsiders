@@ -70,7 +70,7 @@ const QUICK_ACTIONS = {
 
 function readStoredAssistantState() {
   if (typeof window === "undefined") {
-    return { isOpen: false, previousResponseId: null, messages: [] };
+    return { isOpen: false, previousResponseId: null, messages: [], size: "normal" };
   }
 
   try {
@@ -79,9 +79,10 @@ function readStoredAssistantState() {
       isOpen: Boolean(parsed.isOpen),
       previousResponseId: typeof parsed.previousResponseId === "string" ? parsed.previousResponseId : null,
       messages: Array.isArray(parsed.messages) ? parsed.messages.slice(-14) : [],
+      size: parsed.size === "large" ? "large" : "normal",
     };
   } catch {
-    return { isOpen: false, previousResponseId: null, messages: [] };
+    return { isOpen: false, previousResponseId: null, messages: [], size: "normal" };
   }
 }
 
@@ -248,6 +249,7 @@ export default function OutsidersAssistant({ route, appData }) {
   const [isOpen, setIsOpen] = useState(stored.isOpen);
   const [previousResponseId, setPreviousResponseId] = useState(stored.previousResponseId);
   const [messages, setMessages] = useState(stored.messages);
+  const [panelSize, setPanelSize] = useState(stored.size || "normal");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -256,8 +258,8 @@ export default function OutsidersAssistant({ route, appData }) {
   const quickActions = (QUICK_ACTIONS[route?.screen] || QUICK_ACTIONS.default).slice(0, 2);
 
   useEffect(() => {
-    persistAssistantState({ isOpen, previousResponseId, messages });
-  }, [isOpen, previousResponseId, messages]);
+    persistAssistantState({ isOpen, previousResponseId, messages, size: panelSize });
+  }, [isOpen, previousResponseId, messages, panelSize]);
 
   const sendMessage = async (rawPrompt) => {
     const prompt = rawPrompt.trim();
@@ -346,6 +348,10 @@ export default function OutsidersAssistant({ route, appData }) {
           overflow: hidden;
           display: grid;
           grid-template-rows: auto minmax(0, 1fr) auto;
+        }
+        .oa-panel.large {
+          width: min(560px, calc(100vw - 24px));
+          max-height: min(82vh, 860px);
         }
         .oa-header {
           background: #fff1c7;
@@ -481,6 +487,10 @@ export default function OutsidersAssistant({ route, appData }) {
           .oa-panel {
             width: 100%;
           }
+          .oa-panel.large {
+            width: 100%;
+            max-height: min(84vh, 860px);
+          }
           .oa-launcher {
             justify-self: end;
           }
@@ -489,7 +499,7 @@ export default function OutsidersAssistant({ route, appData }) {
 
       <div className="oa-wrap">
         {isOpen ? (
-          <section className="oa-panel" aria-label="Outsiders AI assistant">
+          <section className={`oa-panel ${panelSize === "large" ? "large" : ""}`} aria-label="Outsiders AI assistant">
             <div className="oa-header">
               <div className="oa-kicker">Bona Fide Assistant</div>
               <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
@@ -499,7 +509,12 @@ export default function OutsidersAssistant({ route, appData }) {
                     {SCREEN_LABELS[route?.screen] || "App"} helper
                   </div>
                 </div>
-                <button type="button" className="oa-btn" onClick={() => setIsOpen(false)}>Close</button>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button type="button" className="oa-btn" onClick={() => setPanelSize((current) => current === "large" ? "normal" : "large")}>
+                    {panelSize === "large" ? "Make smaller" : "Make bigger"}
+                  </button>
+                  <button type="button" className="oa-btn" onClick={() => setIsOpen(false)}>Close</button>
+                </div>
               </div>
               <div className="oa-chip-row">
                 {quickActions.map((item) => (
