@@ -95,6 +95,7 @@ export default function App() {
       .maybeSingle();
 
     const hydratedProfile = {
+      id: user.id,
       name: profileRow?.full_name || user.user_metadata?.full_name || "",
       username: profileRow?.username || user.user_metadata?.username || "",
       email: profileRow?.email || user.email || "",
@@ -142,6 +143,7 @@ export default function App() {
         ?? (metadataGroups && metadataGroups.length ? metadataGroups : previousAppData.groups),
       profile: {
         ...previousAppData.profile,
+        id: hydratedProfile.id || previousAppData.profile?.id || "",
         name: hydratedProfile.name || previousAppData.profile?.name || "",
         username: hydratedProfile.username || previousAppData.profile?.username || "",
         email: hydratedProfile.email || previousAppData.profile?.email || "",

@@ -3,6 +3,7 @@ import { DEFAULT_AVAILABILITY, hasAvailability, normalizeAvailability } from "./
 export const PROFILE_STORAGE_KEY = "outsiders-profile";
 
 export const DEFAULT_PROFILE = {
+  id: "",
   name: "",
   username: "",
   bio: "",
@@ -15,9 +16,17 @@ export function createId(prefix = "id") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizeUsername(value = "") {
+  return String(value).replace(/^@/, "").trim().toLowerCase();
+}
+
+function normalizeName(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
 export function getCurrentUserKey(profile = {}) {
-  if (profile?.username) return `username:${String(profile.username).replace(/^@/, "").toLowerCase()}`;
-  if (profile?.name) return `name:${String(profile.name).trim().toLowerCase()}`;
+  if (profile?.username) return `username:${normalizeUsername(profile.username)}`;
+  if (profile?.name) return `name:${normalizeName(profile.name)}`;
   return "local:you";
 }
 
@@ -26,11 +35,18 @@ export function getDisplayName(profile = {}) {
 }
 
 export function isProfileMemberOfGroup(group = {}, profile = {}) {
-  const displayName = getDisplayName(profile);
-  const username = profile?.username ? `@${String(profile.username).replace(/^@/, "")}` : "";
+  const currentUserId = String(profile?.id || profile?.userId || "").trim();
+  const displayName = normalizeName(getDisplayName(profile));
+  const username = normalizeUsername(profile?.username || "");
+
+  if (currentUserId && String(group?.owner_id || group?.ownerId || "").trim() === currentUserId) {
+    return true;
+  }
+
   return (group?.members || []).some((member) => (
-    member?.name === displayName
-    || (username && member?.username === username)
+    (currentUserId && String(member?.userId || "").trim() === currentUserId)
+    || (username && normalizeUsername(member?.username || "") === username)
+    || (displayName && normalizeName(member?.name || "") === displayName)
   ));
 }
 
