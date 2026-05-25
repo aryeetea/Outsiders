@@ -180,6 +180,12 @@ const STYLES = `
     display: grid;
     gap: 14px;
   }
+  .section-divider {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(23, 21, 31, 0.08);
+    margin: 4px 0;
+  }
   .form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -658,219 +664,214 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
         <div className="shell">
           {!createdProposal ? (
             <section className="planner-board">
-            <div className="planner-hero">
-              <div className="comic-kicker">Hangout Planner</div>
-              <h1 className="planner-title">Pitch The Next Hangout.</h1>
-              <p className="planner-subtitle">
-                Pick the crew, add a few time and place choices, and let everyone vote.
-              </p>
-            </div>
-            <div className="layout">
-              <section className="main-stack">
-                <div className="card">
-                  <div className="card-header">
-                    <div>
-                      <h2 className="section-title" style={{ marginBottom: 6 }}>Planner Setup</h2>
-                      <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
-                        Start simple: crew, name, times, places.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="planner-stats" style={{ marginBottom: 18 }}>
-                    <div className="planner-stat">
-                      <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Crew</div>
-                      <div style={{ fontWeight: 900 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "Not chosen yet"}</div>
-                    </div>
-                    <div className="planner-stat">
-                      <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Duration</div>
-                      <div style={{ fontWeight: 900 }}>{formatDurationHours(durationHours)}</div>
-                    </div>
-                    <div className="planner-stat">
-                      <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Picked so far</div>
-                      <div style={{ fontWeight: 900 }}>{timeOptions.length} times · {locationOptions.length} places</div>
-                    </div>
-                  </div>
-
-                  <div className="form-grid">
-                    <div className="field">
-                      <label>Crew</label>
-                      <select value={selectedGroup?.id || ""} onChange={(event) => setSelectedGroupId(event.target.value)}>
-                        {groups.length ? groups.map((group) => (
-                          <option key={group.id} value={group.id}>{group.emoji} {group.name}</option>
-                        )) : <option value="">No crew yet</option>}
-                      </select>
-                    </div>
-                    <div className="field">
-                      <label>Duration In Hours</label>
-                      <input
-                        type="number"
-                        min="0.5"
-                        step="0.5"
-                        value={duration}
-                        onChange={(event) => setDuration(event.target.value)}
-                        placeholder="2"
-                      />
-                      <div className="field-note">Optional. Enter hours like 1.5 or 2. Leave it blank if the crew can decide later.</div>
-                    </div>
-                    <div className="field full">
-                      <label>Hangout name</label>
-                      <input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Sunset rooftop link-up" />
-                    </div>
-                    <div className="field full">
-                      <label>Description</label>
-                      <textarea value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} placeholder="Drop the vibe, dress code, and what makes this one worth voting for." />
-                    </div>
+              <div className="planner-hero">
+                <div className="comic-kicker">Hangout Planner</div>
+                <h1 className="planner-title">Pitch The Next Hangout.</h1>
+                <p className="planner-subtitle">
+                  Pick the crew, add a few time and place choices, and let everyone vote.
+                </p>
+              </div>
+              <div className="card" style={{ maxWidth: 980, margin: "0 auto" }}>
+                <div className="card-header">
+                  <div>
+                    <h2 className="section-title" style={{ marginBottom: 6 }}>Planner Setup</h2>
+                    <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
+                      Everything for this hangout lives here, section by section.
+                    </p>
                   </div>
                 </div>
 
-                <div className="card">
-                  <div className="card-header" style={{ marginBottom: 14 }}>
-                    <div>
-                      <h2 className="section-title" style={{ marginBottom: 6 }}>Pick The Crew Members Involved</h2>
-                      <p style={{ margin: 0, color: "#667085" }}>Recommendations use the availability saved on each member profile.</p>
-                    </div>
+                <div className="planner-stats" style={{ marginBottom: 18 }}>
+                  <div className="planner-stat">
+                    <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Crew</div>
+                    <div style={{ fontWeight: 900 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "Not chosen yet"}</div>
                   </div>
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {participants.length ? participants.map((member) => {
-                      const selected = selectedMembers.length ? selectedMembers.includes(memberKey(member)) : true;
-                      return (
-                        <button key={memberKey(member)} type="button" className={`crew-member ${selected ? "active" : ""}`} onClick={() => toggleMember(member)}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-                            <strong>{member.name}</strong>
-                            <span style={{ color: selected ? "#0f766e" : "#667085", fontWeight: 700 }}>{selected ? "Included" : "Tap to include"}</span>
-                          </div>
-                          <p style={{ margin: "8px 0 0", color: "#667085", textAlign: "left" }}>{availabilityToText(member.availability)}</p>
-                        </button>
-                      );
-                    }) : (
-                      <p style={{ margin: 0, color: "#667085" }}>Create or join a crew first.</p>
-                    )}
+                  <div className="planner-stat">
+                    <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Duration</div>
+                    <div style={{ fontWeight: 900 }}>{formatDurationHours(durationHours)}</div>
+                  </div>
+                  <div className="planner-stat">
+                    <div className="bangers" style={{ fontSize: 15, marginBottom: 6 }}>Picked so far</div>
+                    <div style={{ fontWeight: 900 }}>{timeOptions.length} times · {locationOptions.length} places</div>
                   </div>
                 </div>
 
-                <div className="card">
-                  <h2 className="section-title">Time Options</h2>
-                  <div className="section-block">
-                  <div className="form-grid">
-                    <div className="field">
-                      <label>Date</label>
-                      <input type="date" value={form.manualDate} onChange={(event) => setForm((prev) => ({ ...prev, manualDate: event.target.value }))} />
-                    </div>
-                    <div className="field">
-                      <label>Time</label>
-                      <input type="time" value={form.manualTime} onChange={(event) => setForm((prev) => ({ ...prev, manualTime: event.target.value }))} />
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-                    <button type="button" className="btn secondary" onClick={addManualTime}>Add manual time option</button>
-                  </div>
-                  <div className="pill-list">
-                    <strong>Chosen time options</strong>
-                    <div className="pill-row">
-                      {timeOptions.length ? timeOptions.map((option) => (
-                        <span key={option.id} className="pill">
-                          {option.label}
-                          <button type="button" className="mini-btn" onClick={() => setTimeOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
-                        </span>
-                      )) : <span style={{ color: "#667085" }}>No time options added yet.</span>}
-                    </div>
-                  </div>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <h2 className="section-title">Place Options And External Invites</h2>
-                  <div className="section-block">
-                  <div className="form-grid">
-                    <div className="field">
-                      <label>Location idea</label>
-                      <input value={form.manualLocation} onChange={(event) => setForm((prev) => ({ ...prev, manualLocation: event.target.value }))} placeholder="Harbor rooftop, pizza spot, game bar..." />
-                    </div>
-                    <div className="field">
-                      <label>Invite someone outside this crew</label>
-                      <input value={form.externalInvite} onChange={(event) => setForm((prev) => ({ ...prev, externalInvite: event.target.value }))} placeholder="name, @handle, or phone note" />
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-                    <button type="button" className="btn secondary" onClick={addLocationOption}>Add place option</button>
-                    <button type="button" className="btn ghost" onClick={addExternalInvite}>Add outside invite</button>
-                  </div>
-                  <div className="pill-list" style={{ marginTop: 16 }}>
-                    <strong>Location options</strong>
-                    <div className="pill-row">
-                      {locationOptions.length ? locationOptions.map((option) => (
-                        <span key={option.id} className="pill">
-                          {option.label}
-                          <button type="button" className="mini-btn" onClick={() => setLocationOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
-                        </span>
-                      )) : <span style={{ color: "#667085" }}>No places added yet.</span>}
-                    </div>
-                  </div>
-                  <div className="pill-list" style={{ marginTop: 12 }}>
-                    <strong>External invites for this hangout</strong>
-                    <div className="pill-row">
-                      {externalInvites.length ? externalInvites.map((invite) => (
-                        <span key={invite} className="pill">
-                          {invite}
-                          <button type="button" className="mini-btn" onClick={() => setExternalInvites((prev) => prev.filter((item) => item !== invite))}>Remove</button>
-                        </span>
-                      )) : <span style={{ color: "#667085" }}>No outside guests added yet.</span>}
-                    </div>
-                  </div>
-                  </div>
-                </div>
-              </section>
-
-              <aside className="sidebar-stack">
-                <div className="card">
-                  <h2 className="section-title">Availability Recommendations</h2>
-                  <p className="field-note" style={{ margin: "0 0 14px" }}>
-                    {durationHours
-                      ? `These suggestions are based on a ${formatDurationHours(durationHours).toLowerCase()} hangout.`
-                      : "These suggestions use a 2-hour default until you add a duration."}
-                  </p>
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {recommendations.length ? recommendations.map((rec, index) => (
-                      <div key={`${rec.day}-${rec.start}`} className="recommendation">
-                        <strong style={{ display: "block", marginBottom: 8 }}>{index === 0 ? "Best overlap" : `Option ${index + 1}`}</strong>
-                        <div style={{ fontWeight: 700, marginBottom: 8 }}>{rec.day} · {formatTimeLabel(rec.start)} - {formatTimeLabel(rec.end)}</div>
-                        <div style={{ color: "#667085", marginBottom: 12 }}>{rec.availableCount}/{rec.totalCount} people free</div>
-                        <button type="button" className="btn secondary" onClick={() => addRecommendedTime(rec)}>Add this time</button>
+                <div className="section-block">
+                  <div>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>1. Basics</h3>
+                    <div className="form-grid">
+                      <div className="field">
+                        <label>Crew</label>
+                        <select value={selectedGroup?.id || ""} onChange={(event) => setSelectedGroupId(event.target.value)}>
+                          {groups.length ? groups.map((group) => (
+                            <option key={group.id} value={group.id}>{group.emoji} {group.name}</option>
+                          )) : <option value="">No crew yet</option>}
+                        </select>
                       </div>
-                    )) : (
-                      <div className="summary-box">
-                        <strong>No recommendations yet.</strong>
-                        <p style={{ margin: "8px 0 0", color: "#667085" }}>Select crew members with saved availability to get smarter time suggestions.</p>
+                      <div className="field">
+                        <label>Duration In Hours</label>
+                        <input
+                          type="number"
+                          min="0.5"
+                          step="0.5"
+                          value={duration}
+                          onChange={(event) => setDuration(event.target.value)}
+                          placeholder="2"
+                        />
+                        <div className="field-note">Optional. Enter hours like 1.5 or 2. Leave it blank if the crew can decide later.</div>
                       </div>
-                    )}
+                      <div className="field full">
+                        <label>Hangout name</label>
+                        <input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Sunset rooftop link-up" />
+                      </div>
+                      <div className="field full">
+                        <label>Description</label>
+                        <textarea value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} placeholder="Drop the vibe, dress code, and what makes this one worth voting for." />
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="card">
-                  <h2 className="section-title">Hangout Summary</h2>
-                  <div className="summary-box">
-                    <p style={{ margin: "0 0 10px", fontWeight: 700 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
-                    <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(durationHours)}</p>
-                    <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length} time options · {locationOptions.length} place options · {externalInvites.length} external invite{externalInvites.length === 1 ? "" : "s"}</p>
-                    <p style={{ margin: 0, color: "#667085" }}>Once you post this, everyone in the crew can vote on every option inside the crew page.</p>
-                  </div>
-                  {error ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{error}</p> : null}
-                  <button type="button" className="btn primary" style={{ width: "100%", marginTop: 16 }} onClick={createProposal}>
-                    Share hangout with crew
-                  </button>
-                </div>
+                  <div className="section-divider" />
 
-                <div className="card">
-                  <h2 className="section-title">Posting Checklist</h2>
-                  <div className="summary-box">
-                    <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length ? "✓" : "•"} Add at least one time option.</p>
-                    <p style={{ margin: "0 0 10px", color: "#667085" }}>{locationOptions.length ? "✓" : "•"} Add at least one place option.</p>
-                    <p style={{ margin: "0 0 10px", color: "#667085" }}>{form.name.trim() ? "✓" : "•"} Give the hangout a clear name.</p>
-                    <p style={{ margin: 0, color: "#667085" }}>{selectedGroup ? "✓" : "•"} Make sure the right crew is selected.</p>
+                  <div>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>2. Crew Members</h3>
+                    <p style={{ margin: "0 0 14px", color: "#667085" }}>Recommendations use the availability saved on each member profile.</p>
+                    <div style={{ display: "grid", gap: 12 }}>
+                      {participants.length ? participants.map((member) => {
+                        const selected = selectedMembers.length ? selectedMembers.includes(memberKey(member)) : true;
+                        return (
+                          <button key={memberKey(member)} type="button" className={`crew-member ${selected ? "active" : ""}`} onClick={() => toggleMember(member)}>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                              <strong>{member.name}</strong>
+                              <span style={{ color: selected ? "#0f766e" : "#667085", fontWeight: 700 }}>{selected ? "Included" : "Tap to include"}</span>
+                            </div>
+                            <p style={{ margin: "8px 0 0", color: "#667085", textAlign: "left" }}>{availabilityToText(member.availability)}</p>
+                          </button>
+                        );
+                      }) : (
+                        <p style={{ margin: 0, color: "#667085" }}>Create or join a crew first.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="section-divider" />
+
+                  <div>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>3. Time Options</h3>
+                    <div className="form-grid">
+                      <div className="field">
+                        <label>Date</label>
+                        <input type="date" value={form.manualDate} onChange={(event) => setForm((prev) => ({ ...prev, manualDate: event.target.value }))} />
+                      </div>
+                      <div className="field">
+                        <label>Time</label>
+                        <input type="time" value={form.manualTime} onChange={(event) => setForm((prev) => ({ ...prev, manualTime: event.target.value }))} />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "14px 0" }}>
+                      <button type="button" className="btn secondary" onClick={addManualTime}>Add manual time option</button>
+                    </div>
+                    <div className="pill-list">
+                      <strong>Chosen time options</strong>
+                      <div className="pill-row">
+                        {timeOptions.length ? timeOptions.map((option) => (
+                          <span key={option.id} className="pill">
+                            {option.label}
+                            <button type="button" className="mini-btn" onClick={() => setTimeOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
+                          </span>
+                        )) : <span style={{ color: "#667085" }}>No time options added yet.</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="section-divider" />
+
+                  <div>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>4. Place Options And Outside Guests</h3>
+                    <div className="form-grid">
+                      <div className="field">
+                        <label>Location idea</label>
+                        <input value={form.manualLocation} onChange={(event) => setForm((prev) => ({ ...prev, manualLocation: event.target.value }))} placeholder="Harbor rooftop, pizza spot, game bar..." />
+                      </div>
+                      <div className="field">
+                        <label>Invite someone outside this crew</label>
+                        <input value={form.externalInvite} onChange={(event) => setForm((prev) => ({ ...prev, externalInvite: event.target.value }))} placeholder="name, @handle, or phone note" />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+                      <button type="button" className="btn secondary" onClick={addLocationOption}>Add place option</button>
+                      <button type="button" className="btn ghost" onClick={addExternalInvite}>Add outside invite</button>
+                    </div>
+                    <div className="pill-list" style={{ marginTop: 16 }}>
+                      <strong>Location options</strong>
+                      <div className="pill-row">
+                        {locationOptions.length ? locationOptions.map((option) => (
+                          <span key={option.id} className="pill">
+                            {option.label}
+                            <button type="button" className="mini-btn" onClick={() => setLocationOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
+                          </span>
+                        )) : <span style={{ color: "#667085" }}>No places added yet.</span>}
+                      </div>
+                    </div>
+                    <div className="pill-list" style={{ marginTop: 12 }}>
+                      <strong>External invites for this hangout</strong>
+                      <div className="pill-row">
+                        {externalInvites.length ? externalInvites.map((invite) => (
+                          <span key={invite} className="pill">
+                            {invite}
+                            <button type="button" className="mini-btn" onClick={() => setExternalInvites((prev) => prev.filter((item) => item !== invite))}>Remove</button>
+                          </span>
+                        )) : <span style={{ color: "#667085" }}>No outside guests added yet.</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="section-divider" />
+
+                  <div>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>5. Availability Recommendations</h3>
+                    <p className="field-note" style={{ margin: "0 0 14px" }}>
+                      {durationHours
+                        ? `These suggestions are based on a ${formatDurationHours(durationHours).toLowerCase()} hangout.`
+                        : "These suggestions use a 2-hour default until you add a duration."}
+                    </p>
+                    <div style={{ display: "grid", gap: 12 }}>
+                      {recommendations.length ? recommendations.map((rec, index) => (
+                        <div key={`${rec.day}-${rec.start}`} className="recommendation">
+                          <strong style={{ display: "block", marginBottom: 8 }}>{index === 0 ? "Best overlap" : `Option ${index + 1}`}</strong>
+                          <div style={{ fontWeight: 700, marginBottom: 8 }}>{rec.day} · {formatTimeLabel(rec.start)} - {formatTimeLabel(rec.end)}</div>
+                          <div style={{ color: "#667085", marginBottom: 12 }}>{rec.availableCount}/{rec.totalCount} people free</div>
+                          <button type="button" className="btn secondary" onClick={() => addRecommendedTime(rec)}>Add this time</button>
+                        </div>
+                      )) : (
+                        <div className="summary-box">
+                          <strong>No recommendations yet.</strong>
+                          <p style={{ margin: "8px 0 0", color: "#667085" }}>Select crew members with saved availability to get smarter time suggestions.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="section-divider" />
+
+                  <div>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>6. Review Before Posting</h3>
+                    <div className="summary-box">
+                      <p style={{ margin: "0 0 10px", fontWeight: 700 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
+                      <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(durationHours)}</p>
+                      <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length} time options · {locationOptions.length} place options · {externalInvites.length} external invite{externalInvites.length === 1 ? "" : "s"}</p>
+                      <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length ? "✓" : "•"} Add at least one time option.</p>
+                      <p style={{ margin: "0 0 10px", color: "#667085" }}>{locationOptions.length ? "✓" : "•"} Add at least one place option.</p>
+                      <p style={{ margin: "0 0 10px", color: "#667085" }}>{form.name.trim() ? "✓" : "•"} Give the hangout a clear name.</p>
+                      <p style={{ margin: 0, color: "#667085" }}>{selectedGroup ? "✓" : "•"} Make sure the right crew is selected.</p>
+                    </div>
+                    {error ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{error}</p> : null}
+                    <button type="button" className="btn primary" style={{ width: "100%", marginTop: 16 }} onClick={createProposal}>
+                      Share hangout with crew
+                    </button>
                   </div>
                 </div>
-              </aside>
-            </div>
+              </div>
             </section>
           ) : (
             <div className="card" style={{ maxWidth: 760, margin: "0 auto" }}>
