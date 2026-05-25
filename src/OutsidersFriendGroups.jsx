@@ -1492,6 +1492,16 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                   Duration: {formatDurationHours(proposal.durationHours || ((proposal.durationMinutes || 0) ? proposal.durationMinutes / 60 : null))}
                                 </span>
                               </div>
+                              {proposal.agenda?.length ? (
+                                <div style={{ margin: "12px 0 0", display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px dashed rgba(23,21,31,0.18)", background: "#fffdf7" }}>
+                                  <strong className="bangers" style={{ fontSize: 16 }}>Shared run of show</strong>
+                                  {proposal.agenda.map((item) => (
+                                    <div key={item.id} style={{ color: "#475467", fontWeight: 700 }}>
+                                      {item.section}{item.time ? ` · ${item.time}` : ""}: {item.title}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
                               <div className="proposal-columns" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                                 <div>
                                   <strong className="bangers" style={{ display: "block", marginBottom: 8, fontSize: 16 }}>Vote The Best Time</strong>

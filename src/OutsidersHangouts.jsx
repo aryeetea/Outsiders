@@ -200,6 +200,16 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
                         <span className="chip" style={{ background: "#eef8ff", color: "#155e75" }}>Top time: {topTime?.label || "No votes yet"}</span>
                         <span className="chip" style={{ background: "#fff7da", color: "#9a6700" }}>Top place: {topLocation?.label || "No votes yet"}</span>
                       </div>
+                      {proposal.agenda?.length ? (
+                        <div style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px dashed rgba(23,21,31,0.18)", background: "#fffdf7" }}>
+                          <strong className="bangers" style={{ fontSize: 18 }}>Shared run of show</strong>
+                          {proposal.agenda.map((item) => (
+                            <div key={item.id} style={{ color: "#475467", fontWeight: 700 }}>
+                              {item.section}{item.time ? ` · ${item.time}` : ""}: {item.title}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                       <div className="actions">
                         <button type="button" className="btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open in crew</button>
                         <button type="button" className="btn ghost" onClick={() => onNavigate?.("join-hangout", { code: proposal.code })}>Open invite</button>
