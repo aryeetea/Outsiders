@@ -133,6 +133,24 @@ const STYLES = `
     padding: 20px;
     box-shadow: 0 10px 24px rgba(23,21,31,0.06);
   }
+  .dashboard-main-card {
+    background: rgba(255,255,255,0.72);
+    border: 3px solid rgba(23, 21, 31, 0.14);
+    border-radius: 22px;
+    padding: 22px;
+    box-shadow: 0 10px 24px rgba(23,21,31,0.06);
+    display: grid;
+    gap: 18px;
+  }
+  .dashboard-main-section {
+    display: grid;
+    gap: 12px;
+  }
+  .dashboard-main-divider {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(23, 21, 31, 0.08);
+  }
   .glass, .card {
     border: 4px solid #17151f;
     background: #fffdf7;
@@ -359,19 +377,6 @@ const QUICK_ACTIONS = [
   ["Availability", "profile", "Update your weekly sheet before plans move."],
 ];
 
-function leadingChoice(options = [], votes = {}) {
-  const counts = options.map((option) => ({
-    id: option.id,
-    label: option.label,
-    count: Object.values(votes).filter((value) => value === option.id).length,
-  }));
-  return counts.sort((a, b) => b.count - a.count)[0] || null;
-}
-
-function countVotes(votes = {}, optionId) {
-  return Object.values(votes || {}).filter((value) => value === optionId).length;
-}
-
 export default function OutsidersDashboard({ onNavigate, appData, setAppData }) {
   const groups = appData?.groups || [];
   const storedHangouts = appData?.hangouts || [];
@@ -406,62 +411,6 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
     proposal.status !== "finalized"
     && !Object.prototype.hasOwnProperty.call(proposal.votes?.time || {}, currentUserKey)
   ));
-  const castProposalVote = async (proposal, category, optionId) => {
-    if (!proposal?.groupId || !category || !optionId) return;
-
-    const nextGroups = groups.map((group) => {
-      if (String(group.id) !== String(proposal.groupId)) return group;
-      return {
-        ...group,
-        hangoutProposals: (group.hangoutProposals || []).map((item) => (
-          item.id === proposal.id
-            ? {
-                ...item,
-                votes: {
-                  ...(item.votes || {}),
-                  [category]: {
-                    ...(item.votes?.[category] || {}),
-                    [currentUserKey]: optionId,
-                  },
-                },
-              }
-            : item
-        )),
-      };
-    });
-    const nextGroup = nextGroups.find((group) => String(group.id) === String(proposal.groupId));
-
-    if (isSupabaseConfigured && nextGroup && !String(nextGroup.id).startsWith("group-")) {
-      const { error } = await supabase
-        .from("groups")
-        .update({ hangout_proposals: nextGroup.hangoutProposals || [] })
-        .eq("id", nextGroup.id);
-
-      if (error) {
-        window.alert(error.message || "We could not save that vote yet.");
-        return;
-      }
-    }
-
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: nextGroups,
-      hangouts: (prev.hangouts || []).map((item) => (
-        item.id === proposal.id
-          ? {
-              ...item,
-              votes: {
-                ...(item.votes || {}),
-                [category]: {
-                  ...(item.votes?.[category] || {}),
-                  [currentUserKey]: optionId,
-                },
-              },
-            }
-          : item
-      )),
-    }));
-  };
   const nextSteps = [
     unreadNotifications.length ? `You have ${unreadNotifications.length} unread update${unreadNotifications.length === 1 ? "" : "s"}.` : null,
     needsMyVote.length ? `${needsMyVote.length} hangout vote${needsMyVote.length === 1 ? "" : "s"} still need your input.` : null,
@@ -507,85 +456,8 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
 
           <div className="dashboard-section-label">Crew Flow</div>
           <section className="content-grid">
-            <div className="dashboard-column-card">
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-                <div>
-                  <h2 className="section-title">Crew Hangouts</h2>
-                  <p style={{ margin: 0, color: "#667085" }}>Every active hangout across your crews.</p>
-                </div>
-                <button type="button" className="chip-btn" onClick={() => onNavigate?.("hangouts")}>Open hangouts</button>
-              </div>
-              <div style={{ display: "grid", gap: 12 }}>
-                {proposals.length ? proposals.map((proposal) => {
-                  const topTime = leadingChoice(proposal.timeOptions, proposal.votes?.time);
-                  const topLocation = leadingChoice(proposal.locationOptions, proposal.votes?.location);
-                  const myTimeVote = proposal.votes?.time?.[currentUserKey];
-                  const myLocationVote = proposal.votes?.location?.[currentUserKey];
-                  return (
-                    <div key={proposal.id} className="proposal-card">
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
-                        <div>
-                          <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{proposal.name}</strong>
-                          <span style={{ color: "#667085", fontWeight: 700 }}>{proposal.groupName} · started by {proposal.proposerName}</span>
-                        </div>
-                        <span className="status-chip" style={{ background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>
-                          {proposal.status}
-                        </span>
-                      </div>
-                      <p style={{ margin: "0 0 10px", color: "#475467" }}>{proposal.description || "No description added yet."}</p>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        <span className="chip-btn" style={{ cursor: "default" }}>Top time: {topTime?.label || "No votes yet"}</span>
-                        <span className="chip-btn" style={{ cursor: "default" }}>Top place: {topLocation?.label || "No votes yet"}</span>
-                      </div>
-                      {proposal.status !== "finalized" ? (
-                        <div className="vote-inline-grid">
-                          <div className="vote-inline-panel">
-                            <strong className="bangers" style={{ fontSize: 16 }}>Vote time</strong>
-                            {(proposal.timeOptions || []).map((option) => (
-                              <button
-                                key={option.id}
-                                type="button"
-                                className={`vote-inline-btn ${myTimeVote === option.id ? "active" : ""}`}
-                                onClick={() => void castProposalVote(proposal, "time", option.id)}
-                              >
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                                  <span>{option.label}</span>
-                                  <strong>{countVotes(proposal.votes?.time, option.id)}</strong>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                          <div className="vote-inline-panel">
-                            <strong className="bangers" style={{ fontSize: 16 }}>Vote place</strong>
-                            {(proposal.locationOptions || []).map((option) => (
-                              <button
-                                key={option.id}
-                                type="button"
-                                className={`vote-inline-btn ${myLocationVote === option.id ? "active" : ""}`}
-                                onClick={() => void castProposalVote(proposal, "location", option.id)}
-                              >
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                                  <span>{option.label}</span>
-                                  <strong>{countVotes(proposal.votes?.location, option.id)}</strong>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                }) : (
-                  <div className="proposal-card">
-                    <strong>No hangouts yet.</strong>
-                    <p style={{ margin: "8px 0 0", color: "#667085" }}>Start a hangout to get the crew voting.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gap: 16 }}>
-              <div className="dashboard-column-card">
+            <div className="dashboard-main-card">
+              <div className="dashboard-main-section">
                 <h2 className="section-title" style={{ marginBottom: 14 }}>My Part</h2>
                 <div style={{ display: "grid", gap: 10 }}>
                   <div className="note-card">
@@ -603,7 +475,9 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
                 </div>
               </div>
 
-              <div className="dashboard-column-card">
+              <div className="dashboard-main-divider" />
+
+              <div className="dashboard-main-section">
                 <h2 className="section-title" style={{ marginBottom: 14 }}>What Needs Me Next</h2>
                 <div style={{ display: "grid", gap: 10 }}>
                   {nextSteps.length ? nextSteps.map((step) => (
@@ -619,7 +493,9 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
                 </div>
               </div>
 
-              <div className="dashboard-column-card">
+              <div className="dashboard-main-divider" />
+
+              <div className="dashboard-main-section">
                 <h2 className="section-title" style={{ marginBottom: 14 }}>Quick Actions</h2>
                 <div className="quick-grid">
                   {QUICK_ACTIONS.map(([label, target, description]) => (
@@ -631,7 +507,9 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
                 </div>
               </div>
 
-              <div className="dashboard-column-card">
+              <div className="dashboard-main-divider" />
+
+              <div className="dashboard-main-section">
                 <h2 className="section-title" style={{ marginBottom: 14 }}>Notifications</h2>
                 <div style={{ display: "grid", gap: 10 }}>
                   {notifications.length ? notifications.slice(0, 5).map((notification) => (
