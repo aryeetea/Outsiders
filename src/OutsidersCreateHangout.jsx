@@ -193,6 +193,43 @@ const STYLES = `
     background: rgba(23, 21, 31, 0.08);
     margin: 4px 0;
   }
+  .section-copy {
+    margin: 0 0 14px;
+    color: #667085;
+    line-height: 1.55;
+    font-weight: 700;
+  }
+  .planner-collapsible {
+    border: 3px solid #17151f;
+    border-radius: 18px;
+    background: #fff8e6;
+    box-shadow: 4px 4px 0 #17151f;
+    padding: 14px 16px 16px;
+  }
+  .planner-collapsible summary {
+    cursor: pointer;
+    list-style: none;
+    font: 400 22px 'Bangers', cursive;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .planner-collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+  .planner-collapsible summary span {
+    color: #667085;
+    font: 800 13px 'Nunito', sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .planner-collapsible-body {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
   .form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -439,7 +476,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   const [agendaSuggestions, setAgendaSuggestions] = useState([]);
   const [agendaError, setAgendaError] = useState("");
   const [isGeneratingAgenda, setIsGeneratingAgenda] = useState(false);
-  const [createdProposalId, setCreatedProposalId] = useState(null);
+  const [createdProposal, setCreatedProposal] = useState(null);
+  const [isCreatingProposal, setIsCreatingProposal] = useState(false);
   const [error, setError] = useState("");
 
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
@@ -472,11 +510,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   const recommendations = useMemo(
     () => recommendHangoutTimes(participantPool, { durationMinutes }),
     [durationMinutes, participantPool]
-  );
-
-  const createdProposal = useMemo(
-    () => selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === createdProposalId) || null,
-    [createdProposalId, selectedGroup]
   );
 
   useEffect(() => {
@@ -589,6 +622,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   };
 
   const createProposal = async () => {
+    if (isCreatingProposal) return;
     if (!selectedGroup) {
       setError("Create or join a crew first.");
       return;
@@ -605,6 +639,9 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       setError("Add at least one place option.");
       return;
     }
+
+    setIsCreatingProposal(true);
+    setError("");
 
     const code = generateCode();
     const chosenMemberKeys = selectedMembers.length ? selectedMembers : participants.map(memberKey);
@@ -705,6 +742,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
       if (groupError) {
         setError(groupError.message || "We could not save that hangout yet.");
+        setIsCreatingProposal(false);
         return;
       }
 
@@ -765,8 +803,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       notifications: [...(prev.notifications || []), ...memberNotifications.filter((item) => item.userId === currentUserId)],
     }));
 
-    setCreatedProposalId(proposal.id);
+    setCreatedProposal({
+      ...proposal,
+      groupName: selectedGroup.name,
+    });
     setError("");
+    setIsCreatingProposal(false);
   };
 
   return (
@@ -789,7 +831,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                   <div>
                     <h2 className="section-title" style={{ marginBottom: 6 }}>Planner Setup</h2>
                     <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
-                      Everything for this hangout lives here, section by section.
+                      Start with the basics, add a few choices, then share it with the crew.
                     </p>
                   </div>
                 </div>
@@ -811,7 +853,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
                 <div className="section-block">
                   <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>1. Basics</h3>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>1. Core Details</h3>
+                    <p className="section-copy">Pick the crew, name the hangout, and decide who this plan is for.</p>
                     <div className="form-grid">
                       <div className="field">
                         <label>Crew</label>
@@ -838,18 +881,13 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                         <input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Sunset rooftop link-up" />
                       </div>
                       <div className="field full">
-                        <label>Description</label>
+                        <label>What is this hangout?</label>
                         <textarea value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} placeholder="Drop the vibe, dress code, and what makes this one worth voting for." />
                       </div>
                     </div>
-                  </div>
-
-                  <div className="section-divider" />
-
-                  <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>2. Crew Members</h3>
-                    <p style={{ margin: "0 0 14px", color: "#667085" }}>Recommendations use the availability saved on each member profile.</p>
                     <div style={{ display: "grid", gap: 12 }}>
+                      <strong style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Crew members to include</strong>
+                      <p style={{ margin: "0 0 2px", color: "#667085" }}>Everyone is included by default. Tap a person only if you want to leave them out of this one.</p>
                       {participants.length ? participants.map((member) => {
                         const selected = selectedMembers.length ? selectedMembers.includes(memberKey(member)) : true;
                         return (
@@ -870,7 +908,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                   <div className="section-divider" />
 
                   <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>3. Time Options</h3>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>2. Vote Choices</h3>
+                    <p className="section-copy">Give the crew a few time and place options to vote on. You only need at least one of each to post.</p>
                     <div className="form-grid">
                       <div className="field">
                         <label>Date</label>
@@ -895,12 +934,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                         )) : <span style={{ color: "#667085" }}>No time options added yet.</span>}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="section-divider" />
-
-                  <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>4. Place Options And Outside Guests</h3>
                     <div className="form-grid">
                       <div className="field">
                         <label>Location idea</label>
@@ -942,109 +975,118 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                   <div className="section-divider" />
 
                   <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>5. Availability Recommendations</h3>
-                    <p className="field-note" style={{ margin: "0 0 14px" }}>
-                      {durationHours
-                        ? `These suggestions are based on a ${formatDurationHours(durationHours).toLowerCase()} hangout.`
-                        : "These suggestions use a 2-hour default until you add a duration."}
-                    </p>
-                    <div style={{ display: "grid", gap: 12 }}>
-                      {recommendations.length ? recommendations.map((rec, index) => (
-                        <div key={`${rec.day}-${rec.start}`} className="recommendation">
-                          <strong style={{ display: "block", marginBottom: 8 }}>{index === 0 ? "Best overlap" : `Option ${index + 1}`}</strong>
-                          <div style={{ fontWeight: 700, marginBottom: 8 }}>{rec.day} · {formatTimeLabel(rec.start)} - {formatTimeLabel(rec.end)}</div>
-                          <div style={{ color: "#667085", marginBottom: 12 }}>{rec.availableCount}/{rec.totalCount} people free</div>
-                          <button type="button" className="btn secondary" onClick={() => addRecommendedTime(rec)}>Add this time</button>
+                    <details className="planner-collapsible">
+                      <summary>
+                        3. Smart Suggestions
+                        <span>Optional: use saved availability and AI help</span>
+                      </summary>
+                      <div className="planner-collapsible-body">
+                        <p className="field-note" style={{ margin: 0 }}>
+                          {durationHours
+                            ? `These suggestions are based on a ${formatDurationHours(durationHours).toLowerCase()} hangout.`
+                            : "These suggestions use a 2-hour default until you add a duration."}
+                        </p>
+                        <div style={{ display: "grid", gap: 12 }}>
+                          {recommendations.length ? recommendations.map((rec, index) => (
+                            <div key={`${rec.day}-${rec.start}`} className="recommendation">
+                              <strong style={{ display: "block", marginBottom: 8 }}>{index === 0 ? "Best overlap" : `Option ${index + 1}`}</strong>
+                              <div style={{ fontWeight: 700, marginBottom: 8 }}>{rec.day} · {formatTimeLabel(rec.start)} - {formatTimeLabel(rec.end)}</div>
+                              <div style={{ color: "#667085", marginBottom: 12 }}>{rec.availableCount}/{rec.totalCount} people free</div>
+                              <button type="button" className="btn secondary" onClick={() => addRecommendedTime(rec)}>Add this time</button>
+                            </div>
+                          )) : (
+                            <div className="summary-box">
+                              <strong>No recommendations yet.</strong>
+                              <p style={{ margin: "8px 0 0", color: "#667085" }}>Select crew members with saved availability to get smarter time suggestions.</p>
+                            </div>
+                          )}
                         </div>
-                      )) : (
-                        <div className="summary-box">
-                          <strong>No recommendations yet.</strong>
-                          <p style={{ margin: "8px 0 0", color: "#667085" }}>Select crew members with saved availability to get smarter time suggestions.</p>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    </details>
                   </div>
 
                   <div className="section-divider" />
 
                   <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>6. Planning Notes</h3>
-                    <div className="form-grid">
-                      <div className="field">
-                        <label>Any booking yet?</label>
-                        <select value={form.reservationStatus} onChange={(event) => setForm((prev) => ({ ...prev, reservationStatus: event.target.value }))}>
-                          <option value="no">Not yet</option>
-                          <option value="yes">Yes, reserved</option>
-                        </select>
-                      </div>
-                      <div className="field">
-                        <label>Reservation Name</label>
-                        <input value={form.reservationName} onChange={(event) => setForm((prev) => ({ ...prev, reservationName: event.target.value }))} placeholder="Optional venue or reservation name" />
-                      </div>
-                      <div className="field full">
-                        <label>Meeting Point</label>
-                        <input value={form.meetingPoint} onChange={(event) => setForm((prev) => ({ ...prev, meetingPoint: event.target.value }))} placeholder="Where should everyone meet first?" />
-                      </div>
-                      <div className="field full">
-                        <label>Follow-up Notes</label>
-                        <textarea value={form.followUpNotes} onChange={(event) => setForm((prev) => ({ ...prev, followUpNotes: event.target.value }))} placeholder="Anything the crew should know before the day comes?" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="section-divider" />
-
-                  <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>7. Hangout Run Of Show</h3>
-                    <div className="agenda-workspace">
-                      <div style={{ display: "grid", gap: 12 }}>
-                        <div className="summary-box">
-                          <strong style={{ display: "block", marginBottom: 8 }}>AI Suggestions</strong>
-                          <p style={{ margin: 0, color: "#667085" }}>These stay separate until you choose which ones belong in your final hangout plan.</p>
+                    <details className="planner-collapsible">
+                      <summary>
+                        4. Day Plan
+                        <span>Optional: add reservation notes and a simple run of show</span>
+                      </summary>
+                      <div className="planner-collapsible-body">
+                        <div className="form-grid">
+                          <div className="field">
+                            <label>Any booking yet?</label>
+                            <select value={form.reservationStatus} onChange={(event) => setForm((prev) => ({ ...prev, reservationStatus: event.target.value }))}>
+                              <option value="no">Not yet</option>
+                              <option value="yes">Yes, reserved</option>
+                            </select>
+                          </div>
+                          <div className="field">
+                            <label>Reservation Name</label>
+                            <input value={form.reservationName} onChange={(event) => setForm((prev) => ({ ...prev, reservationName: event.target.value }))} placeholder="Optional venue or reservation name" />
+                          </div>
+                          <div className="field full">
+                            <label>Meeting Point</label>
+                            <input value={form.meetingPoint} onChange={(event) => setForm((prev) => ({ ...prev, meetingPoint: event.target.value }))} placeholder="Where should everyone meet first?" />
+                          </div>
+                          <div className="field full">
+                            <label>Follow-up Notes</label>
+                            <textarea value={form.followUpNotes} onChange={(event) => setForm((prev) => ({ ...prev, followUpNotes: event.target.value }))} placeholder="Anything the crew should know before the day comes?" />
+                          </div>
                         </div>
-                        {agendaError ? <p style={{ margin: 0, color: "#b42318", fontWeight: 700 }}>{agendaError}</p> : null}
-                        <button type="button" className="btn secondary" onClick={() => void generateAgenda()} disabled={isGeneratingAgenda}>
-                          {isGeneratingAgenda ? "Building hangout flow..." : "Build AI run of show"}
-                        </button>
-                        {agendaSuggestions.length ? agendaSuggestions.map((item) => (
-                          <div key={item.id} className="summary-box">
-                            <strong style={{ display: "block", marginBottom: 6 }}>{item.section} {item.time ? `· ${item.time}` : ""}</strong>
-                            <div style={{ fontWeight: 800, marginBottom: 6 }}>{item.title}</div>
-                            <p style={{ margin: "0 0 10px", color: "#667085" }}>{item.notes}</p>
-                            <button type="button" className="btn ghost" disabled={item.added} onClick={() => addAgendaSuggestion(item)}>
-                              {item.added ? "Added to final plan" : "Add to final plan"}
+                        <div className="agenda-workspace">
+                          <div style={{ display: "grid", gap: 12 }}>
+                            <div className="summary-box">
+                              <strong style={{ display: "block", marginBottom: 8 }}>AI Suggestions</strong>
+                              <p style={{ margin: 0, color: "#667085" }}>These stay separate until you choose which ones belong in your final hangout plan.</p>
+                            </div>
+                            {agendaError ? <p style={{ margin: 0, color: "#b42318", fontWeight: 700 }}>{agendaError}</p> : null}
+                            <button type="button" className="btn secondary" onClick={() => void generateAgenda()} disabled={isGeneratingAgenda}>
+                              {isGeneratingAgenda ? "Building hangout flow..." : "Build AI run of show"}
+                            </button>
+                            {agendaSuggestions.length ? agendaSuggestions.map((item) => (
+                              <div key={item.id} className="summary-box">
+                                <strong style={{ display: "block", marginBottom: 6 }}>{item.section} {item.time ? `· ${item.time}` : ""}</strong>
+                                <div style={{ fontWeight: 800, marginBottom: 6 }}>{item.title}</div>
+                                <p style={{ margin: "0 0 10px", color: "#667085" }}>{item.notes}</p>
+                                <button type="button" className="btn ghost" disabled={item.added} onClick={() => addAgendaSuggestion(item)}>
+                                  {item.added ? "Added to final plan" : "Add to final plan"}
+                                </button>
+                              </div>
+                            )) : null}
+                          </div>
+                          <div style={{ display: "grid", gap: 12 }}>
+                            <div className="summary-box">
+                              <strong style={{ display: "block", marginBottom: 8 }}>Final Hangout Plan</strong>
+                              <p style={{ margin: 0, color: "#667085" }}>This is the plan your crew will actually keep.</p>
+                            </div>
+                            {agenda.length ? agenda.map((item) => (
+                              <div key={item.id} className="pill-list">
+                                <strong>{item.section} {item.time ? `· ${item.time}` : ""}</strong>
+                                <div style={{ fontWeight: 800, marginTop: 8 }}>{item.title}</div>
+                                <p style={{ margin: "6px 0 0", color: "#667085" }}>{item.notes}</p>
+                              </div>
+                            )) : (
+                              <div className="summary-box">
+                                <strong>No final hangout plan yet.</strong>
+                                <p style={{ margin: "8px 0 0", color: "#667085" }}>Add AI ideas you like, or turn your notes into a simple plan.</p>
+                              </div>
+                            )}
+                            <button type="button" className="btn ghost" onClick={addManualAgendaStep}>
+                              Add note as agenda step
                             </button>
                           </div>
-                        )) : null}
-                      </div>
-                      <div style={{ display: "grid", gap: 12 }}>
-                        <div className="summary-box">
-                          <strong style={{ display: "block", marginBottom: 8 }}>Final Hangout Plan</strong>
-                          <p style={{ margin: 0, color: "#667085" }}>This is the run of show your crew is actually keeping.</p>
                         </div>
-                        {agenda.length ? agenda.map((item) => (
-                          <div key={item.id} className="pill-list">
-                            <strong>{item.section} {item.time ? `· ${item.time}` : ""}</strong>
-                            <div style={{ fontWeight: 800, marginTop: 8 }}>{item.title}</div>
-                            <p style={{ margin: "6px 0 0", color: "#667085" }}>{item.notes}</p>
-                          </div>
-                        )) : (
-                          <div className="summary-box">
-                            <strong>No final hangout plan yet.</strong>
-                            <p style={{ margin: "8px 0 0", color: "#667085" }}>Add AI ideas you like, or use the notes you already wrote to shape the flow.</p>
-                          </div>
-                        )}
-                        <button type="button" className="btn ghost" onClick={addManualAgendaStep}>
-                          Add note as agenda step
-                        </button>
                       </div>
-                    </div>
+                    </details>
                   </div>
 
                   <div className="section-divider" />
 
                   <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>8. Review Before Posting</h3>
+                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>5. Share With Crew</h3>
+                    <p className="section-copy">Quick check: if you have a crew, a name, one time option, and one place option, you’re ready.</p>
                     <div className="summary-box">
                       <p style={{ margin: "0 0 10px", fontWeight: 700 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
                       <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(durationHours)}</p>
@@ -1055,8 +1097,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                       <p style={{ margin: 0, color: "#667085" }}>{selectedGroup ? "✓" : "•"} Make sure the right crew is selected.</p>
                     </div>
                     {error ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{error}</p> : null}
-                    <button type="button" className="btn primary" style={{ width: "100%", marginTop: 16 }} onClick={createProposal}>
-                      Share hangout with crew
+                    <button type="button" className="btn primary" style={{ width: "100%", marginTop: 16, opacity: isCreatingProposal ? 0.75 : 1 }} onClick={createProposal} disabled={isCreatingProposal}>
+                      {isCreatingProposal ? "Sharing..." : "Share hangout with crew"}
                     </button>
                   </div>
                 </div>
