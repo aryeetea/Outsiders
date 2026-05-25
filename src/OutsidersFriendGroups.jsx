@@ -152,6 +152,32 @@ const STYLES = `
     position: relative;
     text-align: left;
   }
+  .crew-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .crew-card-meta {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
+  .crew-card-summary {
+    color: #667085;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+  .crew-card-badge {
+    border-radius: 999px;
+    border: 3px solid #17151f;
+    box-shadow: 3px 3px 0 #17151f;
+    padding: 7px 10px;
+    font: 400 12px 'Bangers', cursive;
+    letter-spacing: 0.06em;
+    color: #17151f;
+    white-space: nowrap;
+  }
   .crew-card.active, .crew-card:hover {
     transform: translate(-2px, -3px) rotate(-0.7deg);
     background: #e8f8ff;
@@ -1495,12 +1521,16 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       tabIndex={0}
                       onKeyDown={(e) => e.key === "Enter" && setSelectedGroupId(group.id)}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                        <div>
+                      <div className="crew-card-top">
+                        <div className="crew-card-meta">
                           <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.emoji} {group.name}</strong>
-                          <span style={{ color: "#667085", fontWeight: 700 }}>{group.members.length} members · {group.hangoutProposals?.length || 0} hangouts</span>
+                          <span className="crew-card-summary">
+                            {group.members.length} member{group.members.length === 1 ? "" : "s"} · {group.hangoutProposals?.length || 0} hangout{(group.hangoutProposals?.length || 0) === 1 ? "" : "s"}
+                          </span>
                         </div>
-                        <div style={{ width: 14, height: 14, borderRadius: 999, background: GROUP_COLORS[index % GROUP_COLORS.length] }} />
+                        <span className="crew-card-badge" style={{ background: GROUP_COLORS[index % GROUP_COLORS.length] }}>
+                          {selectedGroup?.id === group.id ? "OPEN" : "CREW"}
+                        </span>
                       </div>
                     </div>
                   ))}

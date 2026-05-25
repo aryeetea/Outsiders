@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { getDisplayName } from "./appState";
+import { getAllHangoutProposals, getDisplayName, getHangoutProposalByCode } from "./appState";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
@@ -121,37 +121,14 @@ export default function OutsidersJoinHangout({ onNavigate, appData, setAppData, 
   const [joinedId, setJoinedId] = useState(null);
   const profile = appData?.profile || {};
   const storedHangouts = useMemo(() => appData?.hangouts || [], [appData?.hangouts]);
+  const groups = useMemo(() => appData?.groups || [], [appData?.groups]);
 
-  const allProposals = useMemo(
-    () => {
-      const proposalsById = new Map();
-
-      (appData?.groups || []).forEach((group) => {
-        (group.hangoutProposals || []).forEach((proposal) => {
-          proposalsById.set(String(proposal.id), {
-            ...proposal,
-            groupId: proposal.groupId || group.id,
-            groupName: proposal.groupName || group.name,
-          });
-        });
-      });
-
-      storedHangouts.forEach((proposal) => {
-        proposalsById.set(String(proposal.id), {
-          ...proposal,
-          ...(proposalsById.get(String(proposal.id)) || {}),
-        });
-      });
-
-      return Array.from(proposalsById.values());
-    },
-    [appData, storedHangouts]
-  );
+  const allProposals = useMemo(() => getAllHangoutProposals(groups, storedHangouts), [groups, storedHangouts]);
   const joined = allProposals.find((proposal) => proposal.id === joinedId) || null;
 
   const handleJoin = async () => {
     const normalized = code.trim().toUpperCase();
-    const match = allProposals.find((proposal) => proposal.code?.toUpperCase() === normalized);
+    const match = getHangoutProposalByCode(groups, storedHangouts, normalized);
     if (!match) {
       setError("That invite code does not match a hangout proposal.");
       return;

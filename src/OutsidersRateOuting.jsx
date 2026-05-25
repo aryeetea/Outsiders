@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getAllHangoutProposals } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
@@ -255,12 +256,10 @@ function avgRating(outing) {
 }
 
 function normalizeRateableItems(appData) {
-  const sharedHangouts = (appData?.groups || []).flatMap((group) => (group.hangoutProposals || []).map((hangout) => ({
+  const sharedHangouts = getAllHangoutProposals(appData?.groups || [], appData?.hangouts || []).map((hangout) => ({
     ...hangout,
-    groupId: hangout.groupId || group.id,
-    groupName: hangout.groupName || group.name,
     location: hangout.location || hangout.finalizedChoice?.location?.label || hangout.finalizedChoice?.location || "",
-  })));
+  }));
 
   const hangouts = sharedHangouts.map((hangout, index) => ({
     ...hangout,

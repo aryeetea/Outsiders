@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getDisplayName } from "./appState";
+import { getAllHangoutProposals, getDisplayName } from "./appState";
 
 const STORAGE_KEY = "outsiders-bonafide-assistant";
 
@@ -142,7 +142,7 @@ function buildFavoritePlaces(appData = {}) {
 function buildContext(route, appData) {
   const profile = appData?.profile || {};
   const groups = appData?.groups || [];
-  const proposals = groups.flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupName: group.name })));
+  const proposals = getAllHangoutProposals(groups, appData?.hangouts || []);
   const notifications = (appData?.notifications || []).slice(-5).map((item) => ({
     message: item.message,
     groupName: item.groupName,

@@ -219,6 +219,46 @@ function normalizeNotification(notification = {}) {
   };
 }
 
+export function getAllHangoutProposals(groups = [], hangouts = []) {
+  const proposalsById = new Map();
+
+  (Array.isArray(groups) ? groups : []).forEach((group) => {
+    (group?.hangoutProposals || group?.hangout_proposals || []).forEach((proposal) => {
+      if (!proposal?.id) return;
+      proposalsById.set(String(proposal.id), normalizeProposal({
+        ...proposal,
+        groupId: proposal.groupId || group.id,
+        groupName: proposal.groupName || group.name,
+        groupEmoji: proposal.groupEmoji || group.emoji || "👥",
+      }));
+    });
+  });
+
+  (Array.isArray(hangouts) ? hangouts : []).forEach((proposal) => {
+    if (!proposal?.id) return;
+    const current = proposalsById.get(String(proposal.id)) || {};
+    proposalsById.set(String(proposal.id), normalizeProposal({
+      ...proposal,
+      ...current,
+      groupId: current.groupId || proposal.groupId || null,
+      groupName: current.groupName || proposal.groupName || "",
+      groupEmoji: current.groupEmoji || proposal.groupEmoji || "👥",
+    }));
+  });
+
+  return Array.from(proposalsById.values()).sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+}
+
+export function getHangoutProposalByCode(groups = [], hangouts = [], code = "") {
+  const normalizedCode = String(code || "").trim().toUpperCase();
+  if (!normalizedCode) return null;
+  return getAllHangoutProposals(groups, hangouts).find(
+    (proposal) => String(proposal?.code || "").toUpperCase() === normalizedCode
+  ) || null;
+}
+
 export function normalizeAppData(appData = {}) {
   const storedProfile = readStoredProfile();
   const nextProfile = {
@@ -231,11 +271,7 @@ export function normalizeAppData(appData = {}) {
   };
 
   const normalizedGroups = Array.isArray(appData.groups) ? appData.groups.map(normalizeGroup) : [];
-  const derivedHangouts = normalizedGroups.flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({
-    ...proposal,
-    groupId: proposal.groupId || group.id,
-    groupName: proposal.groupName || group.name,
-  })));
+  const derivedHangouts = getAllHangoutProposals(normalizedGroups, appData.hangouts || []);
 
   return {
     groups: normalizedGroups,

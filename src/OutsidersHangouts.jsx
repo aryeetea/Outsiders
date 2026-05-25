@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { getCurrentUserKey, getDisplayName } from "./appState";
+import { getAllHangoutProposals, getCurrentUserKey, getDisplayName } from "./appState";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
@@ -198,39 +198,7 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
   const currentUserKey = getCurrentUserKey(currentProfile);
   const currentDisplayName = getDisplayName(currentProfile);
   const [activeSection, setActiveSection] = useState("voting");
-  const proposals = useMemo(
-    () => {
-      const proposalsById = new Map();
-
-      groups.forEach((group) => {
-        (group.hangoutProposals || []).forEach((proposal) => {
-          proposalsById.set(String(proposal.id), {
-            ...proposal,
-            groupName: proposal.groupName || group.name,
-            groupId: proposal.groupId || group.id,
-            groupEmoji: proposal.groupEmoji || group.emoji,
-          });
-        });
-      });
-
-      storedHangouts.forEach((proposal) => {
-        const groupMatch = groups.find((group) => String(group.id) === String(proposal.groupId));
-        const normalizedProposal = {
-          ...proposal,
-          groupName: proposal.groupName || groupMatch?.name || "Your crew",
-          groupId: proposal.groupId || groupMatch?.id || null,
-          groupEmoji: proposal.groupEmoji || groupMatch?.emoji || "👥",
-        };
-        proposalsById.set(String(proposal.id), {
-          ...normalizedProposal,
-          ...(proposalsById.get(String(proposal.id)) || {}),
-        });
-      });
-
-      return Array.from(proposalsById.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-    },
-    [groups, storedHangouts]
-  );
+  const proposals = useMemo(() => getAllHangoutProposals(groups, storedHangouts), [groups, storedHangouts]);
   const myProposals = useMemo(
     () => proposals.filter((proposal) => proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName),
     [proposals, currentUserKey, currentDisplayName]
