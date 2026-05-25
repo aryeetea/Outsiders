@@ -36,6 +36,7 @@ function IconCollapse() {
 const NAV_ITEMS = [
   { icon: <IconDashboard />, label: "Dashboard", target: "dashboard" },
   { icon: <IconHangouts />, label: "Hangouts", target: "create-hangout" },
+  { icon: <IconCrew />, label: "Create Crew", target: "create-crew" },
   { icon: <IconCrew />, label: "My Crew", target: "friend-groups" },
   { icon: <IconTrips />, label: "Trips", target: "trip-planning" },
   { icon: <IconBillSplit />, label: "Bill Split", target: "bill-split" },

@@ -596,8 +596,6 @@ const TRIP_COLORS = [
   { bg: "#f3e8fd", border: "#9b59b6", emoji: "🏔" },
 ];
 
-const INITIAL_TRIPS = [];
-
 const IconPlus = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>;
@@ -614,8 +612,8 @@ const getDays = (start, end) => {
 };
 
 export default function OutsidersTripPlanning({ onNavigate, appData, setAppData }) {
-  const [trips, setTrips] = useState(appData?.trips?.length ? appData.trips : INITIAL_TRIPS);
-  const [selectedTrip, setSelectedTrip] = useState(() => (appData?.trips?.length ? appData.trips[0] : null));
+  const trips = appData?.trips || [];
+  const [selectedTripId, setSelectedTripId] = useState(() => (appData?.trips?.[0]?.id || null));
   const [activeTab, setActiveTab] = useState("Overview");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newActivity, setNewActivity] = useState({ day: 1, time: "", name: "" });
@@ -623,10 +621,20 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
   const [newTripForm, setNewTripForm] = useState({ name: "", destination: "", startDate: "", endDate: "", budget: "" });
   const [formError, setFormError] = useState("");
 
+  const selectedTrip = trips.find((trip) => trip.id === selectedTripId) || trips[0] || null;
+
+  const persistTrips = (updater, nextSelectedTripId = null) => {
+    setAppData?.((prev) => {
+      const previousTrips = prev?.trips || [];
+      const nextTrips = typeof updater === "function" ? updater(previousTrips) : updater;
+      const selectedId = nextSelectedTripId === null ? selectedTrip?.id : nextSelectedTripId;
+      setSelectedTripId(selectedId ? nextTrips.find((trip) => trip.id === selectedId)?.id || nextTrips[0]?.id || null : nextTrips[0]?.id || null);
+      return { ...prev, trips: nextTrips };
+    });
+  };
+
   const updateTrip = (updatedTrip) => {
-    setTrips(prev => prev.map(t => t.id === updatedTrip.id ? updatedTrip : t));
-    setAppData?.(prev => ({ ...prev, trips: prev.trips.map(t => t.id === updatedTrip.id ? updatedTrip : t) }));
-    setSelectedTrip(updatedTrip);
+    persistTrips((previousTrips) => previousTrips.map((trip) => (trip.id === updatedTrip.id ? updatedTrip : trip)), updatedTrip.id);
   };
 
   const togglePackItem = (itemId) => {
@@ -652,7 +660,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
       ...selectedTrip,
       itinerary: selectedTrip.itinerary.map(d =>
         d.day === newActivity.day
-          ? { ...d, activities: [...d.activities, { time: newActivity.time, name: newActivity.name }].sort((a, b) => a.time.localeCompare(b.time)) }
+          ? { ...d, activities: [...d.activities, { id: Date.now(), time: newActivity.time, name: newActivity.name.trim() }].sort((a, b) => a.time.localeCompare(b.time)) }
           : d
       )
     };
@@ -660,9 +668,37 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
     setNewActivity({ day: newActivity.day, time: "", name: "" });
   };
 
+  const deleteActivity = (dayNumber, activityId) => {
+    if (!selectedTrip) return;
+    const updated = {
+      ...selectedTrip,
+      itinerary: selectedTrip.itinerary.map((day) => (
+        day.day === dayNumber
+          ? { ...day, activities: day.activities.filter((activity) => activity.id !== activityId) }
+          : day
+      )),
+    };
+    updateTrip(updated);
+  };
+
+  const deleteTrip = () => {
+    if (!selectedTrip) return;
+    const confirmed = window.confirm(`Delete ${selectedTrip.name}? This removes its itinerary and packing list.`);
+    if (!confirmed) return;
+    persistTrips(
+      (previousTrips) => previousTrips.filter((trip) => trip.id !== selectedTrip.id),
+      null
+    );
+    setActiveTab("Overview");
+  };
+
   const createTrip = () => {
     if (!newTripForm.name.trim() || !newTripForm.destination.trim() || !newTripForm.startDate || !newTripForm.endDate) {
       setFormError("Fill in all required fields!");
+      return;
+    }
+    if (new Date(newTripForm.endDate) < new Date(newTripForm.startDate)) {
+      setFormError("End date has to be after the start date.");
       return;
     }
     const days = getDays(newTripForm.startDate, newTripForm.endDate);
@@ -679,16 +715,14 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
       endDate: newTripForm.endDate,
       budget: Number(newTripForm.budget) || 0,
       spent: 0,
-      members: ["YOU"],
+      members: [String(appData?.profile?.name || appData?.profile?.username || "YOU").slice(0, 3).toUpperCase()],
       color: TRIP_COLORS[trips.length % TRIP_COLORS.length],
       status: "Planning",
       itinerary,
       packingList: [{ id: 1, item: "Passport / ID 🛂", packed: false }, { id: 2, item: "Phone charger 🔋", packed: false }],
       ratings: [],
     };
-    setTrips(prev => [...prev, newTrip]);
-    setAppData?.(prev => ({ ...prev, trips: [...prev.trips, newTrip] }));
-    setSelectedTrip(newTrip);
+    persistTrips((previousTrips) => [...previousTrips, newTrip], newTrip.id);
     setShowCreateModal(false);
     setNewTripForm({ name: "", destination: "", startDate: "", endDate: "", budget: "" });
     setFormError("");
@@ -760,7 +794,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                           key={trip.id}
                           className={`trip-card ${selectedTrip?.id === trip.id ? "active" : ""}`}
                           style={{ background: trip.color.bg, borderColor: selectedTrip?.id === trip.id ? "#ff6b6b" : trip.color.border, boxShadow: `5px 5px 0 ${selectedTrip?.id === trip.id ? "#ff6b6b" : trip.color.border}` }}
-                          onClick={() => { setSelectedTrip(trip); setActiveTab("Overview"); }}
+                          onClick={() => { setSelectedTripId(trip.id); setActiveTab("Overview"); }}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
                             <div style={{ width: 44, height: 44, background: "#fff", border: `3px solid ${trip.color.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: `3px 3px 0 ${trip.color.border}`, flexShrink: 0 }}>
@@ -813,7 +847,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
 
                   {/* Trip header */}
                   <div className="card" style={{ background: selectedTrip.color.bg, borderColor: selectedTrip.color.border, boxShadow: `5px 5px 0 ${selectedTrip.color.border}` }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                       <div>
                         <h2 className="bangers" style={{ fontSize: 28, margin: "0 0 6px", color: "#1a1a2e" }}>{selectedTrip.name}</h2>
                         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -828,6 +862,9 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                         ))}
                         <span style={{ fontSize: 12, fontWeight: 800, color: "#888", marginLeft: 10 }}>{selectedTrip.members.length} going</span>
                       </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+                      <button type="button" className="btn-danger" onClick={deleteTrip}>Delete trip</button>
                     </div>
 
                     {/* Budget bar */}
@@ -882,10 +919,13 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData 
                             <p style={{ fontSize: 13, fontWeight: 700, color: "#ccc", margin: "0 0 8px" }}>Nothing planned yet — add something!</p>
                           )}
                           {day.activities.map((a, i) => (
-                            <div key={i} className="activity-row">
+                            <div key={a.id || `${a.time}-${a.name}-${i}`} className="activity-row">
                               <span style={{ fontSize: 12, fontWeight: 900, color: "#aaa", minWidth: 60 }}>{a.time}</span>
                               <div style={{ width: 8, height: 8, background: selectedTrip.color.border, borderRadius: "50%", border: "2px solid #1a1a2e", flexShrink: 0 }} />
                               <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{a.name}</span>
+                              <button type="button" className="btn-danger" style={{ padding: "4px 8px" }} onClick={() => deleteActivity(day.day, a.id)}>
+                                <IconTrash />
+                              </button>
                             </div>
                           ))}
                         </div>

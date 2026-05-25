@@ -318,6 +318,7 @@ const STYLES = `
 
 const QUICK_ACTIONS = [
   ["Start a hangout", "create-hangout", "Share a time, place, and vibe with your crew."],
+  ["Create a crew", "create-crew", "Start a new crew or use a code to join one."],
   ["My crew", "friend-groups", "See hangout voting, roast boards, and invites."],
   ["Join hangout", "join-hangout", "Use a code to hop into an invite."],
   ["Availability", "profile", "Update your weekly sheet before plans move."],
@@ -372,7 +373,7 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
             <div className="dashboard-subtitle">Keep {displayName}, the crew, and every next step in one comic-style home base.</div>
             <div className="dashboard-actions">
               <button type="button" className="cta-btn primary" onClick={() => onNavigate?.("create-hangout")}>Start a hangout</button>
-              <button type="button" className="cta-btn secondary" onClick={() => onNavigate?.("friend-groups")}>Open my crew</button>
+              <button type="button" className="cta-btn secondary" onClick={() => onNavigate?.("create-crew")}>Create or join crew</button>
             </div>
           </div>
 

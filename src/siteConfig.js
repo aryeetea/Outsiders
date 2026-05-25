@@ -24,5 +24,5 @@ export function buildGroupInviteLink(codeOrParams, inviteParams = {}) {
   if (params.inviteCode) query.set("inviteCode", String(params.inviteCode).trim().toUpperCase());
   if (params.inviteFor) query.set("inviteFor", String(params.inviteFor));
 
-  return `${getSiteUrl()}/#/friend-groups${query.size ? `?${query.toString()}` : ""}`;
+  return `${getSiteUrl()}/#/create-crew${query.size ? `?${query.toString()}` : ""}`;
 }

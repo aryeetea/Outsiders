@@ -9,6 +9,7 @@ import {
 import OutsidersAssistant from "./OutsidersAssistant";
 import OutsidersBillSplit from "./OutsidersBillSplit";
 import OutsidersCreateHangout from "./OutsidersCreateHangout";
+import OutsidersCreateCrew from "./OutsidersCreateCrew";
 import OutsidersDashboard from "./OutsidersDashboard";
 import OutsidersDebrief from "./OutsidersDebrief";
 import OutsidersFriendGroups from "./OutsidersFriendGroups";
@@ -34,6 +35,7 @@ const SCREEN_COMPONENTS = {
   "signup": OutsidersSignUp,
   "dashboard": OutsidersDashboard,
   "create-hangout": OutsidersCreateHangout,
+  "create-crew": OutsidersCreateCrew,
   "join-hangout": OutsidersJoinHangout,
   "voting": OutsidersVoting,
   "friend-groups": OutsidersFriendGroups,
