@@ -36,7 +36,7 @@ export function buildTripComFlightsLink() {
 }
 
 export function buildTripComPackagesLink() {
-  return `${DEFAULT_TRIP_COM_URL}/packages//`;
+  return `${DEFAULT_TRIP_COM_URL}/packages/`;
 }
 
 export function buildGroupInviteLink(codeOrParams, inviteParams = {}) {

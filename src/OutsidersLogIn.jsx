@@ -131,6 +131,10 @@ const STYLES = `
     font-family: 'Bangers', cursive;
     font-size: 17px;
     letter-spacing: 0.04em;
+    background: none;
+    border: none;
+    padding: 0;
+    vertical-align: baseline;
   }
   .link:hover { text-decoration: underline; }
 
@@ -142,6 +146,10 @@ const STYLES = `
     text-decoration: none;
     float: right;
     margin-top: -4px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
   }
   .forgot-link:hover { color: #ff6b6b; }
 
@@ -269,7 +277,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </button>
             <span style={{ fontWeight: 800, fontSize: 14, color: "#888" }}>
-              No account? <a className="link" style={{ fontSize: 15 }} onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...inviteParams })}>Sign up</a>
+              No account? <button type="button" className="link" style={{ fontSize: 15 }} onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...inviteParams })}>Sign up</button>
             </span>
           </div>
         </nav>
@@ -316,7 +324,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
               <div>
                 <label className="form-label">
                   🔒 Password
-                  <a className="forgot-link" onClick={async () => {
+                  <button type="button" className="forgot-link" onClick={async () => {
                     if (!form.email.trim()) {
                       setErrors(prev => ({ ...prev, email: "Enter your email first." }));
                       return;
@@ -327,7 +335,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
                     }
                     const { error } = await supabase.auth.resetPasswordForEmail(form.email.trim());
                     window.alert(error ? error.message : "Password reset email sent.");
-                  }}>Forgot it?</a>
+                  }}>Forgot it?</button>
                 </label>
                 <div style={{ position: "relative" }}>
                   <input
@@ -353,7 +361,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
               </button>
 
               <p style={{ textAlign: "center", fontSize: 14, fontWeight: 800, color: "#888", margin: 0 }}>
-                New here? <a className="link" onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...inviteParams })}>Create an account</a>
+                New here? <button type="button" className="link" onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...inviteParams })}>Create an account</button>
               </p>
 
             </div>

@@ -146,13 +146,12 @@ const STYLES = `
   .avatar-img { width: 100%; height: 100%; object-fit: cover; }
 
   .error-msg {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 800;
     color: #ff6b6b;
     margin-top: 6px;
     font-family: 'Bangers', cursive;
     letter-spacing: 0.04em;
-    font-size: 15px;
   }
 
   .strength-bar {
@@ -177,6 +176,10 @@ const STYLES = `
     font-family: 'Bangers', cursive;
     font-size: 17px;
     letter-spacing: 0.04em;
+    background: none;
+    border: none;
+    padding: 0;
+    vertical-align: baseline;
   }
   .link:hover { text-decoration: underline; }
 
@@ -197,7 +200,6 @@ const STYLES = `
     box-shadow: 3px 3px 0 #1a1a2e;
     transform: rotate(-2deg);
     margin-bottom: 12px;
-    display: inline-block;
   }
 
   @media (max-width: 640px) {
@@ -482,7 +484,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
               </button>
 
               <p style={{ textAlign: "center", fontSize: 14, fontWeight: 800, color: "#888", margin: 0 }}>
-                Already have an account? <a className="link" onClick={() => onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams })}>Log In</a>
+                Already have an account? <button type="button" className="link" onClick={() => onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams })}>Log In</button>
               </p>
 
             </div>

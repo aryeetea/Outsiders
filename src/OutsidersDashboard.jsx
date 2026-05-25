@@ -1,3 +1,4 @@
+import { getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile, isProfileMemberOfGroup } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
@@ -354,21 +355,18 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
     }));
   };
   const profile = appData?.profile || {};
-  const displayName = profile.name || profile.username || "You";
+  const displayName = getDisplayName(profile);
   const profileName = displayName;
-  const usernameTag = profile?.username ? `@${String(profile.username).replace(/^@/, "").toLowerCase()}` : "";
-  const myGroups = groups.filter((group) => (group.members || []).some((member) => (
-    member?.name === displayName || (usernameTag && String(member?.username || "").toLowerCase() === usernameTag)
-  )));
+  const currentUserKey = getCurrentUserKey(profile);
+  const myGroups = getVisibleGroupsForProfile(groups, profile);
   const myProposals = proposals.filter((proposal) => (
-    proposal.proposerName === displayName
-    || (proposal.participants || []).some((participant) => (
-      participant?.name === displayName || (usernameTag && String(participant?.username || "").toLowerCase() === usernameTag)
-    ))
+    proposal.proposerKey === currentUserKey
+    || proposal.proposerName === displayName
+    || (proposal.participants || []).some((participant) => isProfileMemberOfGroup({ members: [participant] }, profile))
   ));
   const needsMyVote = proposals.filter((proposal) => (
     proposal.status !== "finalized"
-    && (!proposal.votes?.time || !Object.prototype.hasOwnProperty.call(proposal.votes.time, usernameTag ? `username:${usernameTag.replace(/^@/, "")}` : `name:${String(displayName).trim().toLowerCase()}`))
+    && !Object.prototype.hasOwnProperty.call(proposal.votes?.time || {}, currentUserKey)
   ));
   const nextSteps = [
     unreadNotifications.length ? `You have ${unreadNotifications.length} unread update${unreadNotifications.length === 1 ? "" : "s"}.` : null,
