@@ -1,0 +1,18 @@
+{
+  "name": "Outsiders",
+  "short_name": "Outsiders",
+  "description": "Plan crews, hangouts, trips, and debriefs together.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fff6d8",
+  "theme_color": "#ff6b6b",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
