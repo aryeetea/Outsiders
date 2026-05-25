@@ -90,6 +90,37 @@ const STYLES = `
     display: grid;
     gap: 12px;
   }
+  .vote-panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .vote-panel {
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 3px solid #17151f;
+    background: #fffdf7;
+    box-shadow: 4px 4px 0 #17151f;
+  }
+  .vote-option {
+    width: 100%;
+    text-align: left;
+    border: 3px solid #17151f;
+    border-radius: 12px;
+    background: #fff7e4;
+    box-shadow: 3px 3px 0 #17151f;
+    padding: 12px 14px;
+    cursor: pointer;
+    font: 800 14px 'Nunito', sans-serif;
+    color: #17151f;
+  }
+  .vote-option.active {
+    background: #eefdf5;
+    border-color: #0f766e;
+    box-shadow: 3px 3px 0 #0f766e;
+  }
   .vote-callout {
     border-radius: 14px;
     border: 3px solid #17151f;
@@ -146,6 +177,7 @@ const STYLES = `
     .shell { padding: 18px 14px 36px; }
     .hero, .card { padding: 20px; border-radius: 22px; }
     .actions { grid-template-columns: 1fr; }
+    .vote-panels { grid-template-columns: 1fr; }
   }
 `;
 
@@ -215,6 +247,63 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
     [proposals]
   );
   const finalizedCount = proposals.filter((proposal) => proposal.status === "finalized").length;
+
+  const castProposalVote = async (proposal, category, optionId) => {
+    if (!proposal?.groupId || !category || !optionId) return;
+
+    const nextGroups = groups.map((group) => {
+      if (String(group.id) !== String(proposal.groupId)) return group;
+      return {
+        ...group,
+        hangoutProposals: (group.hangoutProposals || []).map((item) => (
+          item.id === proposal.id
+            ? {
+                ...item,
+                votes: {
+                  ...(item.votes || {}),
+                  [category]: {
+                    ...(item.votes?.[category] || {}),
+                    [currentUserKey]: optionId,
+                  },
+                },
+              }
+            : item
+        )),
+      };
+    });
+    const nextGroup = nextGroups.find((group) => String(group.id) === String(proposal.groupId));
+
+    if (isSupabaseConfigured && nextGroup && !String(nextGroup.id).startsWith("group-")) {
+      const { error } = await supabase
+        .from("groups")
+        .update({ hangout_proposals: nextGroup.hangoutProposals || [] })
+        .eq("id", nextGroup.id);
+
+      if (error) {
+        window.alert(error.message || "We could not save that vote yet.");
+        return;
+      }
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: nextGroups,
+      hangouts: (prev.hangouts || []).map((item) => (
+        item.id === proposal.id
+          ? {
+              ...item,
+              votes: {
+                ...(item.votes || {}),
+                [category]: {
+                  ...(item.votes?.[category] || {}),
+                  [currentUserKey]: optionId,
+                },
+              },
+            }
+          : item
+      )),
+    }));
+  };
 
   const deleteProposal = async (proposal) => {
     if (!proposal?.groupId) return;
@@ -290,7 +379,43 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
         {voteStillNeeded ? (
           <div className="vote-callout">
             <strong className="bangers" style={{ fontSize: 20 }}>Vote Here Next</strong>
-            <p style={{ margin: 0, color: "#5f4b00", fontWeight: 800 }}>Voting happens inside the crew view for this hangout. Use the button below to open the voting screen.</p>
+            <p style={{ margin: 0, color: "#5f4b00", fontWeight: 800 }}>Use the time and place buttons right here. If you want the full crew context too, use the crew button below.</p>
+          </div>
+        ) : null}
+        {proposal.status !== "finalized" ? (
+          <div className="vote-panels">
+            <div className="vote-panel">
+              <strong className="bangers" style={{ fontSize: 18 }}>Vote time</strong>
+              {(proposal.timeOptions || []).length ? proposal.timeOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`vote-option ${myTimeVote === option.id ? "active" : ""}`}
+                  onClick={() => void castProposalVote(proposal, "time", option.id)}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <span>{option.label}</span>
+                    <strong>{Object.values(proposal.votes?.time || {}).filter((value) => value === option.id).length}</strong>
+                  </div>
+                </button>
+              )) : <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>No time choices were added.</p>}
+            </div>
+            <div className="vote-panel">
+              <strong className="bangers" style={{ fontSize: 18 }}>Vote place</strong>
+              {(proposal.locationOptions || []).length ? proposal.locationOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`vote-option ${myLocationVote === option.id ? "active" : ""}`}
+                  onClick={() => void castProposalVote(proposal, "location", option.id)}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <span>{option.label}</span>
+                    <strong>{Object.values(proposal.votes?.location || {}).filter((value) => value === option.id).length}</strong>
+                  </div>
+                </button>
+              )) : <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>No place choices were added.</p>}
+            </div>
           </div>
         ) : null}
         {proposal.agenda?.length ? (
@@ -305,7 +430,7 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
         ) : null}
         <div className="actions">
           <button type="button" className={voteStillNeeded ? "btn primary" : "btn secondary"} onClick={() => onNavigate?.("friend-groups")}>
-            {voteStillNeeded ? "Vote now in crew" : "Open in crew"}
+            {voteStillNeeded ? "Open full crew voting" : "Open in crew"}
           </button>
           <button type="button" className="btn ghost" onClick={() => onNavigate?.("join-hangout", { code: proposal.code })}>Open invite</button>
           {isMine ? (

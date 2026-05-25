@@ -120,10 +120,32 @@ export default function OutsidersJoinHangout({ onNavigate, appData, setAppData, 
   const [error, setError] = useState("");
   const [joinedId, setJoinedId] = useState(null);
   const profile = appData?.profile || {};
+  const storedHangouts = useMemo(() => appData?.hangouts || [], [appData?.hangouts]);
 
   const allProposals = useMemo(
-    () => (appData?.groups || []).flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupId: group.id, groupName: group.name }))),
-    [appData]
+    () => {
+      const proposalsById = new Map();
+
+      (appData?.groups || []).forEach((group) => {
+        (group.hangoutProposals || []).forEach((proposal) => {
+          proposalsById.set(String(proposal.id), {
+            ...proposal,
+            groupId: proposal.groupId || group.id,
+            groupName: proposal.groupName || group.name,
+          });
+        });
+      });
+
+      storedHangouts.forEach((proposal) => {
+        proposalsById.set(String(proposal.id), {
+          ...proposal,
+          ...(proposalsById.get(String(proposal.id)) || {}),
+        });
+      });
+
+      return Array.from(proposalsById.values());
+    },
+    [appData, storedHangouts]
   );
   const joined = allProposals.find((proposal) => proposal.id === joinedId) || null;
 
