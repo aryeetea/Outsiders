@@ -259,7 +259,7 @@ const STYLES = `
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .content-grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
