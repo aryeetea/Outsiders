@@ -31,6 +31,10 @@ export async function sendNotificationEmails({
     }),
   });
 
+  if (response.status === 503) {
+    return { skipped: true, reason: "email-not-configured" };
+  }
+
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload?.error || "Email notifications could not be sent.");
