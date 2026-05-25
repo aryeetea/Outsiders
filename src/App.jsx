@@ -100,6 +100,7 @@ export default function App() {
   const latestAppDataRef = useRef(appData);
 
 async function fetchSharedAppData(user, previousAppData = {}) {
+    const metadataGroups = Array.isArray(user.user_metadata?.joined_groups) ? user.user_metadata.joined_groups : [];
     const { data: profileRow } = await supabase
       .from("profiles")
       .select("full_name, username, email, availability, avatar_url")
@@ -132,13 +133,21 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     const sharedGroups = !groupRowsError && Array.isArray(groupRows)
       ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
       : null;
+    const metadataGroupIds = metadataGroups.map((group) => String(group?.id || "")).filter(Boolean);
+    const metadataGroupCodes = metadataGroups.map((group) => String(group?.code || "").trim().toUpperCase()).filter(Boolean);
+    const metadataMatchedDbGroups = !groupRowsError && Array.isArray(groupRows)
+      ? groupRows.filter((group) => (
+        metadataGroupIds.includes(String(group?.id || ""))
+        || metadataGroupCodes.includes(String(group?.code || "").trim().toUpperCase())
+      ))
+      : [];
     const fallbackGroups = (Array.isArray(previousAppData.groups) ? previousAppData.groups : []).filter((group) => (
       isProfileMemberOfGroup(group, hydratedProfile)
       || isProfileMemberOfGroup(group, previousAppData.profile || {})
     ));
     const effectiveGroups = Array.isArray(sharedGroups)
-      ? mergeGroupsByIdentity(sharedGroups, fallbackGroups)
-      : fallbackGroups;
+      ? mergeGroupsByIdentity(sharedGroups, mergeGroupsByIdentity(metadataMatchedDbGroups, mergeGroupsByIdentity(metadataGroups, fallbackGroups)))
+      : mergeGroupsByIdentity(metadataMatchedDbGroups, mergeGroupsByIdentity(metadataGroups, fallbackGroups));
     const sharedGroupIds = Array.isArray(effectiveGroups) ? effectiveGroups.map((group) => String(group.id)) : [];
     const hydratedHangouts = Array.isArray(effectiveGroups)
       ? effectiveGroups.flatMap((group) => (group.hangout_proposals || group.hangoutProposals || []).map((proposal) => ({
