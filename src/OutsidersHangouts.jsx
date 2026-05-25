@@ -210,8 +210,11 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
     )),
     [proposals, currentUserKey]
   );
+  const liveProposals = useMemo(
+    () => proposals.filter((proposal) => proposal.status !== "finalized"),
+    [proposals]
+  );
   const finalizedCount = proposals.filter((proposal) => proposal.status === "finalized").length;
-  const pendingCount = proposals.filter((proposal) => proposal.status !== "finalized").length;
 
   const deleteProposal = async (proposal) => {
     if (!proposal?.groupId) return;
@@ -336,14 +339,18 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
               </div>
               <div className="stats">
                 <div className="stat">
-                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Total hangouts</p>
-                  <p style={{ margin: 0, fontSize: 32, fontWeight: 900 }}>{proposals.length}</p>
+                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Need your vote</p>
+                  <p style={{ margin: 0, fontSize: 32, fontWeight: 900 }}>{votingProposals.length}</p>
                 </div>
                 <div className="stat" style={{ background: "#fff4e6" }}>
-                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Still voting</p>
-                  <p style={{ margin: 0, fontSize: 32, fontWeight: 900, color: "#9a6700" }}>{pendingCount}</p>
+                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>You created</p>
+                  <p style={{ margin: 0, fontSize: 32, fontWeight: 900, color: "#9a6700" }}>{myProposals.length}</p>
                 </div>
                 <div className="stat" style={{ background: "#eefdf5" }}>
+                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Live hangouts</p>
+                  <p style={{ margin: 0, fontSize: 32, fontWeight: 900, color: "#0f766e" }}>{liveProposals.length}</p>
+                </div>
+                <div className="stat" style={{ background: "#eef8ff" }}>
                   <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Finalized</p>
                   <p style={{ margin: 0, fontSize: 32, fontWeight: 900, color: "#0f766e" }}>{finalizedCount}</p>
                 </div>
