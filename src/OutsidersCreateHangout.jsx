@@ -187,6 +187,54 @@ const STYLES = `
     display: grid;
     gap: 14px;
   }
+  .planner-flow {
+    display: grid;
+    gap: 18px;
+  }
+  .planner-section-card {
+    border: 3px solid #17151f;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #fffdf7 0%, #fff7e3 100%);
+    box-shadow: 4px 4px 0 #17151f;
+    padding: 18px;
+    display: grid;
+    gap: 16px;
+  }
+  .planner-section-head {
+    display: grid;
+    gap: 8px;
+  }
+  .planner-action-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .member-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .choice-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .share-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 18px;
+  }
+  .share-summary-item {
+    margin: 0;
+    color: #667085;
+    font-weight: 700;
+  }
+  .share-summary-item strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #17151f;
+  }
   .section-divider {
     height: 3px;
     border-radius: 999px;
@@ -403,6 +451,9 @@ const STYLES = `
   }
   @media (max-width: 1080px) {
     .layout, .form-grid, .agenda-workspace {
+      grid-template-columns: 1fr;
+    }
+    .member-grid, .choice-columns, .share-summary-grid {
       grid-template-columns: 1fr;
     }
     .sidebar-stack {
@@ -851,10 +902,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                   </div>
                 </div>
 
-                <div className="section-block">
-                  <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>1. Core Details</h3>
-                    <p className="section-copy">Pick the crew, name the hangout, and decide who this plan is for.</p>
+                <div className="section-block planner-flow">
+                  <div className="planner-section-card">
+                    <div className="planner-section-head">
+                      <h3 className="section-title" style={{ fontSize: 22, marginBottom: 0 }}>1. Core Details</h3>
+                      <p className="section-copy" style={{ marginBottom: 0 }}>Pick the crew, name the hangout, and decide who this plan is for.</p>
+                    </div>
                     <div className="form-grid">
                       <div className="field">
                         <label>Crew</label>
@@ -888,6 +941,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                     <div style={{ display: "grid", gap: 12 }}>
                       <strong style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Crew members to include</strong>
                       <p style={{ margin: "0 0 2px", color: "#667085" }}>Everyone is included by default. Tap a person only if you want to leave them out of this one.</p>
+                      <div className="member-grid">
                       {participants.length ? participants.map((member) => {
                         const selected = selectedMembers.length ? selectedMembers.includes(memberKey(member)) : true;
                         return (
@@ -902,79 +956,88 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                       }) : (
                         <p style={{ margin: 0, color: "#667085" }}>Create or join a crew first.</p>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="section-divider" />
-
-                  <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>2. Vote Choices</h3>
-                    <p className="section-copy">Give the crew a few time and place options to vote on. You only need at least one of each to post.</p>
-                    <div className="form-grid">
-                      <div className="field">
-                        <label>Date</label>
-                        <input type="date" value={form.manualDate} onChange={(event) => setForm((prev) => ({ ...prev, manualDate: event.target.value }))} />
-                      </div>
-                      <div className="field">
-                        <label>Time</label>
-                        <input type="time" value={form.manualTime} onChange={(event) => setForm((prev) => ({ ...prev, manualTime: event.target.value }))} />
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "14px 0" }}>
-                      <button type="button" className="btn secondary" onClick={addManualTime}>Add manual time option</button>
-                    </div>
-                    <div className="pill-list">
-                      <strong>Chosen time options</strong>
-                      <div className="pill-row">
-                        {timeOptions.length ? timeOptions.map((option) => (
-                          <span key={option.id} className="pill">
-                            {option.label}
-                            <button type="button" className="mini-btn" onClick={() => setTimeOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
-                          </span>
-                        )) : <span style={{ color: "#667085" }}>No time options added yet.</span>}
-                      </div>
-                    </div>
-                    <div className="form-grid">
-                      <div className="field">
-                        <label>Location idea</label>
-                        <input value={form.manualLocation} onChange={(event) => setForm((prev) => ({ ...prev, manualLocation: event.target.value }))} placeholder="Harbor rooftop, pizza spot, game bar..." />
-                      </div>
-                      <div className="field">
-                        <label>Invite someone outside this crew</label>
-                        <input value={form.externalInvite} onChange={(event) => setForm((prev) => ({ ...prev, externalInvite: event.target.value }))} placeholder="name, @handle, or phone note" />
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-                      <button type="button" className="btn secondary" onClick={addLocationOption}>Add place option</button>
-                      <button type="button" className="btn ghost" onClick={addExternalInvite}>Add outside invite</button>
-                    </div>
-                    <div className="pill-list" style={{ marginTop: 16 }}>
-                      <strong>Location options</strong>
-                      <div className="pill-row">
-                        {locationOptions.length ? locationOptions.map((option) => (
-                          <span key={option.id} className="pill">
-                            {option.label}
-                            <button type="button" className="mini-btn" onClick={() => setLocationOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
-                          </span>
-                        )) : <span style={{ color: "#667085" }}>No places added yet.</span>}
-                      </div>
-                    </div>
-                    <div className="pill-list" style={{ marginTop: 12 }}>
-                      <strong>External invites for this hangout</strong>
-                      <div className="pill-row">
-                        {externalInvites.length ? externalInvites.map((invite) => (
-                          <span key={invite} className="pill">
-                            {invite}
-                            <button type="button" className="mini-btn" onClick={() => setExternalInvites((prev) => prev.filter((item) => item !== invite))}>Remove</button>
-                          </span>
-                        )) : <span style={{ color: "#667085" }}>No outside guests added yet.</span>}
                       </div>
                     </div>
                   </div>
 
                   <div className="section-divider" />
 
-                  <div>
+                  <div className="planner-section-card">
+                    <div className="planner-section-head">
+                      <h3 className="section-title" style={{ fontSize: 22, marginBottom: 0 }}>2. Vote Choices</h3>
+                      <p className="section-copy" style={{ marginBottom: 0 }}>Give the crew a few time and place options to vote on. You only need at least one of each to post.</p>
+                    </div>
+                    <div className="choice-columns">
+                      <div style={{ display: "grid", gap: 14 }}>
+                        <div className="form-grid">
+                          <div className="field">
+                            <label>Date</label>
+                            <input type="date" value={form.manualDate} onChange={(event) => setForm((prev) => ({ ...prev, manualDate: event.target.value }))} />
+                          </div>
+                          <div className="field">
+                            <label>Time</label>
+                            <input type="time" value={form.manualTime} onChange={(event) => setForm((prev) => ({ ...prev, manualTime: event.target.value }))} />
+                          </div>
+                        </div>
+                        <div className="planner-action-row">
+                          <button type="button" className="btn secondary" onClick={addManualTime}>Add manual time option</button>
+                        </div>
+                        <div className="pill-list">
+                          <strong>Chosen time options</strong>
+                          <div className="pill-row">
+                            {timeOptions.length ? timeOptions.map((option) => (
+                              <span key={option.id} className="pill">
+                                {option.label}
+                                <button type="button" className="mini-btn" onClick={() => setTimeOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
+                              </span>
+                            )) : <span style={{ color: "#667085" }}>No time options added yet.</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gap: 14 }}>
+                        <div className="form-grid">
+                          <div className="field">
+                            <label>Location idea</label>
+                            <input value={form.manualLocation} onChange={(event) => setForm((prev) => ({ ...prev, manualLocation: event.target.value }))} placeholder="Harbor rooftop, pizza spot, game bar..." />
+                          </div>
+                          <div className="field">
+                            <label>Invite someone outside this crew</label>
+                            <input value={form.externalInvite} onChange={(event) => setForm((prev) => ({ ...prev, externalInvite: event.target.value }))} placeholder="name, @handle, or phone note" />
+                          </div>
+                        </div>
+                        <div className="planner-action-row">
+                          <button type="button" className="btn secondary" onClick={addLocationOption}>Add place option</button>
+                          <button type="button" className="btn ghost" onClick={addExternalInvite}>Add outside invite</button>
+                        </div>
+                        <div className="pill-list">
+                          <strong>Location options</strong>
+                          <div className="pill-row">
+                            {locationOptions.length ? locationOptions.map((option) => (
+                              <span key={option.id} className="pill">
+                                {option.label}
+                                <button type="button" className="mini-btn" onClick={() => setLocationOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
+                              </span>
+                            )) : <span style={{ color: "#667085" }}>No places added yet.</span>}
+                          </div>
+                        </div>
+                        <div className="pill-list">
+                          <strong>External invites for this hangout</strong>
+                          <div className="pill-row">
+                            {externalInvites.length ? externalInvites.map((invite) => (
+                              <span key={invite} className="pill">
+                                {invite}
+                                <button type="button" className="mini-btn" onClick={() => setExternalInvites((prev) => prev.filter((item) => item !== invite))}>Remove</button>
+                              </span>
+                            )) : <span style={{ color: "#667085" }}>No outside guests added yet.</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="section-divider" />
+
+                  <div className="planner-section-card">
                     <details className="planner-collapsible">
                       <summary>
                         3. Smart Suggestions
@@ -1007,7 +1070,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
                   <div className="section-divider" />
 
-                  <div>
+                  <div className="planner-section-card">
                     <details className="planner-collapsible">
                       <summary>
                         4. Day Plan
@@ -1084,17 +1147,22 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
                   <div className="section-divider" />
 
-                  <div>
-                    <h3 className="section-title" style={{ fontSize: 22, marginBottom: 10 }}>5. Share With Crew</h3>
-                    <p className="section-copy">Quick check: if you have a crew, a name, one time option, and one place option, you’re ready.</p>
+                  <div className="planner-section-card">
+                    <div className="planner-section-head">
+                      <h3 className="section-title" style={{ fontSize: 22, marginBottom: 0 }}>5. Share With Crew</h3>
+                      <p className="section-copy" style={{ marginBottom: 0 }}>Quick check: if you have a crew, a name, one time option, and one place option, you’re ready.</p>
+                    </div>
                     <div className="summary-box">
-                      <p style={{ margin: "0 0 10px", fontWeight: 700 }}>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
-                      <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(durationHours)}</p>
-                      <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length} time options · {locationOptions.length} place options · {externalInvites.length} external invite{externalInvites.length === 1 ? "" : "s"}</p>
-                      <p style={{ margin: "0 0 10px", color: "#667085" }}>{timeOptions.length ? "✓" : "•"} Add at least one time option.</p>
-                      <p style={{ margin: "0 0 10px", color: "#667085" }}>{locationOptions.length ? "✓" : "•"} Add at least one place option.</p>
-                      <p style={{ margin: "0 0 10px", color: "#667085" }}>{form.name.trim() ? "✓" : "•"} Give the hangout a clear name.</p>
-                      <p style={{ margin: 0, color: "#667085" }}>{selectedGroup ? "✓" : "•"} Make sure the right crew is selected.</p>
+                      <div className="share-summary-grid">
+                        <p className="share-summary-item"><strong>Crew</strong>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
+                        <p className="share-summary-item"><strong>Duration</strong>{formatDurationHours(durationHours)}</p>
+                        <p className="share-summary-item"><strong>Vote setup</strong>{timeOptions.length} time options · {locationOptions.length} place options</p>
+                        <p className="share-summary-item"><strong>Outside guests</strong>{externalInvites.length} external invite{externalInvites.length === 1 ? "" : "s"}</p>
+                        <p className="share-summary-item">{timeOptions.length ? "✓ Time options added" : "• Add at least one time option"}</p>
+                        <p className="share-summary-item">{locationOptions.length ? "✓ Place options added" : "• Add at least one place option"}</p>
+                        <p className="share-summary-item">{form.name.trim() ? "✓ Hangout name added" : "• Give the hangout a clear name"}</p>
+                        <p className="share-summary-item">{selectedGroup ? "✓ Crew selected" : "• Make sure the right crew is selected"}</p>
+                      </div>
                     </div>
                     {error ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{error}</p> : null}
                     <button type="button" className="btn primary" style={{ width: "100%", marginTop: 16, opacity: isCreatingProposal ? 0.75 : 1 }} onClick={createProposal} disabled={isCreatingProposal}>
