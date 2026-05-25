@@ -134,6 +134,12 @@ const STYLES = `
     border-radius: 999px;
     background: rgba(23, 21, 31, 0.08);
   }
+  .section-divider {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(23, 21, 31, 0.08);
+    margin: 4px 0;
+  }
   .crew-card {
     padding: 18px;
     border-radius: 16px;
@@ -1312,7 +1318,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
           <section className="glass hero">
               <div style={{ display: "grid", gap: 12 }}>
               <div className="comic-kicker">Crew HQ</div>
-              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>Run the whole crew in one place.</h1>
+              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>🧭 Run the whole crew in one place.</h1>
               <p style={{ margin: 0, maxWidth: 900, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
                 Join the crew, see everyone, plan hangouts, vote, and handle invites here.
               </p>
@@ -1355,7 +1361,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
             <section className="detail-stack">
               {selectedGroup ? (
-                <>
                   <div className="card">
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
                       <div>
@@ -1397,10 +1402,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                         </button>
                       ))}
                     </div>
-                  </div>
+                    <div className="section-divider" style={{ marginTop: 20 }} />
 
                   {activeTab === "Hangouts" ? (
-                    <div className="card">
+                    <div className="section-grid" style={{ marginTop: 20 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
                         <div>
                           <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Crew hangouts</h3>
@@ -1497,7 +1502,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   ) : null}
 
                   {activeTab === "Members" ? (
-                    <div className="card">
+                    <div className="section-grid" style={{ marginTop: 20 }}>
                       <div className="section-header">
                         <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew members</h3>
                         <p className="section-copy">See who is in the room, what role they have, and whether their availability is ready for planning.</p>
@@ -1543,7 +1548,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   ) : null}
 
                   {activeTab === "Invites" ? (
-                    <div className="card">
+                    <div className="section-grid" style={{ marginTop: 20 }}>
                       <div className="section-header">
                         <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew invites</h3>
                         <p className="section-copy">Each invite gets its own code and link.</p>
@@ -1637,7 +1642,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   ) : null}
 
                   {activeTab === "Debrief" ? (
-                    <div className="card">
+                    <div className="section-grid" style={{ marginTop: 20 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
                         <div>
                           <h3 className="bangers" style={{ margin: "0 0 6px", fontSize: 24 }}>Debrief Court ❤️</h3>
@@ -1669,7 +1674,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   ) : null}
 
                   {activeTab === "Bill Watch" ? (
-                    <div className="card">
+                    <div className="section-grid" style={{ marginTop: 20 }}>
                       <div className="section-header">
                         <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Bill Watch</h3>
                         <p className="section-copy">Pick who you trust to track who paid, keep the split clean, and stay on top of balances. The summary stays at the top, votes stay in the left column, and the checklist stays on the right.</p>
@@ -1756,7 +1761,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                       </div>
                     </div>
                   ) : null}
-                </>
+                  </div>
               ) : (
                 <div className="card">
                   <strong>No crew selected.</strong>
