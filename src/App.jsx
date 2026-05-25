@@ -76,6 +76,21 @@ function getInitialAppData() {
   }
 }
 
+function mergeGroupsByIdentity(primaryGroups = [], secondaryGroups = []) {
+  const merged = new Map();
+
+  [...(Array.isArray(secondaryGroups) ? secondaryGroups : []), ...(Array.isArray(primaryGroups) ? primaryGroups : [])].forEach((group) => {
+    if (!group) return;
+    const idKey = String(group.id || "").trim();
+    const codeKey = String(group.code || "").trim().toUpperCase();
+    const key = idKey || (codeKey ? `code:${codeKey}` : "");
+    if (!key) return;
+    merged.set(key, group);
+  });
+
+  return Array.from(merged.values());
+}
+
 export default function App() {
   const [route, setRoute] = useState(getRouteFromLocation);
   const [appData, setAppData] = useState(getInitialAppData);
@@ -117,9 +132,13 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     const sharedGroups = !groupRowsError && Array.isArray(groupRows)
       ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
       : null;
+    const fallbackGroups = (Array.isArray(previousAppData.groups) ? previousAppData.groups : []).filter((group) => (
+      isProfileMemberOfGroup(group, hydratedProfile)
+      || isProfileMemberOfGroup(group, previousAppData.profile || {})
+    ));
     const effectiveGroups = Array.isArray(sharedGroups)
-      ? sharedGroups
-      : previousAppData.groups;
+      ? mergeGroupsByIdentity(sharedGroups, fallbackGroups)
+      : fallbackGroups;
     const sharedGroupIds = Array.isArray(effectiveGroups) ? effectiveGroups.map((group) => String(group.id)) : [];
     const hydratedHangouts = Array.isArray(effectiveGroups)
       ? effectiveGroups.flatMap((group) => (group.hangout_proposals || group.hangoutProposals || []).map((proposal) => ({
