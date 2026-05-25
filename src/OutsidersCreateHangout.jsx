@@ -512,7 +512,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     manualDate: "",
     manualTime: "",
     manualLocation: "",
-    externalInvite: "",
     reservationStatus: "no",
     reservationName: "",
     meetingPoint: "",
@@ -522,7 +521,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [timeOptions, setTimeOptions] = useState([]);
   const [locationOptions, setLocationOptions] = useState([]);
-  const [externalInvites, setExternalInvites] = useState([]);
+  const [externalInvites] = useState([]);
   const [agenda, setAgenda] = useState([]);
   const [agendaSuggestions, setAgendaSuggestions] = useState([]);
   const [agendaError, setAgendaError] = useState("");
@@ -610,13 +609,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     const option = { id: createId("place"), label: form.manualLocation.trim() };
     setLocationOptions((prev) => prev.some((item) => item.label === option.label) ? prev : [...prev, option]);
     setForm((prev) => ({ ...prev, manualLocation: "" }));
-  };
-
-  const addExternalInvite = () => {
-    const value = form.externalInvite.trim();
-    if (!value) return;
-    setExternalInvites((prev) => prev.includes(value) ? prev : [...prev, value]);
-    setForm((prev) => ({ ...prev, externalInvite: "" }));
   };
 
   const generateAgenda = async () => {
@@ -1000,14 +992,9 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                             <label>Location idea</label>
                             <input value={form.manualLocation} onChange={(event) => setForm((prev) => ({ ...prev, manualLocation: event.target.value }))} placeholder="Harbor rooftop, pizza spot, game bar..." />
                           </div>
-                          <div className="field">
-                            <label>Invite someone outside this crew</label>
-                            <input value={form.externalInvite} onChange={(event) => setForm((prev) => ({ ...prev, externalInvite: event.target.value }))} placeholder="name, @handle, or phone note" />
-                          </div>
                         </div>
                         <div className="planner-action-row">
                           <button type="button" className="btn secondary" onClick={addLocationOption}>Add place option</button>
-                          <button type="button" className="btn ghost" onClick={addExternalInvite}>Add outside invite</button>
                         </div>
                         <div className="pill-list">
                           <strong>Location options</strong>
@@ -1018,17 +1005,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                                 <button type="button" className="mini-btn" onClick={() => setLocationOptions((prev) => prev.filter((item) => item.id !== option.id))}>Remove</button>
                               </span>
                             )) : <span style={{ color: "#667085" }}>No places added yet.</span>}
-                          </div>
-                        </div>
-                        <div className="pill-list">
-                          <strong>External invites for this hangout</strong>
-                          <div className="pill-row">
-                            {externalInvites.length ? externalInvites.map((invite) => (
-                              <span key={invite} className="pill">
-                                {invite}
-                                <button type="button" className="mini-btn" onClick={() => setExternalInvites((prev) => prev.filter((item) => item !== invite))}>Remove</button>
-                              </span>
-                            )) : <span style={{ color: "#667085" }}>No outside guests added yet.</span>}
                           </div>
                         </div>
                       </div>
