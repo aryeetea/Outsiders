@@ -867,6 +867,14 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   const remainingToSave = selectedTrip ? Math.max(personalSavingsTarget - personalSavings, 0) : 0;
   const savingsPct = personalSavingsTarget ? Math.min(Math.round((personalSavings / personalSavingsTarget) * 100), 100) : 0;
   const bookingInfo = selectedTrip?.bookingInfo || {};
+  const checklistCompletedCount = (selectedTrip?.planningChecklist || []).filter((item) => item.done).length;
+  const checklistRemainingCount = Math.max((selectedTrip?.planningChecklist || []).length - checklistCompletedCount, 0);
+  const pendingMySavings = Math.max(personalSavingsTarget - personalSavings, 0);
+  const tripNextSteps = [
+    pendingMySavings > 0 ? `Save $${pendingMySavings} more for your target.` : "Your personal savings target is covered.",
+    checklistRemainingCount > 0 ? `${checklistRemainingCount} planning checklist item${checklistRemainingCount === 1 ? "" : "s"} are still open.` : "Your checklist is fully done for now.",
+    bookingInfo.hasBookingInfo !== "yes" ? "Add booking details if you want the AI itinerary to use your arrival and stay info." : "Booking details are in place for more accurate itinerary ideas.",
+  ];
 
   const togglePreference = (preference) => {
     setNewTripForm((prev) => ({
@@ -1566,6 +1574,31 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
 
                       <details className="collapsible-block" open>
                         <summary>
+                          <span>My Part</span>
+                          <span className="badge" style={{ background: "#eef8ff", color: "#155eef", borderColor: "#155eef" }}>{currentUserDisplayName}</span>
+                        </summary>
+                        <div className="collapsible-content">
+                          <div style={{ display: "grid", gap: 10 }}>
+                            <div style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
+                              <strong>Your role in this trip</strong>
+                              <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
+                                {isTripHost
+                                  ? "You are the trip host, so you can guide the group goal and each person’s target."
+                                  : "You are part of the shared trip, with your own savings and checklist inside the crew plan."}
+                              </p>
+                            </div>
+                            <div style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px solid #e5dcc6", background: "#fffdf7" }}>
+                              <strong>What needs you next</strong>
+                              {tripNextSteps.map((step) => (
+                                <div key={step} style={{ color: "#555", fontWeight: 800 }}>{step}</div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </details>
+
+                      <details className="collapsible-block" open>
+                        <summary>
                           <span>Group Savings</span>
                           <span className="badge" style={{ background: "#fff4e6", color: "#ff9a3c", borderColor: "#ff9a3c" }}>${totalGroupSaved} saved</span>
                         </summary>
@@ -1658,7 +1691,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
 
                       <details className="collapsible-block" open>
                         <summary>
-                          <span>Checklist</span>
+                          <span>My Checklist</span>
                           <span className="badge" style={{ background: "#eefdf5", color: "#0f766e", borderColor: "#0f766e" }}>
                             {(selectedTrip.planningChecklist || []).filter((item) => item.done).length}/{(selectedTrip.planningChecklist || []).length}
                           </span>
@@ -1731,9 +1764,9 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
 
                         <div style={{ display: "grid", gap: 14 }}>
                           <div className="trip-section-box">
-                            <strong className="bangers" style={{ fontSize: 18 }}>My Final Itinerary</strong>
+                            <strong className="bangers" style={{ fontSize: 18 }}>Shared Final Itinerary</strong>
                             <p style={{ margin: 0, color: "#666", fontWeight: 800 }}>
-                              This is the actual plan you are keeping. Manual items and chosen AI ideas end up here.
+                              This is the shared trip plan your group is keeping. Manual items and chosen AI ideas end up here for everyone.
                             </p>
                           </div>
                           {selectedTrip.itinerary.map((day) => (

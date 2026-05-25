@@ -356,6 +356,25 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
   const profile = appData?.profile || {};
   const displayName = profile.name || profile.username || "You";
   const profileName = displayName;
+  const usernameTag = profile?.username ? `@${String(profile.username).replace(/^@/, "").toLowerCase()}` : "";
+  const myGroups = groups.filter((group) => (group.members || []).some((member) => (
+    member?.name === displayName || (usernameTag && String(member?.username || "").toLowerCase() === usernameTag)
+  )));
+  const myProposals = proposals.filter((proposal) => (
+    proposal.proposerName === displayName
+    || (proposal.participants || []).some((participant) => (
+      participant?.name === displayName || (usernameTag && String(participant?.username || "").toLowerCase() === usernameTag)
+    ))
+  ));
+  const needsMyVote = proposals.filter((proposal) => (
+    proposal.status !== "finalized"
+    && (!proposal.votes?.time || !Object.prototype.hasOwnProperty.call(proposal.votes.time, usernameTag ? `username:${usernameTag.replace(/^@/, "")}` : `name:${String(displayName).trim().toLowerCase()}`))
+  ));
+  const nextSteps = [
+    unreadNotifications.length ? `You have ${unreadNotifications.length} unread update${unreadNotifications.length === 1 ? "" : "s"}.` : null,
+    needsMyVote.length ? `${needsMyVote.length} hangout vote${needsMyVote.length === 1 ? "" : "s"} still need your input.` : null,
+    !myGroups.length ? "Join or create a crew so your shared plans can start syncing." : null,
+  ].filter(Boolean);
 
   return (
     <>
@@ -436,6 +455,40 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
             </div>
 
             <div style={{ display: "grid", gap: 16 }}>
+              <div className="dashboard-column-card">
+                <h2 className="section-title" style={{ marginBottom: 14 }}>My Part</h2>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div className="note-card">
+                    <strong>Your crews</strong>
+                    <p style={{ margin: "8px 0 0", color: "#667085" }}>{myGroups.length ? `${myGroups.length} crew${myGroups.length === 1 ? "" : "s"} connected to your profile.` : "You are not connected to a crew yet."}</p>
+                  </div>
+                  <div className="note-card">
+                    <strong>Your hangouts</strong>
+                    <p style={{ margin: "8px 0 0", color: "#667085" }}>{myProposals.length ? `${myProposals.length} hangout plan${myProposals.length === 1 ? "" : "s"} involve you right now.` : "No current hangout plans are tied to you yet."}</p>
+                  </div>
+                  <div className="note-card">
+                    <strong>Your alerts</strong>
+                    <p style={{ margin: "8px 0 0", color: "#667085" }}>{unreadNotifications.length ? `${unreadNotifications.length} unread alert${unreadNotifications.length === 1 ? "" : "s"} are waiting for you.` : "You are all caught up right now."}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="dashboard-column-card">
+                <h2 className="section-title" style={{ marginBottom: 14 }}>What Needs Me Next</h2>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {nextSteps.length ? nextSteps.map((step) => (
+                    <div key={step} className="note-card">
+                      <strong>{step}</strong>
+                    </div>
+                  )) : (
+                    <div className="note-card">
+                      <strong>Nothing urgent right now.</strong>
+                      <p style={{ margin: "8px 0 0", color: "#667085" }}>You are up to date, so you can start the next plan whenever you want.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="dashboard-column-card">
                 <h2 className="section-title" style={{ marginBottom: 14 }}>Quick Actions</h2>
                 <div className="quick-grid">

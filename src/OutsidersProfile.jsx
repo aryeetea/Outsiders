@@ -406,6 +406,44 @@ function weekSummary(availability) {
   return text === "No availability saved" ? "No availability saved yet." : text;
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read that photo. Try another image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageFromSrc(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not process that photo. Try another image."));
+    image.src = src;
+  });
+}
+
+async function compressAvatarFile(file) {
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImageFromSrc(source);
+  const maxSize = 512;
+  const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return source;
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
 function findViewableMember(groups, memberKey, groupId) {
   const scopedGroups = groupId ? groups.filter((group) => String(group.id) === String(groupId)) : groups;
   const loweredKey = String(memberKey || "").toLowerCase();
@@ -490,18 +528,21 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleAvatarUpload = (event) => {
+  const handleAvatarUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setDraftAvatar(reader.result);
+    setSaveError("");
+    try {
+      const nextAvatar = await compressAvatarFile(file);
+      if (typeof nextAvatar === "string") {
+        setDraftAvatar(nextAvatar);
         setSaved(false);
       }
-    };
-    reader.onerror = () => setSaveError("Could not read that photo. Try another image.");
-    reader.readAsDataURL(file);
+    } catch (error) {
+      setSaveError(error.message || "Could not read that photo. Try another image.");
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const saveProfile = async () => {
@@ -648,7 +689,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
             <div className="profile-subtitle">
               {isViewingOtherProfile
                 ? `See ${draft.name || "this crew member"}'s profile, availability, and crew-facing details${viewedMember?.groupName ? ` from ${viewedMember.groupName}` : ""}.`
-                : "Update your profile and weekly availability here."}
+                : "Update your profile and weekly availability here. A profile photo is optional."}
             </div>
           </div>
           <div className="hero-grid">
@@ -672,6 +713,11 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
                       {avatarPreview ? <button type="button" className="ghost-btn" onClick={() => setDraftAvatar("")}>Remove photo</button> : null}
                       <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
                     </div>
+                  ) : null}
+                  {!isViewingOtherProfile ? (
+                    <p style={{ margin: "10px 0 0", color: "#667085", fontSize: 13, fontWeight: 700 }}>
+                      Photo upload is optional. If you add one, we compress it automatically before saving.
+                    </p>
                   ) : null}
                 </div>
               </div>

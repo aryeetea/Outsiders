@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getVisibleGroupsForProfile } from "./appState";
+import { sendNotificationEmails } from "./notificationEmail";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import OutsidersSideNav from "./OutsidersSideNav";
 
@@ -419,6 +420,59 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
     const nextCases = [nextCase, ...(targetGroup.cases || [])];
     const saved = await persistCases(targetGroup.id, nextCases);
     if (!saved) return;
+
+    if (isSupabaseConfigured) {
+      const recipientMembers = newCaseForm.scope === "group"
+        ? (targetGroup.members || []).filter((member) => !isCurrentMember(member, currentUser?.id, currentUsername, currentDisplayName))
+        : (targetMember ? [targetMember] : []);
+
+      const recipientRows = recipientMembers
+        .filter((member) => member.userId)
+        .map((member) => ({
+          user_id: member.userId,
+          recipient: member.name,
+          recipient_key: `user:${member.userId}`,
+          group_id: targetGroup.id,
+          group_name: targetGroup.name,
+          action_screen: "debrief",
+          action_params: { groupId: String(targetGroup.id), caseId: nextCase.id },
+          type: "debrief-case",
+          message: newCaseForm.scope === "group"
+            ? `A new anonymous case was filed in ${targetGroup.name}.`
+            : `A private anonymous case was filed for you in ${targetGroup.name}.`,
+          read: false,
+        }));
+
+      if (recipientRows.length) {
+        const { error } = await supabase.from("notifications").insert(recipientRows);
+        if (error) {
+          console.warn("Debrief notifications did not fully save:", error.message);
+        }
+      }
+
+      try {
+        await sendNotificationEmails({
+          recipients: recipientMembers
+            .filter((member) => member.email)
+            .map((member) => ({ email: member.email, name: member.name })),
+          subject: newCaseForm.scope === "group"
+            ? `New anonymous case in ${targetGroup.name}`
+            : `Private anonymous case for you in ${targetGroup.name}`,
+          intro: newCaseForm.scope === "group"
+            ? `A new anonymous group-wide case was filed in ${targetGroup.name}.`
+            : `A new anonymous personal case was filed for you in ${targetGroup.name}.`,
+          ctaLabel: "Open Debrief Court",
+          ctaUrl: "",
+          details: [
+            `Crew: ${targetGroup.name}`,
+            `Case title: ${nextCase.title}`,
+            newCaseForm.scope === "personal" ? "This case is visible only to the person named." : "This case is visible to the whole crew.",
+          ],
+        });
+      } catch (emailError) {
+        console.warn("Debrief email notifications did not fully send:", emailError.message);
+      }
+    }
 
     setActiveGroupId(String(targetGroup.id));
     setSelectedCaseId(nextCase.id);

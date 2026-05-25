@@ -70,8 +70,8 @@ const STYLES = `
 
   .availability-shortcuts {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
   }
 
   .availability-day-card {
@@ -79,16 +79,17 @@ const STYLES = `
     border-radius: 16px;
     background: #fff;
     box-shadow: 4px 4px 0 #1a1a2e;
-    padding: 12px;
+    padding: 16px;
     display: grid;
-    gap: 10px;
+    gap: 14px;
     min-width: 0;
+    align-content: start;
   }
 
   .availability-day-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .availability-mini-btn {
@@ -96,14 +97,17 @@ const STYLES = `
     background: #fff;
     color: #1a1a2e;
     border-radius: 999px;
-    padding: 6px 9px;
+    padding: 10px 12px;
     cursor: pointer;
-    font: 800 11px 'Nunito', sans-serif;
+    font: 800 12px 'Nunito', sans-serif;
+    line-height: 1.2;
     box-shadow: 2px 2px 0 #1a1a2e;
-    flex: 1 1 calc(50% - 8px);
     min-width: 0;
-    justify-content: center;
     text-align: center;
+    min-height: 54px;
+    display: grid;
+    place-items: center;
+    word-break: keep-all;
   }
 
   .availability-mini-btn:hover {
@@ -240,17 +244,17 @@ const STYLES = `
     }
 
     .availability-shortcuts {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: 1fr;
     }
   }
 
   @media (max-width: 520px) {
-    .availability-shortcuts {
+    .availability-day-actions {
       grid-template-columns: 1fr;
     }
 
     .availability-mini-btn {
-      flex-basis: 100%;
+      min-height: 48px;
     }
   }
 `;

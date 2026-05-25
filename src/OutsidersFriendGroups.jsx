@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
 import { copyTextWithAlert } from "./clipboard";
+import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildGroupInviteLink } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
@@ -747,6 +748,21 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     if (error) {
       console.warn("Notification sync failed:", error.message);
     }
+
+    try {
+      await sendNotificationEmails({
+        recipients: members
+          .filter((member) => member.userId && member.userId !== currentUserId && member.email)
+          .map((member) => ({ email: member.email, name: member.name })),
+        subject: payload.emailSubject || `${payload.groupName || "Your crew"} has an update`,
+        intro: payload.emailIntro || (typeof payload.message === "string" ? payload.message : "There is a new crew update waiting for you."),
+        ctaLabel: payload.emailCtaLabel || "Open update",
+        ctaUrl: payload.link || "",
+        details: payload.emailDetails || [],
+      });
+    } catch (emailError) {
+      console.warn("Notification email sync failed:", emailError.message);
+    }
   }
 
   useEffect(() => {
@@ -823,7 +839,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     if (isSupabaseConfigured && username) {
       const { data: matchedProfile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, email, full_name")
         .eq("username", username.replace(/^@/, ""))
         .maybeSingle();
       invitedUserId = matchedProfile?.id || null;
@@ -844,6 +860,22 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
         });
         if (error) {
           console.warn("Crew invite notification did not save:", error.message);
+        }
+
+        try {
+          await sendNotificationEmails({
+            recipients: matchedProfile?.email ? [{ email: matchedProfile.email, name: matchedProfile.full_name || invite.name || username }] : [],
+            subject: `${currentName} invited you to join ${selectedGroup.name}`,
+            intro: `${currentName} sent you a crew invite for ${selectedGroup.name}.`,
+            ctaLabel: "Open crew invite",
+            ctaUrl: invite.inviteLink,
+            details: [
+              `Crew: ${selectedGroup.name}`,
+              `Invite code: ${invite.inviteCode}`,
+            ],
+          });
+        } catch (emailError) {
+          console.warn("Crew invite email did not send:", emailError.message);
         }
       }
     }
@@ -985,6 +1017,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       actionScreen: "join-hangout",
       actionParams: { code: proposal.code },
       message: `${proposal.name} was finalized in ${nextGroup.name}.`,
+      emailSubject: `${proposal.name} was finalized in ${nextGroup.name}`,
+      emailIntro: `${proposal.name} now has a finalized crew pick in ${nextGroup.name}.`,
+      emailCtaLabel: "Open hangout",
+      emailDetails: [
+        `Crew: ${nextGroup.name}`,
+        `Hangout: ${proposal.name}`,
+      ],
     });
     setAppData?.((prev) => ({
       ...prev,
@@ -1275,6 +1314,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       actionScreen: "join-hangout",
       actionParams: { code: editingProposal.code },
       message: `${editDraft.name.trim()} was updated in ${nextGroup.name}.`,
+      emailSubject: `${editDraft.name.trim()} was updated in ${nextGroup.name}`,
+      emailIntro: `${editDraft.name.trim()} has fresh hangout updates in ${nextGroup.name}.`,
+      emailCtaLabel: "Open hangout",
+      emailDetails: [
+        `Crew: ${nextGroup.name}`,
+        `Hangout: ${editDraft.name.trim()}`,
+      ],
     });
     setAppData?.((prev) => ({
       ...prev,

@@ -62,17 +62,21 @@ export function readStoredProfile() {
 
 export function persistStoredProfile(profile, avatar) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    PROFILE_STORAGE_KEY,
-    JSON.stringify({
-      profile: {
-        ...DEFAULT_PROFILE,
-        ...profile,
-        availability: normalizeAvailability(profile?.availability || DEFAULT_AVAILABILITY),
-      },
-      avatar: avatar || null,
-    })
-  );
+  try {
+    window.localStorage.setItem(
+      PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        profile: {
+          ...DEFAULT_PROFILE,
+          ...profile,
+          availability: normalizeAvailability(profile?.availability || DEFAULT_AVAILABILITY),
+        },
+        avatar: avatar || null,
+      })
+    );
+  } catch {
+    // Ignore storage quota issues so profile saves do not fail if the browser cannot persist extras locally.
+  }
 }
 
 function normalizeProposalVoteMap(votes) {

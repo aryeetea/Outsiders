@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import OutsidersSideNav from "./OutsidersSideNav";
+import { getCurrentUserKey, getDisplayName } from "./appState";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -131,6 +132,9 @@ function leadingChoice(options = [], votes = {}) {
 export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
   const groups = useMemo(() => appData?.groups || [], [appData?.groups]);
   const profileName = appData?.profile?.name || appData?.profile?.username || "You";
+  const currentProfile = appData?.profile || {};
+  const currentUserKey = getCurrentUserKey(currentProfile);
+  const currentDisplayName = getDisplayName(currentProfile);
   const proposals = useMemo(
     () => groups.flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupName: group.name, groupId: group.id, groupEmoji: group.emoji }))),
     [groups]
@@ -184,6 +188,9 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
                 {proposals.length ? proposals.map((proposal) => {
                   const topTime = leadingChoice(proposal.timeOptions, proposal.votes?.time);
                   const topLocation = leadingChoice(proposal.locationOptions, proposal.votes?.location);
+                  const isMine = proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName;
+                  const myTimeVote = proposal.votes?.time?.[currentUserKey];
+                  const myLocationVote = proposal.votes?.location?.[currentUserKey];
                   return (
                     <div key={proposal.id} className="proposal">
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -199,6 +206,10 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
                       <div className="meta-row">
                         <span className="chip" style={{ background: "#eef8ff", color: "#155e75" }}>Top time: {topTime?.label || "No votes yet"}</span>
                         <span className="chip" style={{ background: "#fff7da", color: "#9a6700" }}>Top place: {topLocation?.label || "No votes yet"}</span>
+                        <span className="chip" style={{ background: isMine ? "#eefdf5" : "#fff", color: isMine ? "#0f766e" : "#555" }}>{isMine ? "You started this" : "Crew plan"}</span>
+                        <span className="chip" style={{ background: myTimeVote && myLocationVote ? "#eefdf5" : "#fff4e6", color: myTimeVote && myLocationVote ? "#0f766e" : "#9a6700" }}>
+                          {myTimeVote && myLocationVote ? "Your vote is in" : "Your vote is still needed"}
+                        </span>
                       </div>
                       {proposal.agenda?.length ? (
                         <div style={{ display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "2px dashed rgba(23,21,31,0.18)", background: "#fffdf7" }}>
