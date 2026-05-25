@@ -562,7 +562,7 @@ function normalizeSupabaseGroupRecord(group = {}) {
     members: Array.isArray(group.members) ? group.members : [],
     pending: Array.isArray(group.pending) ? group.pending.map((invite) => normalizePendingInvite(invite, group.code || "")) : [],
     cases: Array.isArray(group.cases) ? group.cases : [],
-    hangoutProposals: Array.isArray(group.hangoutProposals) ? group.hangoutProposals : [],
+    hangoutProposals: Array.isArray(group.hangoutProposals) ? group.hangoutProposals : (Array.isArray(group.hangout_proposals) ? group.hangout_proposals : []),
     billWatch: group.billWatch || group.bill_watch || { electedMemberName: "", votes: {}, checklist: ["Track who paid", "Post the split", "Confirm balances"] },
     peaceMaker: group.peaceMaker || group.peace_maker || { electedMemberName: "", votes: {}, oath: "" },
     roastBoard: Array.isArray(group.roastBoard) ? group.roastBoard : [],
@@ -607,6 +607,12 @@ function pickWinner(options = [], votes = {}) {
 
 function countMemberVotes(votes = {}, memberName) {
   return Object.values(votes).filter((value) => value === memberName).length;
+}
+
+function memberRecipientKey(member = {}) {
+  if (member.userId) return `user:${member.userId}`;
+  if (member.username) return `username:${String(member.username).replace(/^@/, "").toLowerCase()}`;
+  return `name:${String(member.name || "").trim().toLowerCase()}`;
 }
 
 function getLeaderFromMemberVotes(members = [], votes = {}) {
@@ -679,6 +685,64 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     }
 
     return true;
+  }
+
+  async function persistSharedGroup(nextGroup, options = {}) {
+    if (!isSupabaseConfigured || !nextGroup?.id || String(nextGroup.id).startsWith("group-")) return true;
+    if (options.remove) {
+      const { error } = await supabase.from("groups").delete().eq("id", nextGroup.id);
+      if (error) {
+        setNotice(error.message || "We could not update that crew yet.");
+        return false;
+      }
+      return true;
+    }
+
+    const { error } = await supabase
+      .from("groups")
+      .update({
+        members: nextGroup.members || [],
+        pending: nextGroup.pending || [],
+        cases: nextGroup.cases || [],
+        hangout_proposals: nextGroup.hangoutProposals || [],
+        bill_watch: nextGroup.billWatch || {},
+        peace_maker: nextGroup.peaceMaker || {},
+      })
+      .eq("id", nextGroup.id);
+
+    if (error) {
+      setNotice(error.message || "We could not sync that crew yet.");
+      return false;
+    }
+
+    return true;
+  }
+
+  async function createCrewNotificationsForMembers(members = [], payload = {}) {
+    if (!isSupabaseConfigured) return;
+    const recipientRows = members
+      .filter((member) => member.userId && member.userId !== currentUserId)
+      .map((member) => ({
+        user_id: member.userId,
+        recipient: member.name,
+        recipient_key: memberRecipientKey(member),
+        group_id: payload.groupId || null,
+        group_name: payload.groupName || "",
+        proposal_id: payload.proposalId || null,
+        proposal_code: payload.proposalCode || "",
+        link: payload.link || "",
+        action_screen: payload.actionScreen || "",
+        action_params: payload.actionParams || {},
+        type: payload.type || "general",
+        message: typeof payload.message === "function" ? payload.message(member) : payload.message,
+        read: false,
+      }));
+
+    if (!recipientRows.length) return;
+    const { error } = await supabase.from("notifications").insert(recipientRows);
+    if (error) {
+      console.warn("Notification sync failed:", error.message);
+    }
   }
 
   useEffect(() => {
@@ -892,6 +956,35 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     const saved = await persistPendingInvites(selectedGroup.id, nextPending);
     if (!saved) return;
 
+    let invitedUserId = null;
+    if (isSupabaseConfigured && username) {
+      const { data: matchedProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", username.replace(/^@/, ""))
+        .maybeSingle();
+      invitedUserId = matchedProfile?.id || null;
+
+      if (invitedUserId) {
+        const { error } = await supabase.from("notifications").insert({
+          user_id: invitedUserId,
+          recipient: username,
+          recipient_key: `user:${invitedUserId}`,
+          group_id: selectedGroup.id,
+          group_name: selectedGroup.name,
+          link: invite.inviteLink,
+          action_screen: "friend-groups",
+          action_params: { groupCode: selectedGroup.code, inviteCode: invite.inviteCode, inviteFor: invite.name },
+          type: "crew-invite",
+          message: `${currentName} invited you to join ${selectedGroup.name}.`,
+          read: false,
+        });
+        if (error) {
+          console.warn("Crew invite notification did not save:", error.message);
+        }
+      }
+    }
+
     setAppData?.((prev) => ({
       ...prev,
       groups: (prev.groups || []).map((group) => (
@@ -910,8 +1003,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
           message: `${username}, ${currentName} invited you to join ${selectedGroup.name}.`,
           groupId: selectedGroup.id,
           groupName: selectedGroup.name,
+          userId: invitedUserId,
           link: invite.inviteLink,
           recipient: username,
+          recipientKey: invitedUserId ? `user:${invitedUserId}` : `username:${username.replace(/^@/, "")}`,
           actionScreen: "friend-groups",
           actionParams: { groupCode: selectedGroup.code, inviteCode: invite.inviteCode, inviteFor: invite.name },
           createdAt: new Date().toISOString(),
@@ -975,88 +1070,100 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     }
   };
 
-  const castProposalVote = (proposalId, category, optionId) => {
+  const castProposalVote = async (proposalId, category, optionId) => {
     if (!selectedGroup) return;
+    const nextGroup = {
+      ...selectedGroup,
+      hangoutProposals: (selectedGroup.hangoutProposals || []).map((proposal) => (
+        proposal.id === proposalId
+          ? {
+              ...proposal,
+              votes: {
+                ...proposal.votes,
+                [category]: {
+                  ...(proposal.votes?.[category] || {}),
+                  [currentUserKey]: optionId,
+                },
+              },
+            }
+          : proposal
+      )),
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.map((group) => (
-        group.id === selectedGroup.id
-          ? {
-              ...group,
-              hangoutProposals: group.hangoutProposals.map((proposal) => (
-                proposal.id === proposalId
-                  ? {
-                      ...proposal,
-                      votes: {
-                        ...proposal.votes,
-                        [category]: {
-                          ...(proposal.votes?.[category] || {}),
-                          [currentUserKey]: optionId,
-                        },
-                      },
-                    }
-                  : proposal
-              )),
-            }
-          : group
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id ? nextGroup : group
       )),
     }));
   };
 
-  const finalizeProposal = (proposal) => {
+  const finalizeProposal = async (proposal) => {
     if (!selectedGroup) return;
     const winningTime = pickWinner(proposal.timeOptions, proposal.votes?.time);
     const winningLocation = pickWinner(proposal.locationOptions, proposal.votes?.location);
+    const nextGroup = {
+      ...selectedGroup,
+      hangoutProposals: (selectedGroup.hangoutProposals || []).map((item) => (
+        item.id === proposal.id
+          ? {
+              ...item,
+              status: "finalized",
+              finalizedChoice: {
+                time: winningTime || null,
+                location: winningLocation || null,
+              },
+            }
+          : item
+      )),
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
+    await createCrewNotificationsForMembers(nextGroup.members, {
+      type: "hangout-updated",
+      groupId: nextGroup.id,
+      groupName: nextGroup.name,
+      proposalId: proposal.id,
+      proposalCode: proposal.code,
+      link: proposal.link,
+      actionScreen: "join-hangout",
+      actionParams: { code: proposal.code },
+      message: `${proposal.name} was finalized in ${nextGroup.name}.`,
+    });
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.map((group) => (
-        group.id === selectedGroup.id
-          ? {
-              ...group,
-              hangoutProposals: group.hangoutProposals.map((item) => (
-                item.id === proposal.id
-                  ? {
-                      ...item,
-                      status: "finalized",
-                      finalizedChoice: {
-                        time: winningTime || null,
-                        location: winningLocation || null,
-                      },
-                    }
-                  : item
-              )),
-            }
-          : group
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id ? nextGroup : group
       )),
     }));
     setNotice(`${proposal.name} was finalized for the crew.`);
   };
 
-  const castBillWatchVote = (memberName) => {
+  const castBillWatchVote = async (memberName) => {
     if (!selectedGroup) return;
+    const currentVote = selectedGroup.billWatch?.votes?.[currentUserKey];
+    const nextVotes = { ...(selectedGroup.billWatch?.votes || {}) };
+    if (currentVote === memberName) {
+      delete nextVotes[currentUserKey];
+    } else {
+      nextVotes[currentUserKey] = memberName;
+    }
+    const leader = getLeaderFromMemberVotes(selectedGroup.members, nextVotes);
+    const nextGroup = {
+      ...selectedGroup,
+      billWatch: {
+        ...(selectedGroup.billWatch || {}),
+        electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
+        votes: nextVotes,
+      },
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.map((group) => (
-        group.id === selectedGroup.id
-          ? (() => {
-              const currentVote = group.billWatch?.votes?.[currentUserKey];
-              const nextVotes = { ...(group.billWatch?.votes || {}) };
-              if (currentVote === memberName) {
-                delete nextVotes[currentUserKey];
-              } else {
-                nextVotes[currentUserKey] = memberName;
-              }
-              const leader = getLeaderFromMemberVotes(group.members, nextVotes);
-              return {
-                ...group,
-                billWatch: {
-                  ...(group.billWatch || {}),
-                  electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
-                  votes: nextVotes,
-                },
-              };
-            })()
-          : group
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id ? nextGroup : group
       )),
     }));
     setNotice(
@@ -1066,43 +1173,45 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     );
   };
 
-  const addBillWatchChecklistItem = () => {
+  const addBillWatchChecklistItem = async () => {
     if (!selectedGroup || !billChecklistDraft.trim()) return;
     const item = billChecklistDraft.trim();
+    const nextGroup = {
+      ...selectedGroup,
+      billWatch: {
+        ...(selectedGroup.billWatch || {}),
+        checklist: (selectedGroup.billWatch?.checklist || []).includes(item)
+          ? (selectedGroup.billWatch?.checklist || [])
+          : [...(selectedGroup.billWatch?.checklist || []), item],
+      },
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.map((group) => (
-        group.id === selectedGroup.id
-          ? {
-              ...group,
-              billWatch: {
-                ...(group.billWatch || {}),
-                checklist: (group.billWatch?.checklist || []).includes(item)
-                  ? (group.billWatch?.checklist || [])
-                  : [...(group.billWatch?.checklist || []), item],
-              },
-            }
-          : group
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id ? nextGroup : group
       )),
     }));
     setBillChecklistDraft("");
     setNotice("Bill Watch checklist updated.");
   };
 
-  const removeBillWatchChecklistItem = (item) => {
+  const removeBillWatchChecklistItem = async (item) => {
     if (!selectedGroup) return;
+    const nextGroup = {
+      ...selectedGroup,
+      billWatch: {
+        ...(selectedGroup.billWatch || {}),
+        checklist: (selectedGroup.billWatch?.checklist || []).filter((entry) => entry !== item),
+      },
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.map((group) => (
-        group.id === selectedGroup.id
-          ? {
-              ...group,
-              billWatch: {
-                ...(group.billWatch || {}),
-                checklist: (group.billWatch?.checklist || []).filter((entry) => entry !== item),
-              },
-            }
-          : group
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id ? nextGroup : group
       )),
     }));
     setNotice("Removed that Bill Watch checklist item.");
@@ -1172,7 +1281,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     }));
   };
 
-  const saveEditedProposal = () => {
+  const saveEditedProposal = async () => {
     if (!selectedGroup || !editingProposal) return;
     if (!editDraft.name.trim()) {
       setNotice("Give the hangout a name before saving.");
@@ -1241,12 +1350,27 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       })),
     ];
 
+    const nextGroup = {
+      ...selectedGroup,
+      hangoutProposals: (selectedGroup.hangoutProposals || []).map(updateProposal),
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
+    await createCrewNotificationsForMembers(nextGroup.members, {
+      type: "hangout-updated",
+      groupId: nextGroup.id,
+      groupName: nextGroup.name,
+      proposalId: editingProposal.id,
+      proposalCode: editingProposal.code,
+      link: editingProposal.link,
+      actionScreen: "join-hangout",
+      actionParams: { code: editingProposal.code },
+      message: `${editDraft.name.trim()} was updated in ${nextGroup.name}.`,
+    });
     setAppData?.((prev) => ({
       ...prev,
       groups: (prev.groups || []).map((group) => (
-        group.id === selectedGroup.id
-          ? { ...group, hangoutProposals: (group.hangoutProposals || []).map(updateProposal) }
-          : group
+        group.id === selectedGroup.id ? nextGroup : group
       )),
       hangouts: (prev.hangouts || []).map(updateProposal),
       notifications: [...(prev.notifications || []), ...updateNotifications],
@@ -1255,7 +1379,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     setNotice("Hangout updated.");
   };
 
-  const deleteProposal = (proposal) => {
+  const deleteProposal = async (proposal) => {
     if (!selectedGroup || !proposal) return;
     const canManageProposal = proposal.proposerName === currentName || isCurrentMemberAdmin;
     if (!canManageProposal) return;
@@ -1263,15 +1387,16 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     const confirmed = window.confirm(`Delete ${proposal.name}? This removes the planned hangout, votes, invite code, and related notifications.`);
     if (!confirmed) return;
 
+    const nextGroup = {
+      ...selectedGroup,
+      hangoutProposals: (selectedGroup.hangoutProposals || []).filter((item) => item.id !== proposal.id),
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
     setAppData?.((prev) => ({
       ...prev,
       groups: (prev.groups || []).map((group) => (
-        group.id === selectedGroup.id
-          ? {
-              ...group,
-              hangoutProposals: (group.hangoutProposals || []).filter((item) => item.id !== proposal.id),
-            }
-          : group
+        group.id === selectedGroup.id ? nextGroup : group
       )),
       hangouts: (prev.hangouts || []).filter((item) => item.id !== proposal.id),
       notifications: (prev.notifications || []).filter((notification) => notification.proposalId !== proposal.id),
@@ -1283,7 +1408,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     setNotice(`${proposal.name} was deleted.`);
   };
 
-  const leaveGroup = (targetGroup = selectedGroup) => {
+  const leaveGroup = async (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
     const memberIndex = targetGroup.members.findIndex((m) => m.name === currentName || (profile.username && m.username === `@${profile.username}`));
     if (memberIndex === -1) return;
@@ -1291,6 +1416,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     const remainingMembers = targetGroup.members.filter((_, idx) => idx !== memberIndex);
 
     if (!remainingMembers.length) {
+      const saved = await persistSharedGroup(targetGroup, { remove: true });
+      if (!saved) return;
       setAppData?.((prev) => ({
         ...prev,
         groups: (prev.groups || []).filter((group) => String(group.id) !== String(targetGroup.id)),
@@ -1309,36 +1436,39 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       ? remainingMembers
       : remainingMembers.map((m, index) => ({ ...m, role: index === 0 ? "Admin" : (m.role || "Member") }));
 
+    const nextGroup = {
+      ...targetGroup,
+      members: nextMembers,
+      hangoutProposals: (targetGroup.hangoutProposals || []).map((proposal) => ({
+        ...proposal,
+        participants: (proposal.participants || []).filter((p) => p.name !== member.name && p.username !== member.username),
+        votes: {
+          ...(proposal.votes || {}),
+          availability: Object.fromEntries(Object.entries(proposal.votes?.availability || {}).filter(([key]) => key !== currentUserKey)),
+          vibe: Object.fromEntries(Object.entries(proposal.votes?.vibe || {}).filter(([key]) => key !== currentUserKey)),
+          time: Object.fromEntries(Object.entries(proposal.votes?.time || {}).filter(([key]) => key !== currentUserKey)),
+          location: Object.fromEntries(Object.entries(proposal.votes?.location || {}).filter(([key]) => key !== currentUserKey)),
+        },
+      })),
+      billWatch: (() => {
+        const filteredVotes = Object.fromEntries(
+          Object.entries(targetGroup.billWatch?.votes || {}).filter(([key, value]) => key !== currentUserKey && value !== member.name)
+        );
+        const leader = getLeaderFromMemberVotes(nextMembers, filteredVotes);
+        return {
+          ...(targetGroup.billWatch || {}),
+          electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
+          votes: filteredVotes,
+        };
+      })(),
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
     setAppData?.((prev) => ({
       ...prev,
       groups: (prev.groups || []).map((group) => {
         if (String(group.id) !== String(targetGroup.id)) return group;
-        return {
-          ...group,
-          members: nextMembers,
-          hangoutProposals: (group.hangoutProposals || []).map((proposal) => ({
-            ...proposal,
-            participants: (proposal.participants || []).filter((p) => p.name !== member.name && p.username !== member.username),
-            votes: {
-              ...(proposal.votes || {}),
-              availability: Object.fromEntries(Object.entries(proposal.votes?.availability || {}).filter(([key]) => key !== currentUserKey)),
-              vibe: Object.fromEntries(Object.entries(proposal.votes?.vibe || {}).filter(([key]) => key !== currentUserKey)),
-              time: Object.fromEntries(Object.entries(proposal.votes?.time || {}).filter(([key]) => key !== currentUserKey)),
-              location: Object.fromEntries(Object.entries(proposal.votes?.location || {}).filter(([key]) => key !== currentUserKey)),
-            },
-          })),
-          billWatch: (() => {
-            const filteredVotes = Object.fromEntries(
-              Object.entries(group.billWatch?.votes || {}).filter(([key, value]) => key !== currentUserKey && value !== member.name)
-            );
-            const leader = getLeaderFromMemberVotes(nextMembers, filteredVotes);
-            return {
-              ...(group.billWatch || {}),
-              electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
-              votes: filteredVotes,
-            };
-          })(),
-        };
+        return nextGroup;
       }),
       notifications: (prev.notifications || []).filter((notification) => String(notification.groupId) !== String(targetGroup.id)),
     }));
@@ -1354,13 +1484,16 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     );
   };
 
-  const deleteGroup = (targetGroup = selectedGroup) => {
+  const deleteGroup = async (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
     const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
     if (member?.role !== "Admin") return;
 
     const confirmed = window.confirm(`Delete ${targetGroup.name} for everyone? This removes the whole crew and its proposals.`);
     if (!confirmed) return;
+
+    const saved = await persistSharedGroup(targetGroup, { remove: true });
+    if (!saved) return;
 
     setAppData?.((prev) => ({
       ...prev,
@@ -1380,9 +1513,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
           <section className="glass hero">
               <div style={{ display: "grid", gap: 12 }}>
               <div className="comic-kicker">Crew HQ</div>
-              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>Keep your hangouts, votes, invites, and debriefs in one crew home.</h1>
+              <h1 className="bangers hero-title" style={{ margin: 0, fontSize: 46 }}>Run the whole crew in one place.</h1>
               <p style={{ margin: 0, maxWidth: 900, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
-                You can propose the next move, your crew can vote on time and place, and everyone can handle invites, money roles, and Debrief Court without leaving the group context.
+                Join the crew, see everyone, plan hangouts, vote, and handle invites here.
               </p>
             </div>
           </section>
@@ -1638,14 +1771,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                     <div className="card">
                       <div className="section-header">
                         <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew invites</h3>
-                        <p className="section-copy">Create invite-specific codes and links for each username so every pending invite is trackable.</p>
+                        <p className="section-copy">Each invite gets its own code and link.</p>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "18px 20px", background: "#ffd93d", border: "4px solid #1a1a2e", borderRadius: 16, boxShadow: "5px 5px 0 #1a1a2e", marginBottom: 22 }}>
                         <div>
                           <p className="bangers" style={{ margin: "0 0 4px", fontSize: 13, letterSpacing: "0.12em", color: "#6b5a00" }}>YOUR CREW CODE</p>
                           <p className="bangers" style={{ margin: 0, fontSize: 42, letterSpacing: "0.22em", color: "#1a1a2e", lineHeight: 1 }}>{selectedGroup.code}</p>
-                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>This is the crew-wide fallback. Personalized invites below each get their own code and link.</p>
+                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>Use this for the whole crew, or use the personal invites below.</p>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
                           <button

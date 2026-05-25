@@ -3,6 +3,7 @@ import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildHangoutInviteLink } from "./siteConfig";
 import { availabilityToText, formatTimeLabel, recommendHangoutTimes } from "./scheduling";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -379,10 +380,17 @@ function formatDurationHours(value) {
   return `${value} hour${value === 1 ? "" : "s"}`;
 }
 
+function notificationRecipientKey(member = {}) {
+  if (member.userId) return `user:${member.userId}`;
+  if (member.username) return `username:${String(member.username).replace(/^@/, "").toLowerCase()}`;
+  return `name:${String(member.name || "").trim().toLowerCase()}`;
+}
+
 export default function OutsidersCreateHangout({ onNavigate, appData, setAppData }) {
   const profile = useMemo(() => appData?.profile || {}, [appData?.profile]);
   const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], profile), [appData?.groups, profile]);
   const profileName = profile.name || profile.username || "You";
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
   const [form, setForm] = useState({
     name: "",
@@ -437,6 +445,21 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     [createdProposalId, selectedGroup]
   );
 
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+    let active = true;
+
+    async function loadCurrentUser() {
+      const { data } = await supabase.auth.getUser();
+      if (active) setCurrentUserId(data.user?.id || null);
+    }
+
+    loadCurrentUser();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const toggleMember = (member) => {
     const key = memberKey(member);
     setSelectedMembers((prev) => (
@@ -478,7 +501,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     setForm((prev) => ({ ...prev, externalInvite: "" }));
   };
 
-  const createProposal = () => {
+  const createProposal = async () => {
     if (!selectedGroup) {
       setError("Create or join a crew first.");
       return;
@@ -522,9 +545,35 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       finalizedChoice: null,
     };
 
-    const otherMembers = selectedGroup.members.filter((member) => member.name !== getDisplayName(profile));
+    let nextGroupMembers = selectedGroup.members || [];
+    if (isSupabaseConfigured) {
+      const usernamesToResolve = nextGroupMembers
+        .filter((member) => !member.userId && member.username)
+        .map((member) => String(member.username).replace(/^@/, "").toLowerCase());
+
+      if (usernamesToResolve.length) {
+        const { data: profileMatches } = await supabase
+          .from("profiles")
+          .select("id, username")
+          .in("username", usernamesToResolve);
+
+        const userIdByUsername = new Map(
+          (profileMatches || []).map((item) => [String(item.username || "").toLowerCase(), item.id])
+        );
+
+        nextGroupMembers = nextGroupMembers.map((member) => {
+          const normalizedUsername = String(member.username || "").replace(/^@/, "").toLowerCase();
+          return member.userId || !normalizedUsername || !userIdByUsername.has(normalizedUsername)
+            ? member
+            : { ...member, userId: userIdByUsername.get(normalizedUsername) };
+        });
+      }
+    }
+
+    const otherMembers = nextGroupMembers.filter((member) => member.name !== getDisplayName(profile));
     const memberNotifications = otherMembers.map((member) => ({
       id: createId("note"),
+      userId: member.userId || null,
       type: "hangout-invite",
       message: `${member.name}, ${getDisplayName(profile)} invited you to ${proposal.name}.`,
       groupId: selectedGroup.id,
@@ -533,36 +582,68 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       proposalCode: proposal.code,
       link: proposal.link,
       recipient: member.name,
+      recipientKey: notificationRecipientKey(member),
       actionScreen: "join-hangout",
       actionParams: { code: proposal.code },
       createdAt: new Date().toISOString(),
       read: false,
     }));
-    const externalNotifications = externalInvites.map((invite) => ({
-      id: createId("note"),
-      type: "hangout-invite",
-      message: `${invite}, you were invited to ${proposal.name}.`,
-      groupId: selectedGroup.id,
-      groupName: selectedGroup.name,
-      proposalId: proposal.id,
-      proposalCode: proposal.code,
-      link: proposal.link,
-      recipient: invite,
-      actionScreen: "join-hangout",
-      actionParams: { code: proposal.code },
-      createdAt: new Date().toISOString(),
-      read: false,
-    }));
+    const nextGroupProposalList = [...(selectedGroup.hangoutProposals || []), proposal];
+    const nextGroup = {
+      ...selectedGroup,
+      members: nextGroupMembers,
+      hangoutProposals: nextGroupProposalList,
+    };
+
+    if (isSupabaseConfigured && selectedGroup?.id) {
+      const { error: groupError } = await supabase
+        .from("groups")
+        .update({ members: nextGroupMembers, hangout_proposals: nextGroupProposalList })
+        .eq("id", selectedGroup.id);
+
+      if (groupError) {
+        setError(groupError.message || "We could not save that hangout yet.");
+        return;
+      }
+
+      if (memberNotifications.length) {
+        const { error: notificationError } = await supabase
+          .from("notifications")
+          .insert(
+            memberNotifications
+              .filter((item) => item.userId)
+              .map((item) => ({
+                user_id: item.userId,
+                recipient: item.recipient,
+                recipient_key: item.recipientKey,
+                group_id: item.groupId,
+                group_name: item.groupName,
+                proposal_id: item.proposalId,
+                proposal_code: item.proposalCode,
+                link: item.link,
+                action_screen: item.actionScreen,
+                action_params: item.actionParams,
+                type: item.type,
+                message: item.message,
+                read: false,
+              }))
+          );
+
+        if (notificationError) {
+          console.warn("Hangout notifications did not fully save:", notificationError.message);
+        }
+      }
+    }
 
     setAppData?.((prev) => ({
       ...prev,
       groups: prev.groups.map((group) => (
         group.id === selectedGroup.id
-          ? { ...group, hangoutProposals: [...(group.hangoutProposals || []), proposal] }
+          ? nextGroup
           : group
       )),
       hangouts: [...(prev.hangouts || []), proposal],
-      notifications: [...(prev.notifications || []), ...memberNotifications, ...externalNotifications],
+      notifications: [...(prev.notifications || []), ...memberNotifications.filter((item) => item.userId === currentUserId)],
     }));
 
     setCreatedProposalId(proposal.id);
@@ -581,7 +662,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
               <div className="comic-kicker">Hangout Planner</div>
               <h1 className="planner-title">Pitch The Next Hangout.</h1>
               <p className="planner-subtitle">
-                Any crew member can propose a hangout now. Add multiple time and place options so everyone can vote inside the crew without the page feeling scattered.
+                Pick the crew, add a few time and place choices, and let everyone vote.
               </p>
             </div>
             <div className="layout">
@@ -591,7 +672,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                     <div>
                       <h2 className="section-title" style={{ marginBottom: 6 }}>Planner Setup</h2>
                       <p style={{ margin: 0, color: "#556077", lineHeight: 1.6 }}>
-                        Start with the crew, lock the vibe, and build the options the whole group will vote on.
+                        Start simple: crew, name, times, places.
                       </p>
                     </div>
                   </div>

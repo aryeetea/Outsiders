@@ -1,4 +1,5 @@
 import OutsidersSideNav from "./OutsidersSideNav";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -336,6 +337,20 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
   const proposals = groups.flatMap((group) => (group.hangoutProposals || []).map((proposal) => ({ ...proposal, groupName: group.name })));
   const notifications = appData?.notifications || [];
   const unreadNotifications = notifications.filter((notification) => !notification.read);
+  const markNotificationRead = async (notificationId) => {
+    if (isSupabaseConfigured) {
+      await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", notificationId);
+    }
+    setAppData?.((prev) => ({
+      ...prev,
+      notifications: (prev.notifications || []).map((item) => (
+        item.id === notificationId ? { ...item, read: true } : item
+      )),
+    }));
+  };
   const profile = appData?.profile || {};
   const displayName = profile.name || profile.username || "You";
   const profileName = displayName;
@@ -443,13 +458,8 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
                           type="button"
                           className="chip-btn"
                           style={{ marginTop: 10 }}
-                          onClick={() => {
-                            setAppData?.((prev) => ({
-                              ...prev,
-                              notifications: (prev.notifications || []).map((item) => (
-                                item.id === notification.id ? { ...item, read: true } : item
-                              )),
-                            }));
+                          onClick={async () => {
+                            await markNotificationRead(notification.id);
                             onNavigate?.(notification.actionScreen, notification.actionParams || {});
                           }}
                         >

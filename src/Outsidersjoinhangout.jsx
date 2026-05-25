@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { getDisplayName } from "./appState";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -126,13 +127,59 @@ export default function OutsidersJoinHangout({ onNavigate, appData, setAppData, 
   );
   const joined = allProposals.find((proposal) => proposal.id === joinedId) || null;
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     const normalized = code.trim().toUpperCase();
     const match = allProposals.find((proposal) => proposal.code?.toUpperCase() === normalized);
     if (!match) {
       setError("That invite code does not match a hangout proposal.");
       return;
     }
+    const nextGroups = (appData?.groups || []).map((group) => (
+      group.id === match.groupId
+        ? {
+            ...group,
+            hangoutProposals: group.hangoutProposals.map((proposal) => (
+              proposal.id === match.id
+                ? {
+                    ...proposal,
+                    participants: (proposal.participants || []).some((participant) => participant.name === getDisplayName(profile))
+                      ? proposal.participants
+                      : [...(proposal.participants || []), {
+                          name: getDisplayName(profile),
+                          username: profile.username ? `@${profile.username}` : "",
+                          availability: profile.availability,
+                        }],
+                    externalInvites: proposal.externalInvites?.includes("Guest joined via code")
+                      ? proposal.externalInvites
+                      : [...(proposal.externalInvites || []), "Guest joined via code"],
+                  }
+                : proposal
+            )),
+          }
+        : group
+    ));
+    const nextGroup = nextGroups.find((group) => group.id === match.groupId);
+    if (isSupabaseConfigured && nextGroup) {
+      const { error: groupError } = await supabase
+        .from("groups")
+        .update({ hangout_proposals: nextGroup.hangoutProposals })
+        .eq("id", nextGroup.id);
+
+      if (groupError) {
+        setError(groupError.message || "We could not join that hangout yet.");
+        return;
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user?.id) {
+        await supabase
+          .from("notifications")
+          .update({ read: true })
+          .eq("user_id", userData.user.id)
+          .eq("proposal_code", normalized);
+      }
+    }
+
     setAppData?.((prev) => ({
       ...prev,
       notifications: (prev.notifications || []).map((notification) => (
@@ -140,30 +187,7 @@ export default function OutsidersJoinHangout({ onNavigate, appData, setAppData, 
           ? { ...notification, read: true }
           : notification
       )),
-      groups: prev.groups.map((group) => (
-        group.id === match.groupId
-          ? {
-              ...group,
-              hangoutProposals: group.hangoutProposals.map((proposal) => (
-                proposal.id === match.id
-                  ? {
-                      ...proposal,
-                      participants: (proposal.participants || []).some((participant) => participant.name === getDisplayName(profile))
-                        ? proposal.participants
-                        : [...(proposal.participants || []), {
-                            name: getDisplayName(profile),
-                            username: profile.username ? `@${profile.username}` : "",
-                            availability: profile.availability,
-                          }],
-                      externalInvites: proposal.externalInvites?.includes("Guest joined via code")
-                        ? proposal.externalInvites
-                        : [...(proposal.externalInvites || []), "Guest joined via code"],
-                    }
-                  : proposal
-              )),
-            }
-          : group
-      )),
+      groups: nextGroups,
     }));
     setJoinedId(match.id);
     setError("");

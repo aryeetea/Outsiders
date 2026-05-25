@@ -452,6 +452,40 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     : (draftAvatar === undefined ? appData?.avatar : draftAvatar);
   const avatarToSave = draftAvatar === undefined ? appData?.avatar : draftAvatar;
 
+  const markAllNotificationsRead = async () => {
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.auth.getUser();
+      if (data.user?.id) {
+        await supabase
+          .from("notifications")
+          .update({ read: true })
+          .eq("user_id", data.user.id)
+          .eq("read", false);
+      }
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      notifications: (prev.notifications || []).map((notification) => ({ ...notification, read: true })),
+    }));
+  };
+
+  const markNotificationRead = async (notificationId) => {
+    if (isSupabaseConfigured) {
+      await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", notificationId);
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      notifications: (prev.notifications || []).map((item) => (
+        item.id === notificationId ? { ...item, read: true } : item
+      )),
+    }));
+  };
+
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
@@ -475,6 +509,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     setSaveError("");
     setSaving(true);
 
+    const previousProfile = appData?.profile || {};
     const cleanUsername = draft.username.trim().replace(/^@/, "").toLowerCase();
     const nextProfile = {
       ...draft,
@@ -554,6 +589,39 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
         if (authError) {
           console.warn("Profile metadata update failed after profile + availability were saved:", authError.message);
         }
+
+        const nextMemberUsername = cleanUsername ? `@${cleanUsername}` : "";
+        const nextGroups = (appData?.groups || []).map((group) => ({
+          ...group,
+          members: (group.members || []).map((member) => {
+            const matchesCurrentUser = member.userId === user.id
+              || member.name === (nextProfile.name?.trim() || getDisplayName(previousProfile))
+              || (nextMemberUsername && member.username === nextMemberUsername)
+              || (previousProfile?.username && member.username === `@${previousProfile.username}`);
+
+            return matchesCurrentUser
+              ? {
+                  ...member,
+                  userId: user.id,
+                  name: nextProfile.name?.trim() || member.name,
+                  username: nextMemberUsername || member.username,
+                  bio: nextProfile.bio,
+                  location: nextProfile.location,
+                  email: nextProfile.email,
+                  initials: initialsFor(nextProfile),
+                  availability: nextProfile.availability,
+                  avatar: avatarToSave || "",
+                }
+              : member;
+          }),
+        }));
+
+        await Promise.all(
+          nextGroups.map((group) => supabase
+            .from("groups")
+            .update({ members: group.members })
+            .eq("id", group.id))
+        );
       }
     }
 
@@ -580,7 +648,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
             <div className="profile-subtitle">
               {isViewingOtherProfile
                 ? `See ${draft.name || "this crew member"}'s profile, availability, and crew-facing details${viewedMember?.groupName ? ` from ${viewedMember.groupName}` : ""}.`
-                : "Keep your profile, availability, and crew-facing details polished in one place."}
+                : "Update your profile and weekly availability here."}
             </div>
           </div>
           <div className="hero-grid">
@@ -689,10 +757,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
                 <button
                   type="button"
                   className="ghost-btn"
-                  onClick={() => setAppData?.((prev) => ({
-                    ...prev,
-                    notifications: prev.notifications.map((notification) => ({ ...notification, read: true })),
-                  }))}
+                  onClick={markAllNotificationsRead}
                 >
                   Mark all read
                 </button>
@@ -713,13 +778,8 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
                       type="button"
                       className="ghost-btn"
                       style={{ marginTop: 10 }}
-                      onClick={() => {
-                        setAppData?.((prev) => ({
-                          ...prev,
-                          notifications: (prev.notifications || []).map((item) => (
-                            item.id === notification.id ? { ...item, read: true } : item
-                          )),
-                        }));
+                      onClick={async () => {
+                        await markNotificationRead(notification.id);
                         onNavigate?.(notification.actionScreen, notification.actionParams || {});
                       }}
                     >

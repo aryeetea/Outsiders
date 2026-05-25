@@ -79,6 +79,62 @@ export default function App() {
   const [currentSession, setCurrentSession] = useState(null);
   const groupsHydratedRef = useRef(false);
   const lastSyncedGroupsRef = useRef("");
+  const latestAppDataRef = useRef(appData);
+
+  async function fetchSharedAppData(user, previousAppData = {}) {
+    const metadataGroups = Array.isArray(user.user_metadata?.joined_groups) ? user.user_metadata.joined_groups : null;
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("full_name, username, email, availability, avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const hydratedProfile = {
+      name: profileRow?.full_name || user.user_metadata?.full_name || "",
+      username: profileRow?.username || user.user_metadata?.username || "",
+      email: profileRow?.email || user.email || "",
+      bio: user.user_metadata?.bio || "",
+      location: user.user_metadata?.location || "",
+      availability: profileRow?.availability || user.user_metadata?.availability || DEFAULT_PROFILE.availability,
+    };
+
+    const { data: groupRows, error: groupRowsError } = await supabase
+      .from("groups")
+      .select("*");
+    const { data: notificationRows, error: notificationRowsError } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    const sharedGroups = !groupRowsError && Array.isArray(groupRows)
+      ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
+      : null;
+
+    return normalizeAppData({
+      ...previousAppData,
+      groups:
+        sharedGroups
+        ?? (metadataGroups && metadataGroups.length ? metadataGroups : previousAppData.groups),
+      profile: {
+        ...previousAppData.profile,
+        name: hydratedProfile.name || previousAppData.profile?.name || "",
+        username: hydratedProfile.username || previousAppData.profile?.username || "",
+        email: hydratedProfile.email || previousAppData.profile?.email || "",
+        bio: hydratedProfile.bio || previousAppData.profile?.bio || "",
+        location: hydratedProfile.location || previousAppData.profile?.location || "",
+        availability: hydratedProfile.availability || previousAppData.profile?.availability,
+      },
+      avatar: profileRow?.avatar_url || user.user_metadata?.avatar_url || previousAppData.avatar || null,
+      notifications: !notificationRowsError && Array.isArray(notificationRows)
+        ? notificationRows
+        : previousAppData.notifications,
+    });
+  }
+
+  useEffect(() => {
+    latestAppDataRef.current = appData;
+  }, [appData]);
 
   useEffect(() => {
     const handleHashChange = () => setRoute(getRouteFromLocation());
@@ -118,58 +174,40 @@ export default function App() {
 
     async function loadProfileFromAccount() {
       const user = currentSession.user;
-      const metadataGroups = Array.isArray(user.user_metadata?.joined_groups) ? user.user_metadata.joined_groups : null;
-      const { data: profileRow } = await supabase
-        .from("profiles")
-        .select("full_name, username, email, availability, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const hydratedProfile = {
-        name: profileRow?.full_name || user.user_metadata?.full_name || "",
-        username: profileRow?.username || user.user_metadata?.username || "",
-        email: profileRow?.email || user.email || "",
-        bio: user.user_metadata?.bio || "",
-        location: user.user_metadata?.location || "",
-        availability: profileRow?.availability || user.user_metadata?.availability || DEFAULT_PROFILE.availability,
-      };
-
-      const { data: groupRows, error: groupRowsError } = await supabase
-        .from("groups")
-        .select("*");
-
-      const sharedGroups = !groupRowsError && Array.isArray(groupRows)
-        ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
-        : null;
+      const nextAppData = await fetchSharedAppData(user, latestAppDataRef.current);
 
       if (!active) return;
 
-      setAppData((prev) => normalizeAppData({
-        ...prev,
-        groups:
-          sharedGroups
-          ?? (metadataGroups && metadataGroups.length ? metadataGroups : prev.groups),
-        profile: {
-          ...prev.profile,
-          name: hydratedProfile.name || prev.profile?.name || "",
-          username: hydratedProfile.username || prev.profile?.username || "",
-          email: hydratedProfile.email || prev.profile?.email || "",
-          bio: hydratedProfile.bio || prev.profile?.bio || "",
-          location: hydratedProfile.location || prev.profile?.location || "",
-          availability: hydratedProfile.availability || prev.profile?.availability,
-        },
-        avatar: profileRow?.avatar_url || user.user_metadata?.avatar_url || prev.avatar || null,
-      }));
+      setAppData(nextAppData);
       groupsHydratedRef.current = true;
-      lastSyncedGroupsRef.current = JSON.stringify(
-        sharedGroups
-        ?? (metadataGroups && metadataGroups.length ? metadataGroups : [])
-      );
+      lastSyncedGroupsRef.current = JSON.stringify(nextAppData.groups || []);
     }
 
     loadProfileFromAccount();
     return () => {
       active = false;
+    };
+  }, [currentSession, sessionReady]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !sessionReady || !currentSession?.user?.id) return undefined;
+
+    let active = true;
+
+    async function refreshSharedData() {
+      const nextAppData = await fetchSharedAppData(currentSession.user, latestAppDataRef.current);
+      if (!active) return;
+      setAppData((prev) => ({
+        ...prev,
+        groups: nextAppData.groups,
+        notifications: nextAppData.notifications,
+      }));
+    }
+
+    const intervalId = window.setInterval(refreshSharedData, 20000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
     };
   }, [currentSession, sessionReady]);
 

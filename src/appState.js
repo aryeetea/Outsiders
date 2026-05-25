@@ -110,10 +110,14 @@ function normalizeProposal(proposal = {}) {
 function normalizeGroup(group = {}) {
   return {
     ...group,
+    billWatch: group.billWatch || group.bill_watch || group.billWatch || {},
+    peaceMaker: group.peaceMaker || group.peace_maker || group.peaceMaker || {},
     members: Array.isArray(group.members) ? group.members : [],
     pending: Array.isArray(group.pending) ? group.pending : [],
     cases: Array.isArray(group.cases) ? group.cases : [],
-    hangoutProposals: Array.isArray(group.hangoutProposals) ? group.hangoutProposals.map(normalizeProposal) : [],
+    hangoutProposals: Array.isArray(group.hangoutProposals)
+      ? group.hangoutProposals.map(normalizeProposal)
+      : (Array.isArray(group.hangout_proposals) ? group.hangout_proposals.map(normalizeProposal) : []),
     roastBoard: Array.isArray(group.roastBoard) ? group.roastBoard : [],
   };
 }
@@ -128,10 +132,14 @@ function normalizeNotification(notification = {}) {
     proposalCode: notification.proposalCode || "",
     link: notification.link || "",
     recipient: notification.recipient || "",
-    actionScreen: notification.actionScreen || "",
-    actionParams: notification.actionParams && typeof notification.actionParams === "object" ? notification.actionParams : {},
+    recipientKey: notification.recipientKey || notification.recipient_key || "",
+    userId: notification.userId || notification.user_id || null,
+    actionScreen: notification.actionScreen || notification.action_screen || "",
+    actionParams: (notification.actionParams || notification.action_params) && typeof (notification.actionParams || notification.action_params) === "object"
+      ? (notification.actionParams || notification.action_params)
+      : {},
     type: notification.type || "general",
-    createdAt: notification.createdAt || new Date().toISOString(),
+    createdAt: notification.createdAt || notification.created_at || new Date().toISOString(),
     read: Boolean(notification.read),
   };
 }

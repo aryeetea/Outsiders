@@ -128,6 +128,7 @@ create table if not exists public.groups (
   members jsonb not null default '[]'::jsonb,
   pending jsonb not null default '[]'::jsonb,
   cases jsonb not null default '[]'::jsonb,
+  hangout_proposals jsonb not null default '[]'::jsonb,
   bill_watch jsonb not null default '{}'::jsonb,
   peace_maker jsonb not null default '{}'::jsonb,
   color_index integer not null default 0,
@@ -143,6 +144,7 @@ alter table public.groups
   add column if not exists members jsonb not null default '[]'::jsonb,
   add column if not exists pending jsonb not null default '[]'::jsonb,
   add column if not exists cases jsonb not null default '[]'::jsonb,
+  add column if not exists hangout_proposals jsonb not null default '[]'::jsonb,
   add column if not exists bill_watch jsonb not null default '{}'::jsonb,
   add column if not exists peace_maker jsonb not null default '{}'::jsonb,
   add column if not exists color_index integer not null default 0,
@@ -202,6 +204,75 @@ $$;
 grant execute on function public.find_group_by_join_code(text) to authenticated;
 
 -- =========================
+-- Notifications Table
+-- =========================
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  recipient text,
+  recipient_key text,
+  group_id uuid references public.groups(id) on delete cascade,
+  group_name text,
+  proposal_id text,
+  proposal_code text,
+  link text,
+  action_screen text,
+  action_params jsonb not null default '{}'::jsonb,
+  type text not null default 'general',
+  message text not null,
+  read boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.notifications
+  add column if not exists user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists recipient text,
+  add column if not exists recipient_key text,
+  add column if not exists group_id uuid references public.groups(id) on delete cascade,
+  add column if not exists group_name text,
+  add column if not exists proposal_id text,
+  add column if not exists proposal_code text,
+  add column if not exists link text,
+  add column if not exists action_screen text,
+  add column if not exists action_params jsonb not null default '{}'::jsonb,
+  add column if not exists type text not null default 'general',
+  add column if not exists message text not null default '',
+  add column if not exists read boolean not null default false,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+drop trigger if exists set_notifications_updated_at on public.notifications;
+create trigger set_notifications_updated_at
+before update on public.notifications
+for each row execute procedure public.set_updated_at();
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "Users can read their own notifications" on public.notifications;
+create policy "Users can read their own notifications"
+on public.notifications
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Authenticated users can create notifications" on public.notifications;
+create policy "Authenticated users can create notifications"
+on public.notifications
+for insert
+to authenticated
+with check (true);
+
+drop policy if exists "Users can update their own notifications" on public.notifications;
+create policy "Users can update their own notifications"
+on public.notifications
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+-- =========================
 -- Groups Updated-At Trigger
 -- =========================
 
@@ -239,11 +310,19 @@ using (true)
 with check (true);
 
 drop policy if exists "Only owners can delete groups" on public.groups;
-create policy "Only owners can delete groups"
+create policy "Owners or crew admins can delete groups"
 on public.groups
 for delete
 to authenticated
-using (auth.uid() = owner_id);
+using (
+  auth.uid() = owner_id
+  or exists (
+    select 1
+    from jsonb_array_elements(coalesce(members, '[]'::jsonb)) as member
+    where coalesce(member->>'userId', '') = auth.uid()::text
+      and coalesce(member->>'role', 'Member') = 'Admin'
+  )
+);
 
 -- =========================
 -- Hangouts Table
