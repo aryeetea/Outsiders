@@ -1866,12 +1866,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                           <p style={{ fontSize: 18, fontWeight: 900, color: "#4ecdc4", margin: 0 }}>{selectedGroup.peaceMaker?.electedMemberName || "No one yet"}</p>
                         </div>
                       </div>
-                      <div className="roast-card">
-                        <strong style={{ display: "block", marginBottom: 8 }}>Why Debrief instead</strong>
-                        <p style={{ margin: 0, color: "#555", lineHeight: 1.6, fontWeight: 800 }}>
-                          Debrief Court already gives you anonymous case filing, replies, apologies, clap-backs, and a crew-voted peace-maker bench. It fits the comic personality of the site better than a separate roast board, so this page points you back there instead.
-                        </p>
-                      </div>
                     </div>
                   ) : null}
 
