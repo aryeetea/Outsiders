@@ -245,6 +245,27 @@ function getPasswordStrength(pw) {
   return { score, ...map[score] };
 }
 
+function mapSignupError(message = "") {
+  const lower = String(message || "").toLowerCase();
+  if (
+    lower.includes("user already registered")
+    || lower.includes("already been registered")
+    || lower.includes("email address is already registered")
+    || lower.includes("email already")
+  ) {
+    return "An account with that email already exists.";
+  }
+  if (
+    lower.includes("profiles_username_key")
+    || lower.includes("username_key")
+    || (lower.includes("duplicate key") && lower.includes("username"))
+    || lower.includes("username already")
+  ) {
+    return "That username is already taken.";
+  }
+  return message || "We could not create that account right now.";
+}
+
 export default function OutsidersSignUp({ onNavigate, setAppData, routeParams }) {
   const [avatar, setAvatar] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
@@ -278,7 +299,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
   };
   const validate = () => {
     const errs = {};
-    if (!avatar) errs.avatar = "Add a photo so your crew knows it's you!";
     if (!form.name.trim()) errs.name = "We need your name!";
     if (!form.username.trim()) errs.username = "Pick a username!";
     else if (form.username.includes(" ")) errs.username = "No spaces in username!";
@@ -313,7 +333,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
     });
 
     if (error) {
-      setErrors({ submit: error.message });
+      setErrors({ submit: mapSignupError(error.message) });
       setLoading(false);
       return;
     }
@@ -328,7 +348,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
       });
 
       if (profileError) {
-        setErrors({ submit: profileError.message });
+        setErrors({ submit: mapSignupError(profileError.message) });
         setLoading(false);
         return;
       }

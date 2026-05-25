@@ -192,6 +192,20 @@ const IconEye = ({ show }) => show ? (
   </svg>
 );
 
+function mapLoginError(message = "") {
+  const lower = String(message || "").toLowerCase();
+  if (lower.includes("invalid login credentials")) {
+    return "That email or password does not match an account.";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "Check your email and confirm your account first, then try logging in again.";
+  }
+  if (lower.includes("too many requests")) {
+    return "Too many login attempts. Wait a moment and try again.";
+  }
+  return message || "We could not log you in right now.";
+}
+
 export default function OutsidersLogIn({ onNavigate, routeParams }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -235,7 +249,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
 
     setLoading(false);
     if (error) {
-      setErrors({ submit: error.message });
+      setErrors({ submit: mapLoginError(error.message) });
       return;
     }
 
@@ -293,6 +307,9 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
               <div>
                 <label className="form-label">📧 Email</label>
                 <input className="form-input" type="email" placeholder="you@email.com" value={form.email} onChange={handleChange("email")} />
+                <p style={{ fontSize: 12, color: "#888", fontWeight: 700, margin: "8px 0 0" }}>
+                  Use the same email you signed up with.
+                </p>
                 {errors.email && <p className="error-msg">{errors.email}</p>}
               </div>
 
