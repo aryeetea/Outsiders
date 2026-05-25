@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { getDisplayName } from "./appState";
 
 const STORAGE_KEY = "outsiders-bonafide-assistant";
-const PUBLIC_SCREENS = new Set(["landing", "login", "signup"]);
 
 const SCREEN_LABELS = {
   landing: "Landing",
@@ -200,6 +199,50 @@ function LauncherIcon() {
   );
 }
 
+function buildLocalFallbackReply(prompt, context, route) {
+  const lower = String(prompt || "").toLowerCase();
+  const name = context?.currentUser?.name || "You";
+  const groups = context?.groups || [];
+  const proposals = context?.proposals || [];
+  const trips = context?.trips || [];
+  const notifications = context?.notifications || [];
+
+  if (lower.includes("next") || lower.includes("what should i work on")) {
+    const steps = [];
+    if ((notifications || []).some((item) => !item.read)) {
+      steps.push("Check your unread notifications first.");
+    }
+    if ((proposals || []).some((proposal) => proposal.status !== "finalized")) {
+      steps.push("Review the hangouts that are still waiting on votes or updates.");
+    }
+    if ((trips || []).length) {
+      steps.push("Open your trip planner and tighten the shared itinerary or checklist.");
+    }
+    if (!steps.length) {
+      steps.push("You look caught up. Start a new hangout or trip when you are ready.");
+    }
+    return `${name}, here is the cleanest next-step plan:\n\n- ${steps.join("\n- ")}`;
+  }
+
+  if (lower.includes("summarize")) {
+    return `${name}, here is your quick app snapshot:\n\n- Crews: ${groups.length}\n- Active hangouts: ${proposals.length}\n- Trips: ${trips.length}\n- Recent notifications: ${notifications.length}\n\nOpen the page you want and I can help turn that into a message, outline, or checklist.`;
+  }
+
+  if (lower.includes("message") || lower.includes("write") || lower.includes("draft")) {
+    return `Try this:\n\n"Hey crew, I tightened the plan on this page. Take a quick look when you can and drop your vote or update so we can lock things in."`;
+  }
+
+  if (route === "trip-planning") {
+    return `I can still help from this page even without the live AI route.\n\n- tighten the day-by-day itinerary\n- suggest a cleaner trip message\n- turn the current plan into a short checklist\n\nTry asking: "Turn this trip into a simple next-step checklist."`;
+  }
+
+  if (route === "create-hangout" || route === "hangouts" || route === "friend-groups") {
+    return `I can still help from your hangout context.\n\nTry asking for one of these:\n- "Write a better hangout description."\n- "Give me a short rally message for the crew."\n- "What should we finalize next?"`;
+  }
+
+  return `I’m still available in lightweight mode right now.\n\nI can help you:\n- decide the next step\n- draft a message\n- summarize what is on this page\n- turn the current page into a checklist`;
+}
+
 export default function OutsidersAssistant({ route, appData }) {
   const stored = useMemo(() => readStoredAssistantState(), []);
   const [isOpen, setIsOpen] = useState(stored.isOpen);
@@ -210,8 +253,7 @@ export default function OutsidersAssistant({ route, appData }) {
   const [error, setError] = useState("");
 
   const context = useMemo(() => buildContext(route, appData), [appData, route]);
-  const quickActions = QUICK_ACTIONS[route?.screen] || QUICK_ACTIONS.default;
-  const isPublicScreen = PUBLIC_SCREENS.has(route?.screen);
+  const quickActions = (QUICK_ACTIONS[route?.screen] || QUICK_ACTIONS.default).slice(0, 2);
 
   useEffect(() => {
     persistAssistantState({ isOpen, previousResponseId, messages });
@@ -241,8 +283,11 @@ export default function OutsidersAssistant({ route, appData }) {
 
       const payload = await response.json();
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("The assistant API route was not found. Run this with Vercel functions enabled, or deploy it with OPENAI_API_KEY set.");
+        if (response.status === 404 || response.status === 500) {
+          const fallbackText = buildLocalFallbackReply(prompt, context, route?.screen);
+          setPreviousResponseId(null);
+          setMessages((current) => [...current, { role: "assistant", content: fallbackText, sources: [] }]);
+          return;
         }
         throw new Error(payload?.error || "The assistant could not answer right now.");
       }
@@ -272,13 +317,13 @@ export default function OutsidersAssistant({ route, appData }) {
           bottom: 18px;
           z-index: 450;
           display: grid;
-          gap: 12px;
+          gap: 10px;
           justify-items: end;
         }
         .oa-launcher {
-          width: 72px;
-          height: 72px;
-          border-radius: 20px;
+          width: 64px;
+          height: 64px;
+          border-radius: 18px;
           border: 4px solid #17151f;
           background: #ff6b6b;
           box-shadow: 6px 6px 0 #17151f;
@@ -292,19 +337,19 @@ export default function OutsidersAssistant({ route, appData }) {
           box-shadow: 8px 8px 0 #17151f;
         }
         .oa-panel {
-          width: min(420px, calc(100vw - 24px));
-          max-height: min(78vh, 760px);
+          width: min(360px, calc(100vw - 24px));
+          max-height: min(72vh, 680px);
           border: 4px solid #17151f;
           border-radius: 24px;
           background: #fffdf7;
           box-shadow: 8px 8px 0 #17151f;
           overflow: hidden;
           display: grid;
-          grid-template-rows: auto auto minmax(0, 1fr) auto;
+          grid-template-rows: auto minmax(0, 1fr) auto;
         }
         .oa-header {
           background: #fff1c7;
-          padding: 16px 18px 14px;
+          padding: 14px 16px 12px;
           border-bottom: 3px solid #17151f;
         }
         .oa-kicker {
@@ -318,35 +363,27 @@ export default function OutsidersAssistant({ route, appData }) {
           letter-spacing: 0.07em;
           transform: rotate(-2deg);
         }
-        .oa-context {
-          padding: 12px 18px;
-          background: #eef8ff;
-          border-bottom: 3px solid #17151f;
-          font-size: 13px;
-          line-height: 1.45;
-          color: #334155;
-        }
         .oa-chip-row {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
-          margin-top: 10px;
+          margin-top: 8px;
         }
         .oa-chip {
           border: 3px solid #17151f;
           border-radius: 999px;
           background: #fff;
-          padding: 8px 12px;
+          padding: 7px 10px;
           cursor: pointer;
-          box-shadow: 3px 3px 0 #17151f;
-          font: 400 13px 'Bangers', cursive;
+          box-shadow: 2px 2px 0 #17151f;
+          font: 400 12px 'Bangers', cursive;
           letter-spacing: 0.04em;
         }
         .oa-messages {
-          padding: 16px 18px;
+          padding: 14px 16px;
           overflow-y: auto;
           display: grid;
-          gap: 12px;
+          gap: 10px;
           background: #fffdf7;
         }
         .oa-bubble {
@@ -379,15 +416,15 @@ export default function OutsidersAssistant({ route, appData }) {
           background: #eefcff;
         }
         .oa-composer {
-          padding: 14px 18px 18px;
+          padding: 12px 16px 16px;
           border-top: 3px solid #17151f;
           background: #fff8ea;
           display: grid;
-          gap: 10px;
+          gap: 8px;
         }
         .oa-input {
           width: 100%;
-          min-height: 88px;
+          min-height: 68px;
           border: 3px solid #17151f;
           border-radius: 16px;
           padding: 12px 14px;
@@ -457,18 +494,13 @@ export default function OutsidersAssistant({ route, appData }) {
               <div className="oa-kicker">Bona Fide Assistant</div>
               <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
                 <div>
-                  <div className="bangers" style={{ fontSize: 28, color: "#17151f" }}>Outsiders AI</div>
-                  <div style={{ fontSize: 13, color: "#667085", fontWeight: 800 }}>
-                    {SCREEN_LABELS[route?.screen] || "App"} helper for place ideas, writing, planning, and calm messaging
+                  <div className="bangers" style={{ fontSize: 24, color: "#17151f" }}>Outsiders AI</div>
+                  <div style={{ fontSize: 12, color: "#667085", fontWeight: 800 }}>
+                    {SCREEN_LABELS[route?.screen] || "App"} helper
                   </div>
                 </div>
                 <button type="button" className="oa-btn" onClick={() => setIsOpen(false)}>Close</button>
               </div>
-            </div>
-
-            <div className="oa-context">
-              <strong>{context.currentUser.name}</strong>
-              {isPublicScreen ? " is browsing the app." : ` has ${context.appSummary.groups} crew${context.appSummary.groups === 1 ? "" : "s"}, ${context.appSummary.proposals} hangout${context.appSummary.proposals === 1 ? "" : "s"}, and ${context.appSummary.trips} trip${context.appSummary.trips === 1 ? "" : "s"}.`}
               <div className="oa-chip-row">
                 {quickActions.map((item) => (
                   <button key={item} type="button" className="oa-chip" onClick={() => sendMessage(item)}>
@@ -481,9 +513,7 @@ export default function OutsidersAssistant({ route, appData }) {
             <div className="oa-messages">
               {!messages.length ? (
                 <div className="oa-bubble assistant">
-                  I can help across the whole app: recommend places based on your vibe and app history, brainstorm hangouts, rewrite hangout plans, draft debrief responses, summarize trips, and turn what is on this screen into clear next steps.
-                  {"\n\n"}
-                  The existing Hangout Assistant still handles availability overlap and time recommendations.
+                  I can help with the page you are on right now: next steps, drafts, summaries, place ideas, and cleaner planning notes.
                 </div>
               ) : messages.map((message, index) => (
                 <div key={`${message.role}-${index}`} className={`oa-bubble ${message.role}`}>
@@ -508,7 +538,13 @@ export default function OutsidersAssistant({ route, appData }) {
                 className="oa-input"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="Ask for place recommendations, hangout ideas, hangout help, trip plans, reviews, or a message draft..."
+                placeholder="Ask for next steps, a draft, a summary, or ideas..."
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendMessage(input);
+                  }
+                }}
               />
               <div className="oa-actions">
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -520,7 +556,7 @@ export default function OutsidersAssistant({ route, appData }) {
                   </button>
                 </div>
                 <div className="oa-note">
-                  Uses live app context and can draw on web-backed place research. It will not replace the timing assistant that already powers schedule overlap suggestions.
+                  Uses your live app context. Press Enter to send.
                 </div>
               </div>
             </div>
