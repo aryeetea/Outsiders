@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
+import { createId, getAllHangoutProposals, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
 import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
@@ -268,6 +268,11 @@ const STYLES = `
     display: grid;
     gap: 18px;
   }
+  .proposal-card.empty {
+    gap: 10px;
+    padding: 18px 20px;
+    min-height: 0;
+  }
   .proposal-meta {
     display: flex;
     gap: 10px;
@@ -291,6 +296,9 @@ const STYLES = `
     border-radius: 50%;
     background: rgba(255,217,61,0.2);
     pointer-events: none;
+  }
+  .proposal-card.empty::after {
+    display: none;
   }
   .vote-grid, .member-list, .roast-list {
     display: grid;
@@ -661,7 +669,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const currentName = getDisplayName(profile);
   const currentUserKey = getCurrentUserKey(profile);
   const allGroups = useMemo(() => appData?.groups ?? [], [appData?.groups]);
-  const groups = useMemo(() => getVisibleGroupsForProfile(allGroups, profile), [allGroups, profile]);
+  const allHangouts = useMemo(() => getAllHangoutProposals(allGroups, appData?.hangouts || []), [allGroups, appData?.hangouts]);
+  const groups = useMemo(
+    () => getVisibleGroupsForProfile(allGroups, profile).map((group) => ({
+      ...group,
+      hangoutProposals: allHangouts.filter((proposal) => String(proposal.groupId) === String(group.id)),
+    })),
+    [allGroups, profile, allHangouts]
+  );
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
   const [activeTab, setActiveTab] = useState("Hangouts");
   const [inviteUsername, setInviteUsername] = useState("");
@@ -1691,7 +1706,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                             </div>
                           );
                         }) : (
-                          <div className="proposal-card">
+                          <div className="proposal-card empty">
                             <strong>No hangouts yet.</strong>
                             <p style={{ margin: "8px 0 0", color: "#667085" }}>Any member can start one from the hangout screen.</p>
                           </div>

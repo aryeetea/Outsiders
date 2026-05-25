@@ -90,7 +90,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     return () => window.removeEventListener("hashchange", close);
   }, []);
 
-  const desktopWidth = collapsed ? 0 : 92;
+  const desktopWidth = collapsed ? 0 : 164;
 
   const markNotificationRead = async (notificationId) => {
     if (isSupabaseConfigured) {
@@ -141,16 +141,16 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           top: 0;
           left: 0;
           bottom: 0;
-          width: 92px;
+          width: 164px;
           background:
             radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76) 55%, rgba(255, 255, 255, 0.94)),
             #fff8ea;
           border-right: 3px solid rgba(26, 26, 46, 0.08);
           box-shadow: inset -8px 0 26px rgba(26, 26, 46, 0.05);
-          padding: 22px 0 18px;
+          padding: 22px 12px 18px;
           display: flex;
           flex-direction: column;
-          align-items: center;
+          align-items: stretch;
           gap: 18px;
           overflow-y: auto;
           z-index: 70;
@@ -165,7 +165,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         }
         .os-top {
           display: grid;
-          justify-items: center;
+          justify-items: stretch;
           gap: 22px;
           width: 100%;
         }
@@ -190,31 +190,35 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           transform: translateY(-1px);
         }
         .os-collapse-btn {
-          width: 48px;
+          width: 100%;
           height: 34px;
           border-radius: 10px;
-          display: grid;
-          place-items: center;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
           color: rgba(26, 26, 46, 0.62);
         }
         .os-nav-group {
           width: 100%;
           display: grid;
-          justify-items: center;
+          justify-items: stretch;
           gap: 14px;
         }
         .os-utility-group {
           width: 100%;
           display: grid;
-          justify-items: center;
+          justify-items: stretch;
           gap: 12px;
         }
         .os-bell-btn {
-          width: 56px;
-          height: 56px;
+          width: 100%;
+          min-height: 56px;
           border-radius: 20px;
-          display: grid;
-          place-items: center;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          justify-content: flex-start;
+          padding: 14px 16px;
           color: rgba(26, 26, 46, 0.92);
           background: rgba(255, 217, 61, 0.16);
           position: relative;
@@ -304,11 +308,14 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           font: 800 13px 'Nunito', sans-serif;
         }
         .os-rail-btn {
-          width: 56px;
-          height: 56px;
+          width: 100%;
+          min-height: 56px;
           border-radius: 20px;
-          display: grid;
-          place-items: center;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          justify-content: flex-start;
+          padding: 14px 16px;
           color: rgba(26, 26, 46, 0.92);
         }
         .os-rail-btn.active {
@@ -323,22 +330,25 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           justify-content: center;
         }
         .os-label {
-          position: absolute;
-          width: 1px;
-          height: 1px;
+          position: static;
+          width: auto;
+          height: auto;
           padding: 0;
-          margin: -1px;
-          overflow: hidden;
-          clip: rect(0, 0, 0, 0);
-          white-space: nowrap;
+          margin: 0;
+          overflow: visible;
+          clip: auto;
+          white-space: normal;
           border: 0;
+          font: 800 13px 'Nunito', sans-serif;
+          line-height: 1.2;
+          text-align: left;
         }
         .os-spacer {
           flex: 1;
         }
         .os-bottom {
           display: grid;
-          justify-items: center;
+          justify-items: stretch;
           gap: 12px;
           width: 100%;
           padding-bottom: 8px;
@@ -375,9 +385,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         }
         .os-bell-wrap {
           position: relative;
-          width: 56px;
+          width: 100%;
           display: flex;
-          justify-content: center;
+          justify-content: stretch;
         }
         .os-bell-wrap .os-notif-badge {
           top: 2px;
@@ -385,9 +395,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         }
         .os-rail-btn-wrap {
           position: relative;
-          width: 56px;
+          width: 100%;
           display: flex;
-          justify-content: center;
+          justify-content: stretch;
         }
         .os-rail-btn-wrap .os-notif-badge {
           top: 2px;
@@ -520,14 +530,6 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             max-height: calc(100vh - 96px);
           }
           .os-label {
-            position: static;
-            width: auto;
-            height: auto;
-            padding: 0;
-            margin: 0;
-            overflow: visible;
-            clip: auto;
-            white-space: normal;
             font: 800 14px 'Nunito', sans-serif;
           }
           .os-bottom {
