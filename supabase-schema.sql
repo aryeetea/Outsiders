@@ -697,6 +697,81 @@ as $$
   where p.id = any(participant_ids);
 $$;
 
+create or replace function public.create_group(
+  next_owner_id uuid,
+  next_name text,
+  next_emoji text,
+  next_code text,
+  next_owner_username text,
+  next_members jsonb,
+  next_expenses jsonb,
+  next_pending jsonb,
+  next_cases jsonb,
+  next_hangout_proposals jsonb,
+  next_bill_watch jsonb,
+  next_peace_maker jsonb,
+  next_color_index integer
+)
+returns public.groups
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  saved_group public.groups;
+begin
+  insert into public.groups (
+    name,
+    emoji,
+    code,
+    owner_id,
+    owner_username,
+    members,
+    expenses,
+    pending,
+    cases,
+    hangout_proposals,
+    bill_watch,
+    peace_maker,
+    color_index
+  )
+  values (
+    next_name,
+    next_emoji,
+    next_code,
+    next_owner_id,
+    next_owner_username,
+    next_members,
+    next_expenses,
+    next_pending,
+    next_cases,
+    next_hangout_proposals,
+    next_bill_watch,
+    next_peace_maker,
+    next_color_index
+  )
+  returning * into saved_group;
+
+  return saved_group;
+end;
+$$;
+
+grant execute on function public.create_group(
+  uuid,
+  text,
+  text,
+  text,
+  text,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  integer
+) to authenticated;
+
 create or replace function public.create_hangout(
   hangout_name text,
   hangout_date text,

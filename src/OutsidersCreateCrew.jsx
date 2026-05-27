@@ -405,25 +405,21 @@ export default function OutsidersCreateCrew({
       let savedGroup = nextGroup;
 
       if (isSupabaseConfigured && resolvedUserId) {
-        const { data, error } = await supabase
-          .from("groups")
-          .insert({
-            name: nextGroup.name,
-            emoji: nextGroup.emoji,
-            code: nextGroup.code,
-            owner_id: resolvedUserId,
-            owner_username: profile.username || "",
-            members: nextGroup.members,
-            expenses: [],
-            pending: [],
-            cases: [],
-            hangout_proposals: [],
-            bill_watch: nextGroup.billWatch,
-            peace_maker: nextGroup.peaceMaker,
-            color_index: 0,
-          })
-          .select("*")
-          .single();
+        const { data, error } = await supabase.rpc("create_group", {
+          next_owner_id: resolvedUserId,
+          next_name: nextGroup.name,
+          next_emoji: nextGroup.emoji,
+          next_code: nextGroup.code,
+          next_owner_username: profile.username || "",
+          next_members: nextGroup.members,
+          next_expenses: [],
+          next_pending: [],
+          next_cases: [],
+          next_hangout_proposals: [],
+          next_bill_watch: nextGroup.billWatch,
+          next_peace_maker: nextGroup.peaceMaker,
+          next_color_index: 0,
+        });
 
         if (error) {
           showNotice(error.message || "We could not create that crew yet.");
