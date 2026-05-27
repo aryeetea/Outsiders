@@ -26,6 +26,8 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_SITE_URL=https://outsiders-alpha.vercel.app
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_MODEL=gpt-5.4-mini
+RESEND_API_KEY=your_resend_api_key
+NOTIFICATION_FROM_EMAIL="Outsiders <notifications@yourdomain.com>"
 ```
 
 Run the SQL in `supabase-schema.sql` from the Supabase SQL editor to create the `profiles`, `groups`, and `hangouts` tables used by signup availability, shared crew invites, anonymous debrief cases, hangout scheduling, and the crew bill-watch roster. If your database is already set up, re-run the file after pull/update so the personalized crew-invite migration and `find_group_by_join_code` RPC are added too.
@@ -44,3 +46,7 @@ Outsiders now also supports a separate bona fide assistant that works across the
 The real AI assistant uses the OpenAI Responses API through `api/assistant.js`, so `OPENAI_API_KEY` must be set in the server environment. The default model is `gpt-5.4-mini`, which is a good fit for fast, cost-sensitive assistant workloads.
 
 If you are testing locally, note that the assistant route lives in `api/assistant.js`. Plain `vite dev` serves the frontend only, so use a server environment that runs Vercel functions locally or deploy the app with `OPENAI_API_KEY` configured.
+
+## Notification Email
+
+Notification emails use `api/send-email.js` and Resend. Set `RESEND_API_KEY` and `NOTIFICATION_FROM_EMAIL` in your server environment before testing. Like the assistant route, this is a Vercel function, so plain `vite dev` will not serve it by itself.

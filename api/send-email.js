@@ -1,36 +1,51 @@
+function escapeHtml(value = "") {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    res.status(405).json({ error: "Method not allowed" });
+    return;
   }
 
-  const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  if (!RESEND_API_KEY) {
-    return res.status(500).json({ error: "RESEND_API_KEY is not configured" });
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    res.status(500).json({ error: "RESEND_API_KEY is not configured" });
+    return;
   }
 
-  const { recipients, subject, intro, ctaLabel, ctaUrl, details } = req.body;
+  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || "Outsiders <notifications@outsiderescapeclub.website>";
+  const { recipients, subject, intro, ctaLabel, ctaUrl, details } = req.body || {};
 
-  if (!recipients?.length || !subject) {
-    return res.status(400).json({ error: "Missing recipients or subject" });
+  if (!Array.isArray(recipients) || !recipients.length || !subject) {
+    res.status(400).json({ error: "Missing recipients or subject" });
+    return;
   }
 
+  const safeIntro = escapeHtml(intro || "You have a new update from your crew.");
+  const safeSubject = String(subject || "").trim();
   const detailRows = Array.isArray(details) && details.length
     ? `<table style="width:100%;border-collapse:collapse;margin:18px 0;">
-        ${details.map((d) => `
+        ${details.map((detail) => `
           <tr>
-            <td style="padding:8px 12px;font-size:14px;font-weight:700;color:#555;border-bottom:1px solid #f0ebe0;">${d}</td>
+            <td style="padding:8px 12px;font-size:14px;font-weight:700;color:#555;border-bottom:1px solid #f0ebe0;">${escapeHtml(detail)}</td>
           </tr>`).join("")}
        </table>`
     : "";
 
   const ctaButton = ctaLabel && ctaUrl
     ? `<div style="text-align:center;margin:28px 0;">
-         <a href="${ctaUrl}"
+         <a href="${escapeHtml(ctaUrl)}"
             style="display:inline-block;padding:14px 32px;background:#ff6b6b;color:#fff;
                    font-family:'Arial Black',sans-serif;font-size:16px;font-weight:900;
                    text-decoration:none;border-radius:10px;border:3px solid #1a1a2e;
                    box-shadow:4px 4px 0 #1a1a2e;letter-spacing:0.04em;">
-           ${ctaLabel} →
+           ${escapeHtml(ctaLabel)} →
          </a>
        </div>`
     : "";
@@ -44,20 +59,16 @@ export default async function handler(req, res) {
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
-
-          <!-- Header -->
           <tr>
             <td style="background:#1a1a2e;border-radius:16px 16px 0 0;padding:24px 32px;text-align:center;">
               <span style="font-family:'Arial Black',sans-serif;font-size:28px;font-weight:900;
                            color:#ffd93d;letter-spacing:0.06em;">OUTSIDERS</span>
             </td>
           </tr>
-
-          <!-- Body -->
           <tr>
             <td style="background:#fff;padding:32px;border-left:4px solid #1a1a2e;border-right:4px solid #1a1a2e;">
               <p style="margin:0 0 16px;font-size:17px;font-weight:700;color:#1a1a2e;line-height:1.6;">
-                ${intro || "You have a new update from your crew."}
+                ${safeIntro}
               </p>
               ${detailRows}
               ${ctaButton}
@@ -66,8 +77,6 @@ export default async function handler(req, res) {
               </p>
             </td>
           </tr>
-
-          <!-- Footer -->
           <tr>
             <td style="background:#1a1a2e;border-radius:0 0 16px 16px;padding:16px 32px;text-align:center;">
               <p style="margin:0;font-size:12px;color:#667085;">
@@ -75,7 +84,6 @@ export default async function handler(req, res) {
               </p>
             </td>
           </tr>
-
         </table>
       </td>
     </tr>
@@ -83,27 +91,39 @@ export default async function handler(req, res) {
 </body>
 </html>`;
 
-  // Send to all recipients
   const results = await Promise.allSettled(
-    recipients.map(({ email, name }) =>
-      fetch("https://api.resend.com/emails", {
+    recipients.map(async ({ email }) => {
+      const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${RESEND_API_KEY}`,
+          Authorization: `Bearer ${resendApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "Outsiders <notifications@outsiderescapeclub.website>",
+          from: fromEmail,
           to: [email],
-          subject,
-          html: html.replace("You have a new update from your crew.", intro || "You have a new update from your crew."),
+          subject: safeSubject,
+          html,
         }),
-      }).then((r) => r.json())
-    )
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || payload?.error || `Resend request failed with status ${response.status}`);
+      }
+
+      return payload;
+    })
   );
 
-  const failed = results.filter((r) => r.status === "rejected").length;
+  const failed = results.filter((result) => result.status === "rejected").length;
   const sent = results.length - failed;
 
-  return res.status(200).json({ sent, failed });
+  res.status(failed && !sent ? 502 : 200).json({
+    sent,
+    failed,
+    errors: results
+      .filter((result) => result.status === "rejected")
+      .map((result) => result.reason?.message || "Email send failed"),
+  });
 }
