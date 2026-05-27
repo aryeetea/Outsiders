@@ -125,10 +125,27 @@ const STYLES = `
     display: grid;
     place-items: center;
     word-break: keep-all;
+    position: relative;
   }
 
   .availability-mini-btn:hover {
     transform: translateY(-1px);
+  }
+
+  .availability-mini-btn.active {
+    background: #eafaf0;
+    border-color: #1f8f4d;
+    color: #14532d;
+    box-shadow: 2px 2px 0 #1f8f4d;
+  }
+
+  .availability-mini-check {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1;
   }
 
   .availability-grid {
@@ -384,6 +401,11 @@ function getPreferredMobileDay() {
   return WEEK_DAYS[mappedIndex] || WEEK_DAYS[0];
 }
 
+function isRangeFullySelected(activeBlocks, day, start, end) {
+  const keysInRange = TIME_BLOCKS.filter((time) => time >= start && time < end);
+  return keysInRange.length > 0 && keysInRange.every((time) => activeBlocks.has(`${day}-${time}`));
+}
+
 export default function AvailabilitySheet({
   value,
   onChange,
@@ -557,6 +579,7 @@ export default function AvailabilitySheet({
           <div className="availability-shortcuts">
             {WEEK_DAYS.map((day) => {
               const dayCount = TIME_BLOCKS.filter((time) => activeBlocks.has(`${day}-${time}`)).length;
+              const allDayActive = TIME_BLOCKS.every((time) => activeBlocks.has(`${day}-${time}`));
               return (
                 <div key={day} className="availability-day-card">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
@@ -568,18 +591,21 @@ export default function AvailabilitySheet({
                       <button
                         key={`${day}-${preset.label}`}
                         type="button"
-                        className="availability-mini-btn"
+                        className={`availability-mini-btn ${isRangeFullySelected(activeBlocks, day, preset.start, preset.end) ? "active" : ""}`}
                         onClick={() => {
                           setSelectedDay(day);
                           applyPresetToDay(day, preset.start, preset.end, "add");
                         }}
                       >
                         {preset.label}
+                        {isRangeFullySelected(activeBlocks, day, preset.start, preset.end) ? (
+                          <span className="availability-mini-check" aria-hidden="true">✓</span>
+                        ) : null}
                       </button>
                     ))}
                     <button
                       type="button"
-                      className="availability-mini-btn"
+                      className={`availability-mini-btn ${allDayActive ? "active" : ""}`}
                       disabled={readOnly}
                       onClick={() => {
                         setSelectedDay(day);
@@ -587,6 +613,7 @@ export default function AvailabilitySheet({
                       }}
                     >
                       All day
+                      {allDayActive ? <span className="availability-mini-check" aria-hidden="true">✓</span> : null}
                     </button>
                     <button
                       type="button"
