@@ -221,8 +221,6 @@ export default function OutsidersCreateCrew({
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [inviteTarget, setInviteTarget] = useState(null);
-  const [declineReason, setDeclineReason] = useState("");
-  const [showDeclineForm, setShowDeclineForm] = useState(false);
 
   const showNotice = (text, type = "warn") => setNotice({ text, type });
   const clearNotice = () => setNotice({ text: "", type: "warn" });
@@ -245,6 +243,20 @@ export default function OutsidersCreateCrew({
       String(routeParams?.inviteCode || routeParams?.groupCode || "").toUpperCase()
     );
   }, [routeParams?.groupCode, routeParams?.inviteCode]);
+
+  useEffect(() => {
+    const normalizedCode = joinCode.trim().toUpperCase();
+    if (!normalizedCode) {
+      setInviteTarget(null);
+      return;
+    }
+    if (
+      inviteTarget &&
+      String(inviteTarget.code || "").trim().toUpperCase() !== normalizedCode
+    ) {
+      setInviteTarget(null);
+    }
+  }, [inviteTarget, joinCode]);
 
   // Auto-resolve invite target from prefilled code
   useEffect(() => {
@@ -285,7 +297,10 @@ export default function OutsidersCreateCrew({
   const getFreshUserId = async () => {
     if (!isSupabaseConfigured) return currentUserId || profile.id || null;
     const { data } = await supabase.auth.getUser();
-    const id = data?.user?.id || null;
+    // Fall back to currentUserId / profile.id so a transient getUser() failure
+    // (token refresh race, brief network hiccup) doesn't falsely redirect the
+    // user to login when they are already authenticated.
+    const id = data?.user?.id || currentUserId || profile.id || null;
     if (id) setCurrentUserId(id);
     return id;
   };
@@ -325,8 +340,13 @@ export default function OutsidersCreateCrew({
     clearNotice();
 
     try {
-      // Always get fresh user ID directly — avoids race conditions
-      const resolvedUserId = await getFreshUserId();
+      let resolvedUserId = currentUserId || profile.id || null;
+
+      if (isSupabaseConfigured) {
+        const { data } = await supabase.auth.getUser();
+        resolvedUserId = data?.user?.id || null;
+        if (resolvedUserId) setCurrentUserId(resolvedUserId);
+      }
 
       if (isSupabaseConfigured && !resolvedUserId) {
         showNotice("Log in first so your crew is saved to your account.");
@@ -475,12 +495,6 @@ export default function OutsidersCreateCrew({
         return;
       }
 
-      if (declined && !declineReason.trim()) {
-        showNotice("Add a quick clarification before you decline.");
-        setShowDeclineForm(true);
-        return;
-      }
-
       const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
       const existingPending = (target.pending || []).find(
         (item) =>
@@ -505,7 +519,7 @@ export default function OutsidersCreateCrew({
               type: "decline-note",
               code,
               ...identity,
-              clarification: declineReason.trim(),
+              clarification: "",
               createdAt: new Date().toISOString(),
             }
           : {
@@ -584,12 +598,34 @@ export default function OutsidersCreateCrew({
       setInviteTarget(nextGroup);
       showNotice(
         declined
-          ? `You declined ${target.name}. Your clarification was saved.`
+          ? `You declined ${target.name}.`
           : `Your request to join ${target.name} is waiting for crew approval.`,
         declined ? "warn" : "success"
       );
-      setDeclineReason("");
-      setShowDeclineForm(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const detectInviteTarget = async () => {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) {
+      showNotice("Enter a crew or invite code.");
+      return;
+    }
+
+    setIsSaving(true);
+    clearNotice();
+
+    try {
+      const target = await resolveGroupByCode(code);
+      if (!target) {
+        showNotice("No crew was found with that code.");
+        setInviteTarget(null);
+        return;
+      }
+
+      setInviteTarget(target);
     } finally {
       setIsSaving(false);
     }
@@ -741,61 +777,35 @@ export default function OutsidersCreateCrew({
                     </strong>
                     <div style={{ color: "#667085", fontWeight: 800 }}>
                       {inviteTarget.members?.length || 0} crew member
-                      {inviteTarget.members?.length === 1 ? "" : "s"} · code{" "}
-                      {inviteTarget.code}
+                      {inviteTarget.members?.length === 1 ? "" : "s"}
                     </div>
-                    {inviteAlreadyMember ? (
-                      <p style={{ margin: 0, color: "#0f766e", fontWeight: 800 }}>
-                        You are already in this crew.
-                      </p>
-                    ) : existingInviteDecision?.type === "join-request" ? (
-                      <p style={{ margin: 0, color: "#9a6700", fontWeight: 800 }}>
-                        Your request to join is already waiting for approval.
-                      </p>
-                    ) : existingInviteDecision?.type === "decline-note" ? (
-                      <p style={{ margin: 0, color: "#b42318", fontWeight: 800 }}>
-                        You already declined: "{existingInviteDecision.clarification}"
-                      </p>
-                    ) : (
-                      <p style={{ margin: 0, color: "#667085", fontWeight: 800 }}>
-                        Choose whether you want to request access or decline.
-                      </p>
-                    )}
                   </div>
                 ) : null}
 
-                <div className="field">
-                  <label>Crew or invite code</label>
-                  <input
-                    value={joinCode}
-                    onChange={(e) =>
-                      setJoinCode(e.target.value.toUpperCase())
-                    }
-                    placeholder="ABC123 or ABC123-XY9Z"
-                    onKeyDown={(e) =>
-                      e.key === "Enter" &&
-                      void submitCrewInviteDecision({ declined: false })
-                    }
-                  />
-                </div>
-
-                {showDeclineForm ? (
-                  <div className="field" style={{ marginTop: 14 }}>
-                    <label>Why are you declining?</label>
-                    <textarea
-                      value={declineReason}
-                      onChange={(e) => setDeclineReason(e.target.value)}
-                      placeholder="A quick note helps the crew understand why you passed."
+                {!inviteTarget ? (
+                  <div className="field">
+                    <label>Crew or invite code</label>
+                    <input
+                      value={joinCode}
+                      onChange={(e) =>
+                        setJoinCode(e.target.value.toUpperCase())
+                      }
+                      placeholder="ABC123 or ABC123-XY9Z"
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && void detectInviteTarget()
+                      }
                     />
                   </div>
                 ) : null}
 
                 <button
                   type="button"
-                  className="btn secondary"
+                  className={`btn ${inviteTarget ? "primary" : "secondary"}`}
                   style={{ width: "100%", marginTop: 18 }}
                   onClick={() =>
-                    void submitCrewInviteDecision({ declined: false })
+                    void (inviteTarget
+                      ? submitCrewInviteDecision({ declined: false })
+                      : detectInviteTarget())
                   }
                   disabled={
                     isSaving ||
@@ -803,40 +813,30 @@ export default function OutsidersCreateCrew({
                     existingInviteDecision?.type === "join-request"
                   }
                 >
-                  {isSaving ? "Saving..." : "Request to join crew"}
+                  {isSaving
+                    ? "Saving..."
+                    : inviteTarget
+                    ? "Accept invite"
+                    : "Join Crew"}
                 </button>
 
-                <button
-                  type="button"
-                  className="btn ghost"
-                  style={{ width: "100%", marginTop: 12 }}
-                  onClick={() => {
-                    if (!showDeclineForm) {
-                      setShowDeclineForm(true);
-                      showNotice(
-                        "Add a quick clarification so the crew knows why you declined."
-                      );
-                      return;
+                {inviteTarget ? (
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    style={{ width: "100%", marginTop: 12 }}
+                    onClick={() => {
+                      void submitCrewInviteDecision({ declined: true });
+                    }}
+                    disabled={
+                      isSaving ||
+                      inviteAlreadyMember ||
+                      existingInviteDecision?.type === "decline-note"
                     }
-                    void submitCrewInviteDecision({ declined: true });
-                  }}
-                  disabled={
-                    isSaving ||
-                    inviteAlreadyMember ||
-                    existingInviteDecision?.type === "decline-note"
-                  }
-                >
-                  {showDeclineForm ? "Send decline" : "Decline invite"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn ghost"
-                  style={{ width: "100%", marginTop: 12 }}
-                  onClick={() => onNavigate?.("friend-groups")}
-                >
-                  Open my crews
-                </button>
+                  >
+                    Decline invite
+                  </button>
+                ) : null}
               </section>
             </div>
           </div>
