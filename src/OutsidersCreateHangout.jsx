@@ -733,21 +733,27 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
         nextGroupMembers = hydrated.members;
       }
 
-      const memberNotifications = nextGroupMembers.map((member) => ({
-        id: createId("note"),
-        userId: member.userId || null,
-        type: "hangout-updated",
-        message: `${getDisplayName(profile)} shared a new hangout in ${selectedGroup.name}: ${proposal.name}.`,
-        groupId: selectedGroup.id,
-        groupName: selectedGroup.name,
-        proposalId: proposal.id,
-        recipient: member.name,
-        recipientKey: notificationRecipientKey(member),
-        actionScreen: "friend-groups",
-        actionParams: { groupId: selectedGroup.id, tab: "Hangouts" },
-        createdAt: new Date().toISOString(),
-        read: false,
-      }));
+      // Notify all crew members except the creator — they don't need a ping about their own hangout
+      const memberNotifications = nextGroupMembers
+        .filter((member) => {
+          if (currentUserId && member.userId === currentUserId) return false;
+          return true;
+        })
+        .map((member) => ({
+          id: createId("note"),
+          userId: member.userId || null,
+          type: "hangout-updated",
+          message: `${getDisplayName(profile)} shared a new hangout in ${selectedGroup.name}: ${proposal.name}.`,
+          groupId: selectedGroup.id,
+          groupName: selectedGroup.name,
+          proposalId: proposal.id,
+          recipient: member.name,
+          recipientKey: notificationRecipientKey(member),
+          actionScreen: "friend-groups",
+          actionParams: { groupId: selectedGroup.id, tab: "Hangouts" },
+          createdAt: new Date().toISOString(),
+          read: false,
+        }));
       const nextGroupProposalList = [...(selectedGroup.hangoutProposals || []), proposal];
       const nextGroup = {
         ...selectedGroup,
@@ -823,7 +829,10 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
             : group
         )),
         hangouts: [...(prev.hangouts || []), proposal],
-        notifications: [...(prev.notifications || []), ...memberNotifications.filter((item) => item.userId === currentUserId)],
+        // When Supabase is configured, Realtime delivers notifications instantly — no optimistic push needed
+        // (avoids duplicates). Without Supabase the notification list stays empty, which is correct since
+        // there's no backend to deliver them from.
+        notifications: prev.notifications || [],
       }));
 
       setCreatedProposal({

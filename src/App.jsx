@@ -377,6 +377,158 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     };
   }, [currentSession, sessionReady]);
 
+  // ─── Supabase Realtime: instant notification delivery ───────────────────────
+  useEffect(() => {
+    if (!isSupabaseConfigured || !sessionReady || !currentSession?.user?.id) return undefined;
+
+    const userId = currentSession.user.id;
+
+    const channel = supabase
+      .channel(`notifications:user:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const row = payload.new;
+          if (!row?.id) return;
+          setAppData((prev) => {
+            // Skip if already present (e.g. added by the creator's optimistic update)
+            if ((prev.notifications || []).some((n) => String(n.id) === String(row.id))) {
+              return prev;
+            }
+            const notification = {
+              id: String(row.id),
+              message: row.message || "",
+              groupId: row.group_id || null,
+              groupName: row.group_name || "",
+              proposalId: row.proposal_id || null,
+              proposalCode: row.proposal_code || "",
+              link: row.link || "",
+              recipient: row.recipient || "",
+              recipientKey: row.recipient_key || "",
+              userId: row.user_id || null,
+              actionScreen: row.action_screen || "",
+              actionParams: row.action_params && typeof row.action_params === "object" ? row.action_params : {},
+              type: row.type || "general",
+              createdAt: row.created_at || new Date().toISOString(),
+              read: Boolean(row.read),
+            };
+            return {
+              ...prev,
+              notifications: [notification, ...(prev.notifications || [])],
+            };
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const row = payload.new;
+          if (!row?.id) return;
+          setAppData((prev) => ({
+            ...prev,
+            notifications: (prev.notifications || []).map((n) =>
+              String(n.id) === String(row.id) ? { ...n, read: Boolean(row.read) } : n
+            ),
+          }));
+        }
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.warn("[Outsiders] Realtime notification channel error — falling back to polling.");
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentSession?.user?.id, sessionReady]);
+
+  // ─── Supabase Realtime: group updates (new hangout proposals, votes, etc.) ──
+  useEffect(() => {
+    if (!isSupabaseConfigured || !sessionReady || !currentSession?.user?.id) return undefined;
+
+    const userId = currentSession.user.id;
+
+    const channel = supabase
+      .channel(`groups:changes:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "groups",
+        },
+        (payload) => {
+          const updatedGroup = payload.new;
+          if (!updatedGroup?.id) return;
+
+          setAppData((prev) => {
+            const existingGroups = prev.groups || [];
+            const groupIdx = existingGroups.findIndex(
+              (g) => String(g.id) === String(updatedGroup.id)
+            );
+            // Only update groups this user is already a member of
+            if (groupIdx === -1) return prev;
+
+            const existingGroup = existingGroups[groupIdx];
+            const mergedGroup = {
+              ...existingGroup,
+              members: updatedGroup.members ?? existingGroup.members,
+              hangoutProposals:
+                updatedGroup.hangout_proposals ??
+                updatedGroup.hangoutProposals ??
+                existingGroup.hangoutProposals ??
+                [],
+            };
+
+            const nextGroups = [...existingGroups];
+            nextGroups[groupIdx] = mergedGroup;
+
+            // Merge updated hangout proposals into the flat hangouts list
+            const updatedProposals = (mergedGroup.hangoutProposals || []).map((p) => ({
+              ...p,
+              groupId: p.groupId || updatedGroup.id,
+              groupName: p.groupName || updatedGroup.name,
+            }));
+            const mergedHangouts = Array.from(
+              new Map(
+                [...(prev.hangouts || []), ...updatedProposals]
+                  .filter((p) => p?.id)
+                  .map((p) => [String(p.id), p])
+              ).values()
+            );
+
+            return {
+              ...prev,
+              groups: nextGroups,
+              hangouts: mergedHangouts,
+            };
+          });
+        }
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.warn("[Outsiders] Realtime groups channel error — falling back to polling.");
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentSession?.user?.id, sessionReady]);
+
   useEffect(() => {
     if (!currentSession?.user?.id) return;
 
