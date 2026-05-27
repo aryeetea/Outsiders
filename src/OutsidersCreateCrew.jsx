@@ -473,7 +473,7 @@ export default function OutsidersCreateCrew({
   const existingInviteDecision = inviteTarget
     ? (inviteTarget.pending || []).find(
         (item) =>
-          (item.type === "join-request" || item.type === "decline-note") &&
+          item.type === "decline-note" &&
           pendingMatchesIdentity(item, inviteIdentity)
       )
     : null;
@@ -493,7 +493,7 @@ export default function OutsidersCreateCrew({
 
       if (isSupabaseConfigured && !resolvedUserId) {
         showNotice(
-          `Log in first so your ${declined ? "decline note" : "join request"} is saved.`
+          `Log in first so your ${declined ? "decline note" : "entry"} is saved.`
         );
         onNavigate?.("login", { redirect: "create-crew", groupCode: code });
         return;
@@ -518,7 +518,9 @@ export default function OutsidersCreateCrew({
       }
 
       const matchedInvite = getDirectInviteByCode(target, code);
-      if (matchedInvite && !declined) {
+
+      if (!declined) {
+        // Add immediately — no approval needed
         const acceptedMember = buildMember(
           profile,
           currentName,
@@ -527,7 +529,9 @@ export default function OutsidersCreateCrew({
           appData?.avatar || ""
         );
         const nextMembers = [...(target.members || []), acceptedMember];
-        const nextPending = (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id));
+        const nextPending = matchedInvite
+          ? (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id))
+          : (target.pending || []);
         const nextGroup = { ...target, members: nextMembers, pending: nextPending };
 
         if (isSupabaseConfigured && target.id) {
@@ -560,59 +564,32 @@ export default function OutsidersCreateCrew({
         return;
       }
 
+      // declined path
       const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
-      const existingPending = (target.pending || []).find(
-        (item) =>
-          (item.type === "join-request" || item.type === "decline-note") &&
-          pendingMatchesIdentity(item, identity)
+      const existingDecline = (target.pending || []).find(
+        (item) => item.type === "decline-note" && pendingMatchesIdentity(item, identity)
       );
 
-      if (existingPending) {
-        showNotice(
-          existingPending.type === "decline-note"
-            ? `You already declined ${target.name}.`
-            : `Your request to join ${target.name} is already waiting for review.`
-        );
+      if (existingDecline) {
+        showNotice(`You already declined ${target.name}.`);
         return;
       }
 
-      const nextPending = declined && matchedInvite
+      const declineEntry = {
+        id: createId("decline"),
+        type: "decline-note",
+        code,
+        ...identity,
+        clarification: "",
+        createdAt: new Date().toISOString(),
+      };
+
+      const nextPending = matchedInvite
         ? [
             ...(target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id)),
-            {
-              id: createId("decline"),
-              type: "decline-note",
-              code,
-              ...identity,
-              clarification: "",
-              createdAt: new Date().toISOString(),
-            },
+            declineEntry,
           ]
-        : [
-            ...(target.pending || []),
-            declined
-              ? {
-                  id: createId("decline"),
-                  type: "decline-note",
-                  code,
-                  ...identity,
-                  clarification: "",
-                  createdAt: new Date().toISOString(),
-                }
-              : {
-                  id: createId("join-request"),
-                  type: "join-request",
-                  code,
-                  ...identity,
-                  role: "Member",
-                  bio: profile.bio || "",
-                  location: profile.location || "",
-                  email: profile.email || "",
-                  availability: profile.availability,
-                  avatar: appData?.avatar || "",
-                  createdAt: new Date().toISOString(),
-                },
-          ];
+        : [...(target.pending || []), declineEntry];
 
       if (isSupabaseConfigured && target.id) {
         const { error } = await supabase
@@ -621,10 +598,7 @@ export default function OutsidersCreateCrew({
           .eq("id", target.id);
 
         if (error) {
-          showNotice(
-            error.message ||
-              `We could not save that ${declined ? "decline" : "join request"} yet.`
-          );
+          showNotice(error.message || "We could not save that decline yet.");
           return;
         }
 
@@ -646,10 +620,8 @@ export default function OutsidersCreateCrew({
               recipient_key: `user:${userId}`,
               action_screen: "friend-groups",
               action_params: { groupId: target.id, tab: "Invites" },
-              type: declined ? "crew-invite-declined" : "crew-join-request",
-              message: declined
-                ? `${currentName} declined the invite to ${target.name}.`
-                : `${currentName} requested to join ${target.name}.`,
+              type: "crew-invite-declined",
+              message: `${currentName} declined the invite to ${target.name}.`,
               read: false,
             }))
           );
@@ -673,12 +645,7 @@ export default function OutsidersCreateCrew({
       }));
 
       setInviteTarget(nextGroup);
-      showNotice(
-        declined
-          ? `You declined ${target.name}.`
-          : `Your request to join ${target.name} is waiting for crew approval.`,
-        declined ? "warn" : "success"
-      );
+      showNotice(`You declined ${target.name}.`, "warn");
     } finally {
       setIsSaving(false);
     }
@@ -886,8 +853,7 @@ export default function OutsidersCreateCrew({
                   }
                   disabled={
                     isSaving ||
-                    inviteAlreadyMember ||
-                    existingInviteDecision?.type === "join-request"
+                    inviteAlreadyMember
                   }
                 >
                   {isSaving

@@ -1695,39 +1695,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         <strong>Share this invite link</strong>
                         <div className="invite-link-value">{buildGroupInviteLink(selectedGroup.code)}</div>
                         <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
-                          Send this link to someone so they can request to join or decline the invite with a note.
+                          Send this link to someone so they can join the crew directly.
                         </p>
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
                         <button type="button" className="btn primary" onClick={copyCrewInviteLink}>Copy crew invite link</button>
                       </div>
                       <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
-                        <div className="pending-row" style={{ display: "grid", gap: 10 }}>
-                          <strong>Join requests</strong>
-                          {pendingJoinRequests.length ? pendingJoinRequests.map((request) => (
-                            <div key={request.id} className="invite-link-box" style={{ marginTop: 0 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                                <div>
-                                  <strong>{request.name || request.username || "Unknown user"}</strong>
-                                  <div style={{ color: "#667085", fontWeight: 800 }}>
-                                    {request.username || "No username"} · requested {new Date(request.createdAt || Date.now()).toLocaleString()}
-                                  </div>
-                                </div>
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                  <button type="button" className="btn primary" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => void approveJoinRequest(request)}>Approve</button>
-                                  <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => void clearPendingInviteNote(request.id)}>Remove</button>
-                                </div>
-                              </div>
-                              {request.location || request.bio ? (
-                                <div style={{ color: "#667085", fontWeight: 700, lineHeight: 1.5 }}>
-                                  {request.location ? `Location: ${request.location}` : null}
-                                  {request.location && request.bio ? " · " : ""}
-                                  {request.bio ? request.bio : null}
-                                </div>
-                              ) : null}
-                            </div>
-                          )) : <div style={{ color: "#667085", fontWeight: 800 }}>No join requests yet.</div>}
-                        </div>
                         <div className="pending-row" style={{ display: "grid", gap: 10 }}>
                           <strong>Declines</strong>
                           {pendingDeclines.length ? pendingDeclines.map((item) => (
