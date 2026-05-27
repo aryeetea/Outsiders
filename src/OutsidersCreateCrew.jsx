@@ -462,45 +462,35 @@ export default function OutsidersCreateCrew({
         return;
       }
 
-      const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
+      const matchedInvite = getDirectInviteByCode(target, code);
 
-      // ── Join-request path ─────────────────────────────────────────────────
+      // ── Accept path — join immediately ────────────────────────────────────
       if (!declined) {
-        const alreadyRequested = (target.pending || []).some(
-          (item) => item.type === "join-request" && pendingMatchesIdentity(item, identity)
+        const acceptedMember = buildMember(
+          profile,
+          currentName,
+          "Member",
+          resolvedUserId,
+          appData?.avatar || ""
         );
-        if (alreadyRequested) {
-          showNotice(`You already sent a join request to ${target.name}. Wait for the admin to approve it.`);
-          return;
-        }
-
-        const joinRequest = {
-          id: createId("joinreq"),
-          type: "join-request",
-          ...identity,
-          bio: profile.bio || "",
-          location: profile.location || "",
-          email: profile.email || "",
-          availability: profile.availability,
-          avatar: appData?.avatar || "",
-          createdAt: new Date().toISOString(),
-        };
-
-        const nextPending = [...(target.pending || []), joinRequest];
-        const nextGroup = { ...target, pending: nextPending };
+        const nextMembers = [...(target.members || []), acceptedMember];
+        const nextPending = matchedInvite
+          ? (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id))
+          : (target.pending || []);
+        const nextGroup = { ...target, members: nextMembers, pending: nextPending };
 
         if (isSupabaseConfigured && target.id) {
           const { error } = await supabase
             .from("groups")
-            .update({ pending: nextPending })
+            .update({ members: nextMembers, pending: nextPending })
             .eq("id", target.id);
 
           if (error) {
-            showNotice(error.message || "We could not send that join request yet.");
+            showNotice(error.message || "We could not add you to that crew yet.");
             return;
           }
 
-          // Notify the crew owner/members about the new join request
+          // Notify everyone already in the crew that a new person joined
           const crewRecipients = Array.from(
             new Set(
               (target.members || [])
@@ -518,14 +508,14 @@ export default function OutsidersCreateCrew({
                 recipient: target.name,
                 recipient_key: `user:${uid}`,
                 action_screen: "friend-groups",
-                action_params: { groupId: target.id, tab: "Invites" },
-                type: "crew-join-request",
-                message: `${currentName} wants to join ${target.name}. Review their request in the Invites tab.`,
+                action_params: { groupId: target.id, tab: "Members" },
+                type: "crew-member-joined",
+                message: `${currentName} joined ${target.name}.`,
                 read: false,
               }))
             );
             if (notifError) {
-              console.warn("Could not send join request notifications:", notifError.message);
+              console.warn("Could not send join notifications:", notifError.message);
             }
           }
         }
@@ -543,9 +533,12 @@ export default function OutsidersCreateCrew({
             : [...(prev.groups || []), nextGroup],
         }));
         setInviteTarget(nextGroup);
-        showNotice(`Join request sent to ${target.name}. You'll get a notification once the admin approves you.`, "success");
+        showNotice(`You joined ${target.name}!`, "success");
+        onNavigate?.("friend-groups", { groupId: target.id, tab: "Members" });
         return;
       }
+
+      const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
 
       // ── Decline path ─────────────────────────────────────────────────────
       const existingDecline = (target.pending || []).find(
@@ -566,7 +559,6 @@ export default function OutsidersCreateCrew({
         createdAt: new Date().toISOString(),
       };
 
-      const matchedInvite = getDirectInviteByCode(target, code);
       const nextPending = matchedInvite
         ? [
             ...(target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id)),
@@ -841,7 +833,7 @@ export default function OutsidersCreateCrew({
                   {isSaving
                     ? "Saving..."
                     : inviteTarget
-                    ? "Request to join"
+                    ? "Accept invite"
                     : "Look up crew"}
                 </button>
 

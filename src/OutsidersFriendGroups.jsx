@@ -885,38 +885,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     setNotice(`${request.name || request.username || "That person"} was added to the crew.`);
   };
 
-  const denyJoinRequest = async (request) => {
-    if (!selectedGroup || !request) return;
-    const nextPending = (selectedGroup.pending || []).filter((item) => String(item.id) !== String(request.id));
-    const nextGroup = { ...selectedGroup, pending: nextPending };
-    const saved = await persistSharedGroup(nextGroup);
-    if (!saved) return;
-    // Notify the requester that their request was denied (if they have a userId)
-    if (isSupabaseConfigured && request.userId) {
-      await supabase.from("notifications").insert({
-        user_id: request.userId,
-        group_id: selectedGroup.id,
-        group_name: selectedGroup.name,
-        recipient: request.name || request.username || "",
-        recipient_key: request.userId ? `user:${request.userId}` : `name:${(request.name || "").toLowerCase()}`,
-        action_screen: "create-crew",
-        action_params: {},
-        type: "crew-request-denied",
-        message: `Your request to join ${selectedGroup.name} was not approved.`,
-        read: false,
-      }).then(({ error }) => {
-        if (error) console.warn("Could not send deny notification:", error.message);
-      });
-    }
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: (prev.groups || []).map((group) => (
-        group.id === selectedGroup.id ? nextGroup : group
-      )),
-    }));
-    setNotice(`${request.name || request.username || "That person"}'s request was denied.`);
-  };
-
   const clearPendingInviteNote = async (pendingId) => {
     if (!selectedGroup || !pendingId) return;
     const nextGroup = {
@@ -1694,14 +1662,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                     <div className="section-grid" style={{ marginTop: 20 }}>
                       <div className="section-header">
                         <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew invites</h3>
-                        <p className="section-copy">Share the crew code or link. Anyone who uses it sends a join request — you approve or deny it here.</p>
+                        <p className="section-copy">Share the crew code or link. Anyone who uses it joins the crew instantly.</p>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "18px 20px", background: "#ffd93d", border: "4px solid #1a1a2e", borderRadius: 16, boxShadow: "5px 5px 0 #1a1a2e", marginBottom: 22 }}>
                         <div>
                           <p className="bangers" style={{ margin: "0 0 4px", fontSize: 13, letterSpacing: "0.12em", color: "#6b5a00" }}>YOUR CREW CODE</p>
                           <p className="bangers" style={{ margin: 0, fontSize: 42, letterSpacing: "0.22em", color: "#1a1a2e", lineHeight: 1 }}>{selectedGroup.code}</p>
-                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>Share this code or the link below. They'll send a request to join and you'll approve it here.</p>
+                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>Share this code or the link below so someone can join the crew.</p>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
                           <button
@@ -1727,49 +1695,12 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         <strong>Share this invite link</strong>
                         <div className="invite-link-value">{buildGroupInviteLink(selectedGroup.code)}</div>
                         <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
-                          Send this link to someone. They'll send a join request that you approve or deny above.
+                          Send this link to someone so they can join the crew directly.
                         </p>
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
                         <button type="button" className="btn primary" onClick={copyCrewInviteLink}>Copy crew invite link</button>
                       </div>
-                      {pendingJoinRequests.length > 0 ? (
-                        <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
-                          <strong style={{ fontSize: 16 }}>Join Requests ({pendingJoinRequests.length})</strong>
-                          {pendingJoinRequests.map((item) => (
-                            <div key={item.id} className="pending-row" style={{ padding: "16px 18px", display: "grid", gap: 10 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-                                <div>
-                                  <strong style={{ fontSize: 16 }}>{item.name || item.username || "Someone"}</strong>
-                                  {item.username ? <div style={{ color: "#667085", fontWeight: 700, fontSize: 13 }}>{item.username}</div> : null}
-                                  <div style={{ color: "#667085", fontWeight: 700, fontSize: 13, marginTop: 2 }}>
-                                    Requested {new Date(item.createdAt || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                                  </div>
-                                </div>
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                  <button
-                                    type="button"
-                                    className="btn primary"
-                                    style={{ padding: "8px 14px", fontSize: 13 }}
-                                    onClick={() => void approveJoinRequest(item)}
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn ghost"
-                                    style={{ padding: "8px 14px", fontSize: 13 }}
-                                    onClick={() => void denyJoinRequest(item)}
-                                  >
-                                    Deny
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-
                       <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
                         <div className="pending-row" style={{ display: "grid", gap: 10 }}>
                           <strong>Declines</strong>
