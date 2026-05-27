@@ -6,7 +6,6 @@ import {
   persistStoredProfile,
   profileNeedsAvailability,
 } from "./appState";
-import OutsidersAssistant from "./OutsidersAssistant";
 import OutsidersBillSplit from "./OutsidersBillSplit";
 import OutsidersCreateHangout from "./OutsidersCreateHangout";
 import OutsidersCreateCrew from "./OutsidersCreateCrew";
@@ -514,10 +513,11 @@ async function fetchSharedAppData(user, previousAppData = {}) {
                 {},
             };
 
-            // Only include this group if the current user is a member of it
-            const isUserMember = (mergedGroup.members || []).some(
-              (m) => String(m?.userId || "") === String(userId)
-            ) || String(mergedGroup.owner_id || "") === String(userId);
+            // Only include this group if the current user is a member of it.
+            const isUserMember = isProfileMemberOfGroup(mergedGroup, {
+              ...(prev.profile || {}),
+              id: prev.profile?.id || userId,
+            });
 
             if (!isUserMember) return prev;
 
@@ -561,15 +561,17 @@ async function fetchSharedAppData(user, previousAppData = {}) {
   useEffect(() => {
     if (!currentSession?.user?.id) return;
 
-    setAppData((prev) => {
-      if (prev.profile?.id === currentSession.user.id) return prev;
-      return {
-        ...prev,
-        profile: {
-          ...prev.profile,
-          id: currentSession.user.id,
-        },
-      };
+    queueMicrotask(() => {
+      setAppData((prev) => {
+        if (prev.profile?.id === currentSession.user.id) return prev;
+        return {
+          ...prev,
+          profile: {
+            ...prev.profile,
+            id: currentSession.user.id,
+          },
+        };
+      });
     });
   }, [currentSession?.user?.id]);
 

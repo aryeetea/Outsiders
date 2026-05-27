@@ -24,6 +24,23 @@ function normalizeName(value = "") {
   return String(value).trim().toLowerCase();
 }
 
+function normalizeEmail(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
+function getPossibleUserIds(value = {}) {
+  return [
+    value?.id,
+    value?.userId,
+    value?.user_id,
+    value?.profileId,
+    value?.profile_id,
+    value?.uid,
+  ]
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+}
+
 export function getCurrentUserKey(profile = {}) {
   if (profile?.username) return `username:${normalizeUsername(profile.username)}`;
   if (profile?.name) return `name:${normalizeName(profile.name)}`;
@@ -35,18 +52,23 @@ export function getDisplayName(profile = {}) {
 }
 
 export function isProfileMemberOfGroup(group = {}, profile = {}) {
-  const currentUserId = String(profile?.id || profile?.userId || "").trim();
+  const currentUserIds = getPossibleUserIds(profile);
   const displayName = normalizeName(getDisplayName(profile));
   const username = normalizeUsername(profile?.username || "");
+  const email = normalizeEmail(profile?.email || "");
   const members = group?.members || [];
 
   // The members array is the canonical list of who is currently in the crew.
   // Any user found here is considered active — whether they're admin, owner, etc.
-  const isInMembers = members.some((member) => (
-    (currentUserId && String(member?.userId || "").trim() === currentUserId)
-    || (username && normalizeUsername(member?.username || "") === username)
-    || (displayName && normalizeName(member?.name || "") === displayName)
-  ));
+  const isInMembers = members.some((member) => {
+    const memberUserIds = getPossibleUserIds(member);
+    return (
+      (currentUserIds.length && memberUserIds.some((id) => currentUserIds.includes(id)))
+      || (username && normalizeUsername(member?.username || "") === username)
+      || (email && normalizeEmail(member?.email || "") === email)
+      || (displayName && normalizeName(member?.name || "") === displayName)
+    );
+  });
 
   if (isInMembers) return true;
 
@@ -55,7 +77,11 @@ export function isProfileMemberOfGroup(group = {}, profile = {}) {
   // yet). If members is non-empty and the owner isn't in it, they have left the
   // group and should no longer see it — this makes leave/delete permanent.
   if (!members.length) {
-    if (currentUserId && String(group?.owner_id || group?.ownerId || "").trim() === currentUserId) {
+    const ownerIds = getPossibleUserIds({
+      id: group?.owner_id || group?.ownerId,
+      userId: group?.ownerUserId || group?.owner_user_id,
+    });
+    if (currentUserIds.length && ownerIds.some((id) => currentUserIds.includes(id))) {
       return true;
     }
     if (username && normalizeUsername(group?.owner_username || group?.ownerUsername || "") === username) {
