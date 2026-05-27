@@ -344,20 +344,13 @@ export default function OutsidersCreateCrew({
       let resolvedUserId = isSupabaseConfigured ? null : currentUserId || profile.id || null;
 
       if (isSupabaseConfigured) {
-        // Always fetch directly from Supabase auth — never rely on local state
-        // to decide whether the user is authenticated.
-        const { data, error } = await supabase.auth.getUser();
+        // Always fetch the freshest session directly from Supabase auth.
+        // Never rely on local state (currentUserId) for this check.
+        const { data } = await supabase.auth.getUser();
         resolvedUserId = data?.user?.id ?? null;
 
+        // Only redirect when getUser genuinely returns no user.
         if (!resolvedUserId) {
-          if (error) {
-            // The auth check itself failed (token-refresh race, network hiccup).
-            // This is NOT a confirmed "no session" — ask the user to retry
-            // rather than bouncing them to login.
-            showNotice("Could not verify your session. Please try again.");
-            return;
-          }
-          // getUser() succeeded but returned no user — genuinely not signed in.
           showNotice("Log in first so your crew is saved to your account.");
           onNavigate?.("login", { redirect: "create-crew" });
           return;
