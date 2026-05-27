@@ -163,6 +163,18 @@ function MinimizeIcon() {
   );
 }
 
+function isClearCommand(value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  return (
+    normalized === "clear"
+    || normalized === "clear chat"
+    || normalized === "clear the chat"
+    || normalized === "clear conversation"
+    || normalized === "new chat"
+    || normalized === "reset chat"
+  );
+}
+
 export default function OutsidersAssistant({ route, appData }) {
   const stored = useMemo(() => readStoredAssistantState(), []);
   const [isOpen, setIsOpen] = useState(stored.isOpen);
@@ -190,9 +202,25 @@ export default function OutsidersAssistant({ route, appData }) {
     ]);
   }, [currentName, isOpen, messages.length]);
 
+  const resetConversation = () => {
+    setPreviousResponseId(null);
+    setMessages([
+      {
+        role: "assistant",
+        content: `Hey ${currentName}. I'm Dash. I can help you plan hangouts, think through crew decisions, draft messages, and figure out the next best move in Outsiders.`,
+      },
+    ]);
+    setInput("");
+    setError("");
+  };
+
   const sendMessage = async (rawPrompt) => {
     const prompt = rawPrompt.trim();
     if (!prompt || isLoading) return;
+    if (isClearCommand(prompt)) {
+      resetConversation();
+      return;
+    }
 
     const nextUserMessage = { role: "user", content: prompt };
     setMessages((current) => [...current, nextUserMessage]);
