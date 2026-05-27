@@ -340,6 +340,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     if (!isSupabaseConfigured || !sessionReady || !currentSession?.user?.id) return undefined;
 
     let active = true;
+    let refreshTimeoutId = null;
 
     async function refreshSharedData() {
       const nextAppData = await fetchSharedAppData(currentSession.user, latestAppDataRef.current);
@@ -353,10 +354,26 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       }));
     }
 
+    const triggerRefresh = () => {
+      if (refreshTimeoutId) window.clearTimeout(refreshTimeoutId);
+      refreshTimeoutId = window.setTimeout(refreshSharedData, 500);
+    };
+
     const intervalId = window.setInterval(refreshSharedData, 20000);
+    
+    const realtimeChannel = supabase
+      .channel("app-realtime-shared")
+      .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, triggerRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, triggerRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, triggerRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, triggerRefresh)
+      .subscribe();
+
     return () => {
       active = false;
       window.clearInterval(intervalId);
+      if (refreshTimeoutId) window.clearTimeout(refreshTimeoutId);
+      supabase.removeChannel(realtimeChannel);
     };
   }, [currentSession, sessionReady]);
 
