@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { buildHangoutInviteLink, getSiteUrl } from "./siteConfig";
+import { getSiteUrl } from "./siteConfig";
 import { availabilityToText, formatTimeLabel, recommendHangoutTimes } from "./scheduling";
 import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
@@ -466,11 +466,6 @@ const STYLES = `
   }
 `;
 
-function generateCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-
 function memberKey(member) {
   return member.userId || member.username || member.name;
 }
@@ -704,7 +699,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     try {
       const proposal = {
         id: createId("proposal"),
-        code: generateCode(),
         name: form.name.trim(),
         description: form.description.trim(),
         durationHours,
@@ -1153,7 +1147,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
             <div className="card" style={{ maxWidth: 760, margin: "0 auto" }}>
               <div className="status-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>Hangout Shared</div>
               <h1 className="bangers" style={{ margin: "14px 0 8px", fontSize: 42 }}>{createdProposal.name}</h1>
-              <p style={{ margin: "0 0 16px", color: "#667085" }}>The crew can now vote on this hangout inside {createdProposal.groupName}. Notifications have been added for the rest of the crew.</p>
+              <p style={{ margin: "0 0 16px", color: "#667085" }}>The crew can now vote on this hangout inside {createdProposal.groupName}. Notifications have been sent to the rest of the crew.</p>
               <div className="summary-box">
                 <strong style={{ display: "block", marginBottom: 8 }}>Ready for crew voting</strong>
                 <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(createdProposal.durationHours)}</p>

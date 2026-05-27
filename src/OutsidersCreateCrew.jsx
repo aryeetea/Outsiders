@@ -212,6 +212,8 @@ export default function OutsidersCreateCrew({
   const [inviteTarget, setInviteTarget] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [showDeclineInput, setShowDeclineInput] = useState(false);
+  const [declineClarification, setDeclineClarification] = useState("");
 
   const showNotice = (text, type = "warn") => setNotice({ text, type });
   const clearNotice = () => setNotice({ text: "", type: "warn" });
@@ -436,7 +438,7 @@ export default function OutsidersCreateCrew({
 
       if (isSupabaseConfigured && !resolvedUserId) {
         showNotice(
-          `Log in first so your ${declined ? "decline note" : "entry"} is saved.`
+          `Log in first so your ${declined ? "decline note" : "join request"} is saved.`
         );
         onNavigate?.("login", { redirect: "create-crew", groupCode: code });
         return;
@@ -460,35 +462,45 @@ export default function OutsidersCreateCrew({
         return;
       }
 
-      const matchedInvite = getDirectInviteByCode(target, code);
+      const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
 
+      // ── Join-request path ─────────────────────────────────────────────────
       if (!declined) {
-        // Add immediately — no approval needed
-        const acceptedMember = buildMember(
-          profile,
-          currentName,
-          "Member",
-          resolvedUserId,
-          appData?.avatar || ""
+        const alreadyRequested = (target.pending || []).some(
+          (item) => item.type === "join-request" && pendingMatchesIdentity(item, identity)
         );
-        const nextMembers = [...(target.members || []), acceptedMember];
-        const nextPending = matchedInvite
-          ? (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id))
-          : (target.pending || []);
-        const nextGroup = { ...target, members: nextMembers, pending: nextPending };
+        if (alreadyRequested) {
+          showNotice(`You already sent a join request to ${target.name}. Wait for the admin to approve it.`);
+          return;
+        }
+
+        const joinRequest = {
+          id: createId("joinreq"),
+          type: "join-request",
+          ...identity,
+          bio: profile.bio || "",
+          location: profile.location || "",
+          email: profile.email || "",
+          availability: profile.availability,
+          avatar: appData?.avatar || "",
+          createdAt: new Date().toISOString(),
+        };
+
+        const nextPending = [...(target.pending || []), joinRequest];
+        const nextGroup = { ...target, pending: nextPending };
 
         if (isSupabaseConfigured && target.id) {
           const { error } = await supabase
             .from("groups")
-            .update({ members: nextMembers, pending: nextPending })
+            .update({ pending: nextPending })
             .eq("id", target.id);
 
           if (error) {
-            showNotice(error.message || "We could not add you to that crew yet.");
+            showNotice(error.message || "We could not send that join request yet.");
             return;
           }
 
-          // ── Notify all existing crew members that someone joined ──────────
+          // Notify the crew owner/members about the new join request
           const crewRecipients = Array.from(
             new Set(
               (target.members || [])
@@ -506,14 +518,14 @@ export default function OutsidersCreateCrew({
                 recipient: target.name,
                 recipient_key: `user:${uid}`,
                 action_screen: "friend-groups",
-                action_params: { groupId: target.id, tab: "Members" },
-                type: "crew-member-joined",
-                message: `${currentName} joined ${target.name}.`,
+                action_params: { groupId: target.id, tab: "Invites" },
+                type: "crew-join-request",
+                message: `${currentName} wants to join ${target.name}. Review their request in the Invites tab.`,
                 read: false,
               }))
             );
             if (notifError) {
-              console.warn("Could not send join notifications:", notifError.message);
+              console.warn("Could not send join request notifications:", notifError.message);
             }
           }
         }
@@ -531,13 +543,11 @@ export default function OutsidersCreateCrew({
             : [...(prev.groups || []), nextGroup],
         }));
         setInviteTarget(nextGroup);
-        showNotice(`You joined ${target.name}.`, "success");
-        onNavigate?.("friend-groups", { groupId: target.id, tab: "Members" });
+        showNotice(`Join request sent to ${target.name}. You'll get a notification once the admin approves you.`, "success");
         return;
       }
 
       // ── Decline path ─────────────────────────────────────────────────────
-      const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
       const existingDecline = (target.pending || []).find(
         (item) => item.type === "decline-note" && pendingMatchesIdentity(item, identity)
       );
@@ -552,10 +562,11 @@ export default function OutsidersCreateCrew({
         type: "decline-note",
         code,
         ...identity,
-        clarification: "",
+        clarification: declineClarification.trim(),
         createdAt: new Date().toISOString(),
       };
 
+      const matchedInvite = getDirectInviteByCode(target, code);
       const nextPending = matchedInvite
         ? [
             ...(target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id)),
@@ -593,7 +604,7 @@ export default function OutsidersCreateCrew({
               action_screen: "friend-groups",
               action_params: { groupId: target.id, tab: "Invites" },
               type: "crew-invite-declined",
-              message: `${currentName} declined the invite to ${target.name}.`,
+              message: `${currentName} declined the invite to ${target.name}${declineClarification.trim() ? `: "${declineClarification.trim()}"` : "."}`,
               read: false,
             }))
           );
@@ -617,6 +628,8 @@ export default function OutsidersCreateCrew({
       }));
 
       setInviteTarget(nextGroup);
+      setShowDeclineInput(false);
+      setDeclineClarification("");
       showNotice(`You declined ${target.name}.`, "warn");
     } finally {
       setIsSaving(false);
@@ -823,34 +836,63 @@ export default function OutsidersCreateCrew({
                       ? submitCrewInviteDecision({ declined: false })
                       : detectInviteTarget())
                   }
-                  disabled={
-                    isSaving ||
-                    inviteAlreadyMember
-                  }
+                  disabled={isSaving || inviteAlreadyMember}
                 >
                   {isSaving
                     ? "Saving..."
                     : inviteTarget
-                    ? "Accept invite"
-                    : "Join Crew"}
+                    ? "Request to join"
+                    : "Look up crew"}
                 </button>
 
-                {inviteTarget ? (
+                {inviteTarget && !showDeclineInput ? (
                   <button
                     type="button"
                     className="btn ghost"
                     style={{ width: "100%", marginTop: 12 }}
-                    onClick={() => {
-                      void submitCrewInviteDecision({ declined: true });
-                    }}
+                    onClick={() => setShowDeclineInput(true)}
                     disabled={
                       isSaving ||
                       inviteAlreadyMember ||
                       existingInviteDecision?.type === "decline-note"
                     }
                   >
-                    Decline invite
+                    {existingInviteDecision?.type === "decline-note" ? "Already declined" : "Decline invite"}
                   </button>
+                ) : null}
+
+                {inviteTarget && showDeclineInput ? (
+                  <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+                    <div className="field">
+                      <label>Why are you declining? (optional)</label>
+                      <textarea
+                        value={declineClarification}
+                        onChange={(e) => setDeclineClarification(e.target.value)}
+                        placeholder="Let the crew know why you're passing on this one..."
+                        style={{ minHeight: 80, resize: "vertical", width: "100%", border: "3px solid #17151f", borderRadius: 12, padding: "12px 14px", background: "#fff7e4", font: "700 15px 'Nunito', sans-serif", color: "#17151f", outline: "none", boxShadow: "3px 3px 0 #17151f" }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        style={{ flex: 1 }}
+                        onClick={() => { setShowDeclineInput(false); setDeclineClarification(""); }}
+                        disabled={isSaving}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn primary"
+                        style={{ flex: 1, background: "#ff6b6b" }}
+                        onClick={() => void submitCrewInviteDecision({ declined: true })}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? "Saving..." : "Confirm decline"}
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
 
                 {inviteTarget ? (
@@ -861,6 +903,8 @@ export default function OutsidersCreateCrew({
                     onClick={() => {
                       setInviteTarget(null);
                       setJoinCode("");
+                      setShowDeclineInput(false);
+                      setDeclineClarification("");
                     }}
                   >
                     Try a different code

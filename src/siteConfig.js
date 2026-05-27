@@ -35,9 +35,3 @@ export function buildGroupInviteLink(codeOrParams) {
 
   return `${getSiteUrl()}/#/create-crew${query.size ? `?${query.toString()}` : ""}`;
 }
-
-export function buildHangoutInviteLink(code) {
-  if (!code) return "";
-  const query = new URLSearchParams({ code: String(code).trim().toUpperCase() });
-  return `${getSiteUrl()}/#/join-hangout?${query.toString()}`;
-}
