@@ -47,6 +47,7 @@ const STYLES = `
     border-top: 3px solid #1a1a2e;
     border-bottom: 3px solid #1a1a2e;
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
     background: #f5f3ee;
   }
 
@@ -190,7 +191,7 @@ const STYLES = `
   }
 
   .availability-slot {
-    min-height: 40px;
+    min-height: 44px;
     position: relative;
     cursor: pointer;
     background: rgba(255, 255, 255, 0.66);
@@ -205,18 +206,45 @@ const STYLES = `
     transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
   }
 
+  .availability-slot-indicator {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    z-index: 1;
+    pointer-events: none;
+    color: #fff;
+    font: 900 18px 'Nunito', sans-serif;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 140ms ease, transform 140ms ease;
+  }
+
   .availability-slot:hover::after {
     background: rgba(78, 205, 196, 0.16);
     transform: scale(0.97);
   }
 
   .availability-slot.active::after {
-    background: #51cf66;
+    background: linear-gradient(180deg, #51cf66 0%, #2fb355 100%);
     box-shadow: inset 0 0 0 2px rgba(26, 26, 46, 0.12), 0 4px 0 rgba(26, 26, 46, 0.12);
+  }
+
+  .availability-slot.active .availability-slot-indicator {
+    opacity: 1;
+    transform: scale(1);
   }
 
   .availability-slot.dragging::after {
     background: #ffd93d;
+  }
+
+  .availability-slot.recent::after {
+    animation: availability-pop 180ms ease;
+  }
+
+  .availability-slot.recent .availability-slot-indicator {
+    animation: availability-check-pop 220ms ease;
   }
 
   .availability-footer {
@@ -281,7 +309,38 @@ const STYLES = `
     }
 
     .availability-frame {
-      overflow-x: hidden;
+      overflow-x: auto;
+    }
+
+    .availability-help {
+      padding: 0 14px 14px;
+    }
+
+    .availability-mobile-nav {
+      padding: 0 14px 14px;
+    }
+
+    .availability-grid {
+      grid-template-columns: 74px repeat(7, minmax(88px, 1fr));
+      min-width: 760px;
+    }
+
+    .availability-grid.single-day {
+      grid-template-columns: 74px minmax(220px, 1fr);
+      min-width: 0;
+    }
+
+    .availability-head {
+      padding: 12px 8px;
+    }
+
+    .availability-time {
+      padding: 12px 8px;
+      font-size: 11px;
+    }
+
+    .availability-slot {
+      min-height: 48px;
     }
   }
 
@@ -293,6 +352,18 @@ const STYLES = `
     .availability-mini-btn {
       min-height: 48px;
     }
+  }
+
+  @keyframes availability-pop {
+    0% { transform: scale(0.96); }
+    55% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes availability-check-pop {
+    0% { transform: scale(0.65); }
+    65% { transform: scale(1.14); }
+    100% { transform: scale(1); }
   }
 `;
 
@@ -328,6 +399,7 @@ export default function AvailabilitySheet({
   const [dragMode, setDragMode] = useState(null);
   const [selectedDay, setSelectedDay] = useState(getPreferredMobileDay);
   const [isCondensedView, setIsCondensedView] = useState(false);
+  const [recentlyToggledKey, setRecentlyToggledKey] = useState("");
   const dragTouchedKeys = useRef(new Set());
   const activeBlocks = useMemo(() => getAvailabilityBlockSet(value), [value]);
   const ready = hasAvailability(value);
@@ -396,8 +468,17 @@ export default function AvailabilitySheet({
     const shouldAdd = forcedMode ? forcedMode === "add" : !next.has(key);
     if (shouldAdd) next.add(key);
     else next.delete(key);
+    setRecentlyToggledKey(key);
     setAvailabilityFromBlocks(next);
   };
+
+  useEffect(() => {
+    if (!recentlyToggledKey) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      setRecentlyToggledKey("");
+    }, 220);
+    return () => window.clearTimeout(timeoutId);
+  }, [recentlyToggledKey]);
 
   const startDrag = (day, time) => {
     if (readOnly) return;
@@ -484,14 +565,38 @@ export default function AvailabilitySheet({
                   </div>
                   <div className="availability-day-actions">
                     {RANGE_PRESETS.map((preset) => (
-                      <button key={`${day}-${preset.label}`} type="button" className="availability-mini-btn" onClick={() => applyPresetToDay(day, preset.start, preset.end, "add")}>
+                      <button
+                        key={`${day}-${preset.label}`}
+                        type="button"
+                        className="availability-mini-btn"
+                        onClick={() => {
+                          setSelectedDay(day);
+                          applyPresetToDay(day, preset.start, preset.end, "add");
+                        }}
+                      >
                         {preset.label}
                       </button>
                     ))}
-                    <button type="button" className="availability-mini-btn" disabled={readOnly} onClick={() => toggleAllDay(day)}>
+                    <button
+                      type="button"
+                      className="availability-mini-btn"
+                      disabled={readOnly}
+                      onClick={() => {
+                        setSelectedDay(day);
+                        toggleAllDay(day);
+                      }}
+                    >
                       All day
                     </button>
-                    <button type="button" className="availability-mini-btn" disabled={readOnly} onClick={() => applyPresetToDay(day, "08:00", "23:00", "remove")}>
+                    <button
+                      type="button"
+                      className="availability-mini-btn"
+                      disabled={readOnly}
+                      onClick={() => {
+                        setSelectedDay(day);
+                        applyPresetToDay(day, "08:00", "23:00", "remove");
+                      }}
+                    >
                       Clear
                     </button>
                   </div>
@@ -542,6 +647,7 @@ export default function AvailabilitySheet({
                 activeBlocks={activeBlocks}
                 dragMode={dragMode}
                 readOnly={readOnly}
+                recentlyToggledKey={recentlyToggledKey}
                 onMouseDown={startDrag}
                 onMouseEnter={continueDrag}
               />
@@ -562,7 +668,7 @@ export default function AvailabilitySheet({
   );
 }
 
-function AvailabilityRow({ time, visibleDays, activeBlocks, dragMode, readOnly, onMouseDown, onMouseEnter }) {
+function AvailabilityRow({ time, visibleDays, activeBlocks, dragMode, readOnly, recentlyToggledKey, onMouseDown, onMouseEnter }) {
   return (
     <>
       <div className="availability-time">{formatTimeLabel(time)}</div>
@@ -571,7 +677,7 @@ function AvailabilityRow({ time, visibleDays, activeBlocks, dragMode, readOnly, 
         return (
           <div
             key={key}
-            className={`availability-slot ${activeBlocks.has(key) ? "active" : ""} ${dragMode ? "dragging" : ""}`}
+            className={`availability-slot ${activeBlocks.has(key) ? "active" : ""} ${dragMode ? "dragging" : ""} ${recentlyToggledKey === key ? "recent" : ""}`}
             style={{ cursor: readOnly ? "default" : "pointer" }}
             data-availability-slot="true"
             data-day={day}
@@ -579,7 +685,9 @@ function AvailabilityRow({ time, visibleDays, activeBlocks, dragMode, readOnly, 
             onMouseDown={() => !readOnly && onMouseDown(day, time)}
             onMouseEnter={() => !readOnly && onMouseEnter(day, time)}
             onTouchStart={() => !readOnly && onMouseDown(day, time)}
-          />
+          >
+            <span className="availability-slot-indicator" aria-hidden="true">✓</span>
+          </div>
         );
       })}
     </>

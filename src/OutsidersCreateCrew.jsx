@@ -200,6 +200,15 @@ function pendingMatchesIdentity(item = {}, identity = {}) {
   );
 }
 
+function getDirectInviteByCode(group = {}, code = "") {
+  const normalizedCode = String(code || "").trim().toUpperCase();
+  return (group.pending || []).find((item) => (
+    String(item?.inviteCode || "").trim().toUpperCase() === normalizedCode
+    && item?.type !== "join-request"
+    && item?.type !== "decline-note"
+  )) || null;
+}
+
 export default function OutsidersCreateCrew({
   onNavigate,
   appData,
@@ -508,6 +517,49 @@ export default function OutsidersCreateCrew({
         return;
       }
 
+      const matchedInvite = getDirectInviteByCode(target, code);
+      if (matchedInvite && !declined) {
+        const acceptedMember = buildMember(
+          profile,
+          currentName,
+          "Member",
+          resolvedUserId,
+          appData?.avatar || ""
+        );
+        const nextMembers = [...(target.members || []), acceptedMember];
+        const nextPending = (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id));
+        const nextGroup = { ...target, members: nextMembers, pending: nextPending };
+
+        if (isSupabaseConfigured && target.id) {
+          const { error } = await supabase
+            .from("groups")
+            .update({ members: nextMembers, pending: nextPending })
+            .eq("id", target.id);
+
+          if (error) {
+            showNotice(error.message || "We could not add you to that crew yet.");
+            return;
+          }
+        }
+
+        setAppData?.((prev) => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            id: resolvedUserId || prev.profile?.id || "",
+          },
+          groups: (prev.groups || []).some((group) => String(group.id) === String(nextGroup.id))
+            ? (prev.groups || []).map((group) => (
+                String(group.id) === String(nextGroup.id) ? nextGroup : group
+              ))
+            : [...(prev.groups || []), nextGroup],
+        }));
+        setInviteTarget(nextGroup);
+        showNotice(`You joined ${target.name}.`, "success");
+        onNavigate?.("friend-groups", { groupId: target.id, tab: "Members" });
+        return;
+      }
+
       const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
       const existingPending = (target.pending || []).find(
         (item) =>
@@ -524,31 +576,43 @@ export default function OutsidersCreateCrew({
         return;
       }
 
-      const nextPending = [
-        ...(target.pending || []),
-        declined
-          ? {
+      const nextPending = declined && matchedInvite
+        ? [
+            ...(target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id)),
+            {
               id: createId("decline"),
               type: "decline-note",
               code,
               ...identity,
               clarification: "",
               createdAt: new Date().toISOString(),
-            }
-          : {
-              id: createId("join-request"),
-              type: "join-request",
-              code,
-              ...identity,
-              role: "Member",
-              bio: profile.bio || "",
-              location: profile.location || "",
-              email: profile.email || "",
-              availability: profile.availability,
-              avatar: appData?.avatar || "",
-              createdAt: new Date().toISOString(),
             },
-      ];
+          ]
+        : [
+            ...(target.pending || []),
+            declined
+              ? {
+                  id: createId("decline"),
+                  type: "decline-note",
+                  code,
+                  ...identity,
+                  clarification: "",
+                  createdAt: new Date().toISOString(),
+                }
+              : {
+                  id: createId("join-request"),
+                  type: "join-request",
+                  code,
+                  ...identity,
+                  role: "Member",
+                  bio: profile.bio || "",
+                  location: profile.location || "",
+                  email: profile.email || "",
+                  availability: profile.availability,
+                  avatar: appData?.avatar || "",
+                  createdAt: new Date().toISOString(),
+                },
+          ];
 
       if (isSupabaseConfigured && target.id) {
         const { error } = await supabase
