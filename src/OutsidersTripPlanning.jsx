@@ -731,6 +731,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
     || null
   );
   const currentProfile = appData?.profile || {};
+  const effectiveCurrentUserId = currentUserId || currentProfile?.id || null;
   const currentUserDisplayName = getDisplayName(currentProfile);
   const currentUsername = currentProfile?.username ? `@${String(currentProfile.username).replace(/^@/, "").toLowerCase()}` : "";
 
@@ -761,7 +762,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
     ? groups.find((group) => String(group.id) === String(selectedTrip.groupId)) || null
     : null;
   const editableSavingsEntry = (selectedTrip?.savingsProgress || []).find((entry) => (
-    (entry.userId && currentUserId && String(entry.userId) === String(currentUserId))
+    (entry.userId && effectiveCurrentUserId && String(entry.userId) === String(effectiveCurrentUserId))
     || (entry.username && currentUsername && String(entry.username).toLowerCase() === currentUsername)
     || String(entry.name || "").trim().toLowerCase() === currentUserDisplayName.trim().toLowerCase()
   )) || null;
@@ -769,7 +770,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   const tripComHotelsLink = selectedTrip ? buildTripComHotelsLink(selectedTrip.destination) : "";
   const tripComFlightsLink = buildTripComFlightsLink();
   const tripComPackagesLink = buildTripComPackagesLink();
-  const isTripHost = Boolean(currentUserId && String(selectedTrip?.creatorId || "") === String(currentUserId));
+  const isTripHost = Boolean(effectiveCurrentUserId && String(selectedTrip?.creatorId || "") === String(effectiveCurrentUserId));
   const totalGroupSaved = (selectedTrip?.savingsProgress || []).reduce((sum, entry) => sum + (Number(entry.saved) || 0), 0);
   const groupSavingsGoal = Number(selectedTrip?.groupSavingsGoal) || Number(selectedTrip?.budget) || 0;
   const memberSavingsTargets = (selectedTrip?.memberSavingsTargets || []).length
@@ -781,7 +782,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       name: entry.name,
     })), groupSavingsGoal);
   const personalSavingsTarget = Number(
-    memberSavingsTargets.find((item) => item.name === currentUserDisplayName || item.userId === currentUserId || item.username === currentUsername)?.target
+    memberSavingsTargets.find((item) => item.name === currentUserDisplayName || item.userId === effectiveCurrentUserId || item.username === currentUsername)?.target
   ) || (groupSavingsGoal ? Math.round((groupSavingsGoal / travelerCount) * 100) / 100 : 0);
   const personalSavings = Number(editableSavingsEntry?.saved) || 0;
   const remainingToSave = selectedTrip ? Math.max(personalSavingsTarget - personalSavings, 0) : 0;
@@ -806,7 +807,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const updateTrip = async (updatedTrip) => {
-    if (isSupabaseConfigured && currentUserId && updatedTrip?.id && !String(updatedTrip.id).startsWith("trip-")) {
+    if (isSupabaseConfigured && effectiveCurrentUserId && updatedTrip?.id && !String(updatedTrip.id).startsWith("trip-")) {
       const { error } = await supabase
         .from("trips")
         .update({
@@ -936,7 +937,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
         ...(selectedTrip.savingsProgress || []),
         {
           id: createId("saving"),
-          userId: currentUserId || null,
+          userId: effectiveCurrentUserId || null,
           username: currentUsername,
           name: currentUserDisplayName,
           saved: nextAmount,
@@ -1037,7 +1038,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
 
   const deleteTrip = async () => {
     if (!selectedTrip) return;
-    const isCreator = currentUserId && String(selectedTrip.creatorId || "") === String(currentUserId);
+    const isCreator = effectiveCurrentUserId && String(selectedTrip.creatorId || "") === String(effectiveCurrentUserId);
     const isSharedTrip = Boolean(selectedTrip.groupId);
 
     if (isCreator && isSharedTrip) {
@@ -1049,13 +1050,13 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       if (choice.trim().toLowerCase() === "team") {
         const confirmed = window.confirm(`Delete ${selectedTrip.name} for the whole team?`);
         if (!confirmed) return;
-        if (isSupabaseConfigured && currentUserId && selectedTrip?.id && !String(selectedTrip.id).startsWith("trip-")) {
+        if (isSupabaseConfigured && effectiveCurrentUserId && selectedTrip?.id && !String(selectedTrip.id).startsWith("trip-")) {
           const { error } = await supabase.from("trips").delete().eq("id", selectedTrip.id);
           if (error) return;
         }
         persistTrips((previousTrips) => previousTrips.filter((trip) => trip.id !== selectedTrip.id), null);
       } else if (choice.trim().toLowerCase() === "me") {
-        const nextHiddenFor = Array.from(new Set([...(selectedTrip.hiddenFor || []), currentUserId]));
+        const nextHiddenFor = Array.from(new Set([...(selectedTrip.hiddenFor || []), effectiveCurrentUserId]));
         const updatedTrip = { ...selectedTrip, hiddenFor: nextHiddenFor };
         await updateTrip(updatedTrip);
         persistTrips((previousTrips) => previousTrips.filter((trip) => trip.id !== selectedTrip.id), null);
@@ -1064,12 +1065,12 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       const confirmed = window.confirm(`Remove ${selectedTrip.name} from your trip list?`);
       if (!confirmed) return;
       if (isCreator && !isSharedTrip) {
-        if (isSupabaseConfigured && currentUserId && selectedTrip?.id && !String(selectedTrip.id).startsWith("trip-")) {
+        if (isSupabaseConfigured && effectiveCurrentUserId && selectedTrip?.id && !String(selectedTrip.id).startsWith("trip-")) {
           const { error } = await supabase.from("trips").delete().eq("id", selectedTrip.id);
           if (error) return;
         }
       } else {
-        const nextHiddenFor = Array.from(new Set([...(selectedTrip.hiddenFor || []), currentUserId]));
+        const nextHiddenFor = Array.from(new Set([...(selectedTrip.hiddenFor || []), effectiveCurrentUserId]));
         const updatedTrip = { ...selectedTrip, hiddenFor: nextHiddenFor };
         await updateTrip(updatedTrip);
       }
@@ -1121,7 +1122,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       savingsProgress: buildSavingsProgress(
         selectedGroup ? resolvedGroupMembers : [],
         currentProfile,
-        currentUserId
+        effectiveCurrentUserId
       ),
       planningChecklist: buildDefaultChecklist(),
       itinerarySuggestions: [],
@@ -1134,15 +1135,18 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       groupSavingsGoal: Number(newTripForm.budget) || 0,
       memberSavingsTargets: buildMemberSavingsTargets(
         selectedGroup ? resolvedGroupMembers : [{
-          userId: currentUserId || null,
+          userId: effectiveCurrentUserId || null,
           username: currentProfile?.username ? `@${String(currentProfile.username).replace(/^@/, "")}` : "",
           name: currentUserDisplayName,
         }],
         Number(newTripForm.budget) || 0
       ),
     };
-    let savedTrip = newTrip;
-    if (isSupabaseConfigured && currentUserId) {
+    let savedTrip = {
+      ...newTrip,
+      creatorId: effectiveCurrentUserId || null,
+    };
+    if (isSupabaseConfigured && effectiveCurrentUserId) {
       const { data, error } = await supabase
         .from("trips")
         .insert({
@@ -1158,7 +1162,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           itinerary: newTrip.itinerary,
           packing_list: newTrip.packingList,
           ratings: [],
-          creator_id: currentUserId,
+          creator_id: effectiveCurrentUserId,
           group_id: newTrip.groupId,
           invite_code: newTrip.groupId ? (newTrip.inviteCode || null) : null,
           savings_progress: newTrip.savingsProgress,
@@ -1174,7 +1178,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
         .single();
       if (!error && data) {
         savedTrip = {
-          ...newTrip,
+          ...savedTrip,
           id: data.id,
           startDate: data.start_date,
           endDate: data.end_date,
@@ -1191,6 +1195,9 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           groupSavingsGoal: Number(data.group_savings_goal) || newTrip.groupSavingsGoal,
           memberSavingsTargets: data.member_savings_targets || newTrip.memberSavingsTargets,
         };
+      } else if (error) {
+        setFormError(error.message || "We could not save this trip right now.");
+        return;
       }
 
       if (selectedGroup) {
@@ -1589,7 +1596,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                             </div>
                             <input className="form-input" type="number" min="0" value={personalSavings} onChange={(event) => updateMySavings(event.target.value)} placeholder="How much have you saved?" />
                             <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#888" }}>
-                              Your target: ${memberSavingsTargets.find((item) => item.name === currentUserDisplayName || item.userId === currentUserId || item.username === currentUsername)?.target ?? personalSavingsTarget}
+                              Your target: ${memberSavingsTargets.find((item) => item.name === currentUserDisplayName || item.userId === effectiveCurrentUserId || item.username === currentUsername)?.target ?? personalSavingsTarget}
                             </p>
                           </div>
                         </div>
