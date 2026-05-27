@@ -26,15 +26,12 @@ export function buildTripComPackagesLink() {
   return `${DEFAULT_TRIP_COM_URL}/packages/`;
 }
 
-export function buildGroupInviteLink(codeOrParams, inviteParams = {}) {
+export function buildGroupInviteLink(codeOrParams) {
   const params = typeof codeOrParams === "object" && codeOrParams !== null
     ? codeOrParams
-    : { groupCode: codeOrParams, ...inviteParams };
-
+    : { groupCode: codeOrParams };
   const query = new URLSearchParams();
   if (params.groupCode) query.set("groupCode", String(params.groupCode).trim().toUpperCase());
-  if (params.inviteCode) query.set("inviteCode", String(params.inviteCode).trim().toUpperCase());
-  if (params.inviteFor) query.set("inviteFor", String(params.inviteFor));
 
   return `${getSiteUrl()}/#/create-crew${query.size ? `?${query.toString()}` : ""}`;
 }

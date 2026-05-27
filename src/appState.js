@@ -174,7 +174,7 @@ function normalizeTrip(trip = {}) {
     ratings: Array.isArray(trip.ratings) ? trip.ratings : [],
     groupId: trip.groupId || trip.group_id || null,
     creatorId: trip.creatorId || trip.creator_id || null,
-    inviteCode: (trip.groupId || trip.group_id) ? (trip.inviteCode || trip.invite_code || "") : "",
+    inviteCode: "",
     savingsProgress: Array.isArray(trip.savingsProgress) ? trip.savingsProgress : (Array.isArray(trip.savings_progress) ? trip.savings_progress : []),
     planningChecklist: Array.isArray(trip.planningChecklist) ? trip.planningChecklist : (Array.isArray(trip.planning_checklist) ? trip.planning_checklist : []),
     itinerarySuggestions: Array.isArray(trip.itinerarySuggestions) ? trip.itinerarySuggestions : (Array.isArray(trip.itinerary_suggestions) ? trip.itinerary_suggestions : []),

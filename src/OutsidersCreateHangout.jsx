@@ -512,10 +512,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     followUpNotes: "",
   });
   const [duration, setDuration] = useState("");
-  const [selectedMembers, setSelectedMembers] = useState([]);
   const [timeOptions, setTimeOptions] = useState([]);
   const [locationOptions, setLocationOptions] = useState([]);
-  const externalInvites = [];
   const [agenda, setAgenda] = useState([]);
   const [agendaSuggestions, setAgendaSuggestions] = useState([]);
   const [agendaError, setAgendaError] = useState("");
@@ -535,16 +533,13 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     }
   }, [groups, selectedGroupId]);
   const participants = useMemo(() => selectedGroup?.members ?? [], [selectedGroup]);
-  const participantPool = useMemo(() => {
-    const chosenKeys = selectedMembers.length ? selectedMembers : participants.map(memberKey);
-    return participants
-      .filter((member) => chosenKeys.includes(memberKey(member)))
-      .map((member) => ({
-        id: memberKey(member),
-        name: member.name,
-        availability: member.availability || null,
-      }));
-  }, [participants, selectedMembers]);
+  const participantPool = useMemo(() => (
+    participants.map((member) => ({
+      id: memberKey(member),
+      name: member.name,
+      availability: member.availability || null,
+    }))
+  ), [participants]);
 
   const parsedDurationHours = duration === "" ? null : Number(duration);
   const hasCustomDuration = Number.isFinite(parsedDurationHours) && parsedDurationHours > 0;
@@ -570,13 +565,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       active = false;
     };
   }, []);
-
-  const toggleMember = (member) => {
-    const key = memberKey(member);
-    setSelectedMembers((prev) => (
-      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
-    ));
-  };
 
   const addRecommendedTime = (rec) => {
     const option = {
@@ -680,8 +668,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     setIsCreatingProposal(true);
     setError("");
 
-    const chosenMemberKeys = selectedMembers.length ? selectedMembers : participants.map(memberKey);
-    const proposalParticipants = participants.filter((member) => chosenMemberKeys.includes(memberKey(member)));
     const proposal = {
       id: createId("proposal"),
       name: form.name.trim(),
@@ -691,15 +677,13 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       status: "proposed",
-      code: "",
-      link: "",
       createdAt: new Date().toISOString(),
       proposerName: getDisplayName(profile),
       proposerKey: getCurrentUserKey(profile),
       timeOptions,
       locationOptions,
       votes: { availability: {}, vibe: {}, time: {}, location: {} },
-      participants: proposalParticipants,
+      participants,
       externalInvites: [],
       recommendations,
       agenda,
@@ -728,8 +712,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       proposalId: proposal.id,
-      proposalCode: proposal.code,
-      link: proposal.link,
       recipient: member.name,
       recipientKey: notificationRecipientKey(member),
       actionScreen: "friend-groups",
@@ -769,8 +751,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                 group_id: item.groupId,
                 group_name: item.groupName,
                 proposal_id: item.proposalId,
-                proposal_code: item.proposalCode,
-                link: item.link,
                 action_screen: item.actionScreen,
                 action_params: item.actionParams,
                 type: item.type,
@@ -898,23 +878,20 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: 12 }}>
-                      <strong style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Crew members to include</strong>
-                      <p style={{ margin: "0 0 2px", color: "#667085" }}>Everyone is included by default. Tap a person only if you want to leave them out of this one.</p>
+                      <strong style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Who gets this hangout</strong>
+                      <p style={{ margin: "0 0 2px", color: "#667085" }}>Everyone in this crew gets the hangout automatically. No extra invitations are needed.</p>
                       <div className="member-grid">
-                      {participants.length ? participants.map((member) => {
-                        const selected = selectedMembers.length ? selectedMembers.includes(memberKey(member)) : true;
-                        return (
-                          <button key={memberKey(member)} type="button" className={`crew-member ${selected ? "active" : ""}`} onClick={() => toggleMember(member)}>
+                        {participants.length ? participants.map((member) => (
+                          <div key={memberKey(member)} className="crew-member active" style={{ cursor: "default" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
                               <strong>{member.name}</strong>
-                              <span style={{ color: selected ? "#0f766e" : "#667085", fontWeight: 700 }}>{selected ? "Included" : "Tap to include"}</span>
+                              <span style={{ color: "#0f766e", fontWeight: 700 }}>Included</span>
                             </div>
                             <p style={{ margin: "8px 0 0", color: "#667085", textAlign: "left" }}>{availabilityToText(member.availability)}</p>
-                          </button>
-                        );
-                      }) : (
-                        <p style={{ margin: 0, color: "#667085" }}>Create or join a crew first.</p>
-                      )}
+                          </div>
+                        )) : (
+                          <p style={{ margin: 0, color: "#667085" }}>Create or join a crew first.</p>
+                        )}
                       </div>
                     </div>
                   </div>
