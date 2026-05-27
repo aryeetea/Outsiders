@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getVisibleGroupsForProfile } from "./appState";
 import { sendNotificationEmails } from "./notificationEmail";
-import { isSupabaseConfigured, supabase } from "./supabase";
+import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 import OutsidersSideNav from "./OutsidersSideNav";
 
 const STYLES = `
@@ -362,9 +362,10 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
   async function createCase() {
     const groupId = newCaseForm.groupId || selectedGroup?.id;
     const targetGroup = groups.find((group) => String(group.id) === String(groupId));
+    const { members: resolvedMembers } = targetGroup ? await hydrateMembersWithProfileLinks(targetGroup.members || []) : { members: [] };
     const targetMember = newCaseForm.scope === "group"
       ? null
-      : (targetGroup?.members || []).find((member) => member.name === newCaseForm.targetMemberName);
+      : resolvedMembers.find((member) => member.name === newCaseForm.targetMemberName);
 
     if (!targetGroup) {
       setNotice("Pick a crew first.");
@@ -408,12 +409,17 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
     };
 
     const nextCases = [nextCase, ...(targetGroup.cases || [])];
-    const saved = await persistCases(targetGroup.id, nextCases);
+    const nextGroupMembers = resolvedMembers.length ? resolvedMembers : (targetGroup.members || []);
+    const saved = await persistGroupPatch(
+      targetGroup.id,
+      { cases: nextCases, members: nextGroupMembers },
+      { cases: nextCases, members: nextGroupMembers }
+    );
     if (!saved) return;
 
     if (isSupabaseConfigured) {
       const recipientMembers = newCaseForm.scope === "group"
-        ? (targetGroup.members || []).filter((member) => !isCurrentMember(member, currentUser?.id, currentUsername, currentDisplayName))
+        ? nextGroupMembers
         : (targetMember ? [targetMember] : []);
 
       const recipientRows = recipientMembers

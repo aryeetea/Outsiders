@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createId, getDisplayName, getVisibleGroupsForProfile } from "./appState";
-import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { buildTripComFlightsLink, buildTripComHotelsLink, buildTripComPackagesLink, buildTripInviteLink } from "./siteConfig";
+import { buildTripComFlightsLink, buildTripComHotelsLink, buildTripComPackagesLink, getSiteUrl } from "./siteConfig";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
@@ -607,11 +606,6 @@ const getDays = (start, end) => {
   return Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
 };
 
-function generateCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-
 function buildDefaultChecklist() {
   return [
     { id: createId("trip-check"), label: "Confirm who is going", done: false },
@@ -729,9 +723,9 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   const [aiError, setAiError] = useState("");
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
 
-  const routeTripCode = String(routeParams?.tripCode || "").trim().toUpperCase();
+  const routeTripId = String(routeParams?.tripId || "").trim();
   const selectedTrip = (
-    (routeTripCode ? trips.find((trip) => String(trip.inviteCode || "").toUpperCase() === routeTripCode) : null)
+    (routeTripId ? trips.find((trip) => String(trip.id) === routeTripId) : null)
     || trips.find((trip) => trip.id === selectedTripId)
     || trips[0]
     || null
@@ -766,7 +760,6 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   const selectedTripGroup = selectedTrip?.groupId
     ? groups.find((group) => String(group.id) === String(selectedTrip.groupId)) || null
     : null;
-  const tripInviteLink = selectedTrip?.inviteCode ? buildTripInviteLink(selectedTrip.inviteCode) : "";
   const editableSavingsEntry = (selectedTrip?.savingsProgress || []).find((entry) => (
     (entry.userId && currentUserId && String(entry.userId) === String(currentUserId))
     || (entry.username && currentUsername && String(entry.username).toLowerCase() === currentUsername)
@@ -829,7 +822,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           itinerary: updatedTrip.itinerary,
           packing_list: updatedTrip.packingList,
           ratings: updatedTrip.ratings || [],
-          invite_code: updatedTrip.inviteCode || "",
+          invite_code: updatedTrip.groupId ? (updatedTrip.inviteCode || null) : null,
           savings_progress: updatedTrip.savingsProgress || [],
           planning_checklist: updatedTrip.planningChecklist || [],
           itinerary_suggestions: updatedTrip.itinerarySuggestions || [],
@@ -1042,16 +1035,6 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
     }
   };
 
-  const copyTripCode = async () => {
-    if (!selectedTrip?.inviteCode) return;
-    await copyTextWithAlert(selectedTrip.inviteCode, "Trip code copied.");
-  };
-
-  const copyTripLink = async () => {
-    if (!tripInviteLink) return;
-    await copyTextWithAlert(tripInviteLink, "Trip invite link copied.");
-  };
-
   const deleteTrip = async () => {
     if (!selectedTrip) return;
     const isCreator = currentUserId && String(selectedTrip.creatorId || "") === String(currentUserId);
@@ -1134,7 +1117,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       packingList: [{ id: 1, item: "Passport / ID 🛂", packed: false }, { id: 2, item: "Phone charger 🔋", packed: false }],
       ratings: [],
       groupId: selectedGroup?.id || null,
-      inviteCode: generateCode(),
+      inviteCode: "",
       savingsProgress: buildSavingsProgress(
         selectedGroup ? resolvedGroupMembers : [],
         currentProfile,
@@ -1177,7 +1160,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           ratings: [],
           creator_id: currentUserId,
           group_id: newTrip.groupId,
-          invite_code: newTrip.inviteCode,
+          invite_code: newTrip.groupId ? (newTrip.inviteCode || null) : null,
           savings_progress: newTrip.savingsProgress,
           planning_checklist: newTrip.planningChecklist,
           itinerary_suggestions: [],
@@ -1198,7 +1181,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           packingList: data.packing_list || newTrip.packingList,
           creatorId: data.creator_id,
           groupId: data.group_id || newTrip.groupId,
-          inviteCode: data.invite_code || newTrip.inviteCode,
+          inviteCode: data.group_id ? (data.invite_code || newTrip.inviteCode) : "",
           savingsProgress: data.savings_progress || newTrip.savingsProgress,
           planningChecklist: data.planning_checklist || newTrip.planningChecklist,
           itinerarySuggestions: data.itinerary_suggestions || [],
@@ -1229,7 +1212,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
           };
         });
         const recipientRows = resolvedMembers
-          .filter((member) => member.userId && member.userId !== currentUserId)
+          .filter((member) => member.userId)
           .map((member) => ({
             user_id: member.userId,
             recipient: member.name,
@@ -1237,7 +1220,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
             group_id: selectedGroup.id,
             group_name: selectedGroup.name,
             action_screen: "trip-planning",
-            action_params: { tripCode: savedTrip.inviteCode },
+            action_params: { tripId: savedTrip.id },
             type: "trip-created",
             message: `${getDisplayName(appData?.profile || {})} created a trip: ${savedTrip.name}.`,
             read: false,
@@ -1250,12 +1233,12 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
         try {
           await sendNotificationEmails({
             recipients: resolvedMembers
-              .filter((member) => member.email && member.userId !== currentUserId)
+              .filter((member) => member.email)
               .map((member) => ({ email: member.email, name: member.name })),
             subject: `${getDisplayName(appData?.profile || {})} created a trip in ${selectedGroup.name}`,
             intro: `${getDisplayName(appData?.profile || {})} just planned "${savedTrip.name}" for ${selectedGroup.name}.`,
             ctaLabel: "Open trip",
-            ctaUrl: buildTripInviteLink(savedTrip.inviteCode),
+            ctaUrl: `${getSiteUrl()}/#/trip-planning`,
             details: [
               `Destination: ${savedTrip.destination}`,
               `Dates: ${savedTrip.startDate} to ${savedTrip.endDate}`,
@@ -1267,6 +1250,25 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
       }
     }
     persistTrips((previousTrips) => [...previousTrips, savedTrip], savedTrip.id);
+    if (selectedGroup) {
+      setAppData?.((prev) => ({
+        ...prev,
+        notifications: [
+          ...(prev.notifications || []),
+          {
+            id: createId("note"),
+            type: "trip-created",
+            message: `${getDisplayName(appData?.profile || {})} created a trip: ${savedTrip.name}.`,
+            groupId: selectedGroup.id,
+            groupName: selectedGroup.name,
+            actionScreen: "trip-planning",
+            actionParams: { tripId: savedTrip.id },
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+        ],
+      }));
+    }
     setShowCreateModal(false);
     setNewTripForm({
       name: "",
@@ -1440,21 +1442,18 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                     <div style={{ marginTop: 16, display: "grid", gap: 10, background: "rgba(255,255,255,0.72)", border: "2px dashed rgba(26,26,46,0.22)", borderRadius: 16, padding: 14 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                         <div>
-                          <p className="bangers" style={{ fontSize: 16, margin: 0, color: "#1a1a2e" }}>Trip invite</p>
+                          <p className="bangers" style={{ fontSize: 16, margin: 0, color: "#1a1a2e" }}>{selectedTripGroup ? "Crew trip space" : "Personal trip space"}</p>
                           <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 800, color: "#666" }}>
-                            Share this code or link so your crew opens this exact trip.
+                            {selectedTripGroup
+                              ? "Trip plans stay here for the crew, so there is no extra code or share link to manage."
+                              : "This trip stays just for you for now, so there is no code or share link attached to it."}
                           </p>
                         </div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <button type="button" className="btn-secondary" onClick={copyTripCode}>Copy trip code</button>
-                          <button type="button" className="btn-secondary" onClick={copyTripLink}>Copy trip link</button>
-                        </div>
                       </div>
-                      <div style={{ display: "grid", gap: 8 }}>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: "#777" }}>Code</div>
-                        <div className="invite-value">{selectedTrip.inviteCode}</div>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: "#777" }}>Link</div>
-                        <div className="invite-value">{tripInviteLink}</div>
+                      <div className="invite-value">
+                        {selectedTripGroup
+                          ? "Open this trip from the Trip Planning page whenever the crew wants to review dates, savings, bookings, or the itinerary."
+                          : "Open this trip from the Trip Planning page whenever you want to review dates, savings, bookings, or the itinerary."}
                       </div>
                     </div>
 
@@ -1837,7 +1836,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                   </div>
                 </div>
                 <div className="trip-section-box">
-                  <label className="form-label">2. What kind of trip is this?</label>
+                  <label className="form-label">2. What is the goal of the trip?</label>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                     {TRIP_INTEREST_OPTIONS.map((option) => (
                       <button
@@ -1851,7 +1850,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                     ))}
                   </div>
                   <p style={{ margin: 0, color: "#777", fontSize: 13, fontWeight: 700 }}>
-                    Pick a few interests so the itinerary suggestions feel more like your actual trip.
+                    Pick a few goals so the itinerary suggestions match what this trip is really for.
                   </p>
                 </div>
                 <div className="trip-section-box">

@@ -308,7 +308,7 @@ const FEATURES = [
   { icon: <IconCalendar />, title: "Plan & Schedule Hangouts", body: "See your crew's availability, compare the best overlaps, and still keep planning even if everyone has not answered yet.", tag: "Planning" },
   { icon: <IconVote />, title: "Vote On Places & Times", body: "Let the group weigh in on what works best, then move forward with a plan that feels chosen instead of dumped on one person.", tag: "Voting" },
   { icon: <IconPlane />, title: "Travel Together", body: "Weekend trip or big getaway, keep the itinerary, crew details, and shared plans in one place so the vibe stays intact.", tag: "Travel" },
-  { icon: <IconSplit />, title: "Split The Bill", body: "Track expenses, see balances, and make the crew's voted Bill Watch person the clear record keeper for the money side.", tag: "Finance" },
+  { icon: <IconSplit />, title: "Split The Bill", body: "Track expenses, see balances, and let everyone in the crew add what they paid for so the money side stays shared.", tag: "Finance" },
   { icon: <IconStar />, title: "Rate The Outing", body: "Rate the outing or trip after it happens so the group can learn what actually hit, what flopped, and what to run back.", tag: "Reviews" },
   { icon: <IconHeart />, title: "Conflict Resolution & Debrief", body: "File anonymous cases, bring in the group's peace maker when needed, and work through tension before it turns into distance.", tag: "Debrief" },
 ];

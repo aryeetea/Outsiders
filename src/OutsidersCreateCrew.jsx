@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getDisplayName } from "./appState";
+import { createId, getDisplayName } from "./appState";
 import { copyTextWithAlert } from "./clipboard";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { buildGroupInviteLink } from "./siteConfig";
@@ -49,7 +49,7 @@ const STYLES = `
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
-  .field input, .field select {
+  .field input, .field select, .field textarea {
     width: 100%;
     border: 3px solid #17151f;
     border-radius: 12px;
@@ -60,9 +60,13 @@ const STYLES = `
     box-shadow: 3px 3px 0 #17151f;
     outline: none;
   }
-  .field input:focus, .field select:focus {
+  .field input:focus, .field select:focus, .field textarea:focus {
     border-color: #ff6b6b;
     box-shadow: 4px 4px 0 #ff6b6b;
+  }
+  .field textarea {
+    min-height: 108px;
+    resize: vertical;
   }
   .btn {
     border: 3px solid #17151f;
@@ -146,12 +150,29 @@ function normalizeSupabaseGroup(group = {}) {
     owner_username: group.owner_username || group.ownerUsername || "",
     ownerUsername: group.ownerUsername || group.owner_username || "",
     members: Array.isArray(group.members) ? group.members : [],
+    expenses: Array.isArray(group.expenses) ? group.expenses : [],
     pending: Array.isArray(group.pending) ? group.pending : [],
     cases: Array.isArray(group.cases) ? group.cases : [],
     hangoutProposals: Array.isArray(group.hangoutProposals) ? group.hangoutProposals : (Array.isArray(group.hangout_proposals) ? group.hangout_proposals : []),
     billWatch: group.billWatch || group.bill_watch || { electedMemberName: "", votes: {}, checklist: [] },
     peaceMaker: group.peaceMaker || group.peace_maker || { electedMemberName: "", votes: {}, oath: "" },
   };
+}
+
+function buildPendingIdentity(profile = {}, currentName = "You", userId = null) {
+  return {
+    userId: userId || profile.id || null,
+    username: profile.username ? `@${profile.username}` : "",
+    name: currentName,
+  };
+}
+
+function pendingMatchesIdentity(item = {}, identity = {}) {
+  return (
+    (identity.userId && String(item.userId || "").trim() === String(identity.userId).trim())
+    || (identity.username && String(item.username || "").trim().toLowerCase() === String(identity.username).trim().toLowerCase())
+    || (identity.name && String(item.name || "").trim().toLowerCase() === String(identity.name).trim().toLowerCase())
+  );
 }
 
 export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, routeParams = {} }) {
@@ -166,6 +187,9 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
   const [generatedInviteCode, setGeneratedInviteCode] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState(null);
+  const [declineReason, setDeclineReason] = useState("");
+  const [showDeclineForm, setShowDeclineForm] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -180,6 +204,43 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
     };
   }, []);
 
+  useEffect(() => {
+    setJoinCode(String(routeParams?.inviteCode || routeParams?.groupCode || "").toUpperCase());
+  }, [routeParams?.groupCode, routeParams?.inviteCode]);
+
+  useEffect(() => {
+    const prefilledCode = String(routeParams?.groupCode || routeParams?.inviteCode || "").trim().toUpperCase();
+    if (!prefilledCode) {
+      setInviteTarget(null);
+      return undefined;
+    }
+
+    let active = true;
+
+    async function loadInviteTarget() {
+      let target = (appData?.groups || []).find((group) => (
+        String(group.code || "").trim().toUpperCase() === prefilledCode
+        || (group.pending || []).some((item) => String(item.inviteCode || "").trim().toUpperCase() === prefilledCode)
+      )) || null;
+
+      if (!target && isSupabaseConfigured) {
+        const { data, error } = await supabase.rpc("find_group_by_join_code", { join_code: prefilledCode });
+        if (!error && data) {
+          target = normalizeSupabaseGroup(data);
+        }
+      }
+
+      if (active) {
+        setInviteTarget(target);
+      }
+    }
+
+    void loadInviteTarget();
+    return () => {
+      active = false;
+    };
+  }, [appData?.groups, routeParams?.groupCode, routeParams?.inviteCode]);
+
   const resolveSignedInUserId = async () => {
     if (!isSupabaseConfigured) return currentUserId || profile.id || null;
     if (currentUserId) return currentUserId;
@@ -192,6 +253,24 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
     const resolvedUserId = sessionData.session?.user?.id || userData.user?.id || profile.id || null;
     if (resolvedUserId) setCurrentUserId(resolvedUserId);
     return resolvedUserId;
+  };
+
+  const resolveGroupByCode = async (code) => {
+    let target = (appData?.groups || []).find((group) => (
+      String(group.code || "").trim().toUpperCase() === code
+      || (group.pending || []).some((item) => String(item.inviteCode || "").trim().toUpperCase() === code)
+    )) || null;
+
+    if (!target && isSupabaseConfigured) {
+      const { data, error } = await supabase.rpc("find_group_by_join_code", { join_code: code });
+      if (error) {
+        setNotice(error.message || "We could not look up that crew code.");
+        return null;
+      }
+      if (data) target = normalizeSupabaseGroup(data);
+    }
+
+    return target;
   };
 
   const createCrew = async () => {
@@ -219,6 +298,7 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
         owner_username: profile.username || "",
         ownerUsername: profile.username || "",
         members: [buildMember(profile, currentName, "Admin", resolvedUserId, appData?.avatar)],
+        expenses: [],
         pending: [],
         cases: [],
         hangoutProposals: [],
@@ -237,6 +317,7 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
             owner_id: resolvedUserId,
             owner_username: profile.username || "",
             members: nextGroup.members,
+            expenses: [],
             pending: [],
             cases: [],
             hangout_proposals: [],
@@ -270,7 +351,16 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
     }
   };
 
-  const joinCrew = async () => {
+  const inviteIdentity = buildPendingIdentity(profile, currentName, currentUserId || profile.id || null);
+  const inviteAlreadyMember = inviteTarget ? (inviteTarget.members || []).some((member) => (
+    pendingMatchesIdentity(member, inviteIdentity)
+  )) : false;
+  const existingInviteDecision = inviteTarget ? (inviteTarget.pending || []).find((item) => (
+    (item.type === "join-request" || item.type === "decline-note")
+    && pendingMatchesIdentity(item, inviteIdentity)
+  )) : null;
+
+  const submitCrewInviteDecision = async ({ declined = false } = {}) => {
     const code = joinCode.trim().toUpperCase();
     if (!code) {
       setNotice("Enter a crew or invite code.");
@@ -281,23 +371,12 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
     try {
       const resolvedUserId = await resolveSignedInUserId();
       if (isSupabaseConfigured && !resolvedUserId) {
-        setNotice("Log in first so the crew can be added to your account.");
+        setNotice(`Log in first so your ${declined ? "decline note" : "join request"} is saved to your account.`);
         onNavigate?.("login", { redirect: "create-crew", groupCode: code });
         return;
       }
 
-      let target = (appData?.groups || []).find((group) => (
-        group.code === code || (group.pending || []).some((invite) => invite.inviteCode === code)
-      ));
-
-      if (!target && isSupabaseConfigured) {
-        const { data, error } = await supabase.rpc("find_group_by_join_code", { join_code: code });
-        if (error) {
-          setNotice(error.message || "We could not look up that crew code.");
-          return;
-        }
-        if (data) target = normalizeSupabaseGroup(data);
-      }
+      const target = await resolveGroupByCode(code);
 
       if (!target) {
         setNotice("No crew was found with that code.");
@@ -315,24 +394,90 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
         return;
       }
 
-      const matchedInvite = (target.pending || []).find((invite) => invite.inviteCode === code) || null;
-      const nextMembers = [...(target.members || []), buildMember(profile, currentName, "Member", resolvedUserId, appData?.avatar)];
-      const nextPending = matchedInvite
-        ? (target.pending || []).filter((invite) => invite.inviteCode !== matchedInvite.inviteCode)
-        : (target.pending || []);
+      if (declined && !declineReason.trim()) {
+        setNotice("Add a quick clarification before you decline.");
+        setShowDeclineForm(true);
+        return;
+      }
+
+      const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
+      const existingPending = (target.pending || []).find((item) => (
+        (item.type === "join-request" || item.type === "decline-note")
+        && pendingMatchesIdentity(item, identity)
+      ));
+
+      if (existingPending) {
+        setNotice(
+          existingPending.type === "decline-note"
+            ? `You already declined ${target.name}.`
+            : `Your request to join ${target.name} is already waiting for review.`
+        );
+        return;
+      }
+
+      const nextPending = [
+        ...(target.pending || []),
+        declined
+          ? {
+              id: createId("decline"),
+              type: "decline-note",
+              code,
+              ...identity,
+              clarification: declineReason.trim(),
+              createdAt: new Date().toISOString(),
+            }
+          : {
+              id: createId("join-request"),
+              type: "join-request",
+              code,
+              ...identity,
+              role: "Member",
+              bio: profile.bio || "",
+              location: profile.location || "",
+              email: profile.email || "",
+              availability: profile.availability,
+              avatar: appData?.avatar || "",
+              createdAt: new Date().toISOString(),
+            },
+      ];
 
       if (isSupabaseConfigured && target.id) {
         const { error } = await supabase
           .from("groups")
-          .update({ members: nextMembers, pending: nextPending })
+          .update({ pending: nextPending })
           .eq("id", target.id);
         if (error) {
-          setNotice(error.message || "We could not join that crew yet.");
+          setNotice(error.message || `We could not save that ${declined ? "decline" : "join request"} yet.`);
           return;
+        }
+
+        const crewRecipients = Array.from(new Set(
+          (target.members || [])
+            .map((member) => String(member.userId || "").trim())
+            .filter(Boolean)
+        ));
+
+        if (crewRecipients.length) {
+          await supabase.from("notifications").insert(
+            crewRecipients.map((userId) => ({
+              user_id: userId,
+              group_id: target.id,
+              group_name: target.name,
+              recipient: target.name,
+              recipient_key: `user:${userId}`,
+              action_screen: "friend-groups",
+              action_params: { groupId: target.id, tab: "Invites" },
+              type: declined ? "crew-invite-declined" : "crew-join-request",
+              message: declined
+                ? `${currentName} declined the invite to ${target.name}.`
+                : `${currentName} requested to join ${target.name}.`,
+              read: false,
+            }))
+          );
         }
       }
 
-      const nextGroup = { ...target, members: nextMembers, pending: nextPending };
+      const nextGroup = { ...target, pending: nextPending };
       setAppData?.((prev) => ({
         ...prev,
         profile: {
@@ -343,9 +488,14 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
           ? (prev.groups || []).map((group) => (String(group.id) === String(nextGroup.id) ? nextGroup : group))
           : [...(prev.groups || []), nextGroup],
       }));
-      setNotice(`Joined ${target.name}.`);
-      setJoinCode("");
-      onNavigate?.("friend-groups");
+      setInviteTarget(nextGroup);
+      setNotice(
+        declined
+          ? `You declined ${target.name}. Your clarification was saved.`
+          : `Your request to join ${target.name} is waiting for crew approval.`
+      );
+      setDeclineReason("");
+      setShowDeclineForm(false);
     } finally {
       setIsSaving(false);
     }
@@ -394,12 +544,59 @@ export default function OutsidersCreateCrew({ onNavigate, appData, setAppData, r
               </section>
 
               <section className="card">
-                <h2 className="bangers" style={{ margin: "0 0 14px", fontSize: 28 }}>Join Crew</h2>
+                <h2 className="bangers" style={{ margin: "0 0 14px", fontSize: 28 }}>{inviteTarget ? "Crew Invitation" : "Join Crew"}</h2>
+                {inviteTarget ? (
+                  <div className="invite-box" style={{ marginBottom: 16 }}>
+                    <strong>{inviteTarget.emoji} {inviteTarget.name}</strong>
+                    <div style={{ color: "#667085", fontWeight: 800 }}>
+                      {inviteTarget.members?.length || 0} crew member{inviteTarget.members?.length === 1 ? "" : "s"} · code {inviteTarget.code}
+                    </div>
+                    {inviteAlreadyMember ? (
+                      <p style={{ margin: 0, color: "#0f766e", fontWeight: 800 }}>You are already in this crew.</p>
+                    ) : existingInviteDecision?.type === "join-request" ? (
+                      <p style={{ margin: 0, color: "#9a6700", fontWeight: 800 }}>Your request to join is already waiting for approval.</p>
+                    ) : existingInviteDecision?.type === "decline-note" ? (
+                      <p style={{ margin: 0, color: "#b42318", fontWeight: 800 }}>You already declined this invite: "{existingInviteDecision.clarification}"</p>
+                    ) : (
+                      <p style={{ margin: 0, color: "#667085", fontWeight: 800 }}>Choose whether you want to request access to this crew or decline the invite.</p>
+                    )}
+                  </div>
+                ) : null}
                 <div className="field">
                   <label>Crew or invite code</label>
                   <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="ABC123 or ABC123-XY9Z" />
                 </div>
-                <button type="button" className="btn secondary" style={{ width: "100%", marginTop: 18 }} onClick={joinCrew} disabled={isSaving}>{isSaving ? "Saving..." : "Join crew"}</button>
+                {showDeclineForm ? (
+                  <div className="field" style={{ marginTop: 14 }}>
+                    <label>Why are you declining?</label>
+                    <textarea value={declineReason} onChange={(event) => setDeclineReason(event.target.value)} placeholder="A quick note helps the crew understand why you passed." />
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn secondary"
+                  style={{ width: "100%", marginTop: 18 }}
+                  onClick={() => void submitCrewInviteDecision({ declined: false })}
+                  disabled={isSaving || inviteAlreadyMember || existingInviteDecision?.type === "join-request"}
+                >
+                  {isSaving ? "Saving..." : "Request to join crew"}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ width: "100%", marginTop: 12 }}
+                  onClick={() => {
+                    if (!showDeclineForm) {
+                      setShowDeclineForm(true);
+                      setNotice("Add a quick clarification so the crew knows why you declined.");
+                      return;
+                    }
+                    void submitCrewInviteDecision({ declined: true });
+                  }}
+                  disabled={isSaving || inviteAlreadyMember || existingInviteDecision?.type === "decline-note"}
+                >
+                  {showDeclineForm ? "Send decline" : "Decline invite"}
+                </button>
                 <button type="button" className="btn ghost" style={{ width: "100%", marginTop: 12 }} onClick={() => onNavigate?.("friend-groups")}>Open my crews</button>
               </section>
             </div>

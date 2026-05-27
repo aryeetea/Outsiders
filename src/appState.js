@@ -174,7 +174,7 @@ function normalizeTrip(trip = {}) {
     ratings: Array.isArray(trip.ratings) ? trip.ratings : [],
     groupId: trip.groupId || trip.group_id || null,
     creatorId: trip.creatorId || trip.creator_id || null,
-    inviteCode: trip.inviteCode || trip.invite_code || "",
+    inviteCode: (trip.groupId || trip.group_id) ? (trip.inviteCode || trip.invite_code || "") : "",
     savingsProgress: Array.isArray(trip.savingsProgress) ? trip.savingsProgress : (Array.isArray(trip.savings_progress) ? trip.savings_progress : []),
     planningChecklist: Array.isArray(trip.planningChecklist) ? trip.planningChecklist : (Array.isArray(trip.planning_checklist) ? trip.planning_checklist : []),
     itinerarySuggestions: Array.isArray(trip.itinerarySuggestions) ? trip.itinerarySuggestions : (Array.isArray(trip.itinerary_suggestions) ? trip.itinerary_suggestions : []),
@@ -192,6 +192,7 @@ function normalizeGroup(group = {}) {
     billWatch: group.billWatch || group.bill_watch || group.billWatch || {},
     peaceMaker: group.peaceMaker || group.peace_maker || group.peaceMaker || {},
     members: Array.isArray(group.members) ? group.members : [],
+    expenses: Array.isArray(group.expenses) ? group.expenses : [],
     pending: Array.isArray(group.pending) ? group.pending : [],
     cases: Array.isArray(group.cases) ? group.cases : [],
     hangoutProposals: Array.isArray(group.hangoutProposals)

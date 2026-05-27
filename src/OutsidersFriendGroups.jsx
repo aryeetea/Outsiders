@@ -3,9 +3,9 @@ import { createId, getAllHangoutProposals, getCurrentUserKey, getDisplayName, ge
 import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { buildGroupInviteLink } from "./siteConfig";
+import { buildGroupInviteLink, getSiteUrl } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
-import { isSupabaseConfigured, supabase } from "./supabase";
+import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
 function profileRouteParamsForMember(member, groupId) {
   return {
@@ -597,34 +597,6 @@ function getInitials(name) {
   return (name || "You").replace(/^@/, "").trim().slice(0, 2).toUpperCase() || "YO";
 }
 
-function normalizeUsernameTag(value = "") {
-  const clean = String(value || "").trim().replace(/^@/, "").toLowerCase();
-  return clean ? `@${clean}` : "";
-}
-
-function generateInviteCode(groupCode = "") {
-  const suffix = Array.from({ length: 4 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
-  return `${String(groupCode || "").trim().toUpperCase()}-${suffix}`;
-}
-
-function buildPendingInvite(username, groupCode) {
-  const normalizedUsername = normalizeUsernameTag(username);
-  const inviteCode = generateInviteCode(groupCode);
-  return {
-    id: createId("invite"),
-    username: normalizedUsername,
-    name: normalizedUsername.replace(/^@/, ""),
-    initials: getInitials(normalizedUsername),
-    inviteCode,
-    inviteLink: buildGroupInviteLink({
-      groupCode,
-      inviteCode,
-      inviteFor: normalizedUsername.replace(/^@/, ""),
-    }),
-    createdAt: new Date().toISOString(),
-  };
-}
-
 function formatDurationHours(value) {
   if (!Number.isFinite(value) || value <= 0) return "Flexible";
   return `${value} hour${value === 1 ? "" : "s"}`;
@@ -648,6 +620,12 @@ function memberRecipientKey(member = {}) {
   return `name:${String(member.name || "").trim().toLowerCase()}`;
 }
 
+function pendingIdentityKey(item = {}) {
+  if (item.userId) return `user:${item.userId}`;
+  if (item.username) return `username:${String(item.username).replace(/^@/, "").toLowerCase()}`;
+  return `name:${String(item.name || "").trim().toLowerCase()}`;
+}
+
 function getLeaderFromMemberVotes(members = [], votes = {}) {
   const ranked = members
     .map((member) => ({ name: member.name, count: countMemberVotes(votes, member.name) }))
@@ -663,7 +641,7 @@ function getLeaderFromMemberVotes(members = [], votes = {}) {
   return { name: top.name, count: top.count, isTie: false };
 }
 
-export default function OutsidersFriendGroups({ onNavigate, appData, setAppData }) {
+export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams = {} }) {
   const profile = useMemo(() => appData?.profile || EMPTY_PROFILE, [appData?.profile]);
   const profileName = profile.name || profile.username || "You";
   const currentName = getDisplayName(profile);
@@ -677,12 +655,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     })),
     [allGroups, profile, allHangouts]
   );
-  const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
-  const [activeTab, setActiveTab] = useState("Hangouts");
-  const [inviteUsername, setInviteUsername] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState(routeParams?.groupId || groups[0]?.id || "");
+  const [activeTab, setActiveTab] = useState(routeParams?.tab || "Hangouts");
   const [billChecklistDraft, setBillChecklistDraft] = useState("");
   const [editingProposalId, setEditingProposalId] = useState(null);
-  const [generatedInvite, setGeneratedInvite] = useState({ groupId: "", link: "" });
   const [currentUserId, setCurrentUserId] = useState(null);
   const [editDraft, setEditDraft] = useState({
     name: "",
@@ -700,7 +676,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     },
     newTime: "",
     newLocation: "",
-    newInvite: "",
     newAgendaSection: "",
     newAgendaTime: "",
     newAgendaTitle: "",
@@ -715,23 +690,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
   const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
   const myBillWatchVote = selectedBillWatch.votes?.[currentUserKey] || "";
   const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
-  const generatedInviteLink = generatedInvite.groupId === selectedGroup?.id ? generatedInvite.link : "";
-
-  async function persistPendingInvites(groupId, nextPending) {
-    if (!isSupabaseConfigured || !groupId || String(groupId).startsWith("group-")) return true;
-
-    const { error } = await supabase
-      .from("groups")
-      .update({ pending: nextPending })
-      .eq("id", groupId);
-
-    if (error) {
-      setNotice(error.message || "We could not update the crew invites yet.");
-      return false;
-    }
-
-    return true;
-  }
+  const pendingJoinRequests = (selectedGroup?.pending || []).filter((item) => item?.type === "join-request");
+  const pendingDeclines = (selectedGroup?.pending || []).filter((item) => item?.type === "decline-note");
 
   async function persistSharedGroup(nextGroup, options = {}) {
     if (!isSupabaseConfigured || !nextGroup?.id || String(nextGroup.id).startsWith("group-")) return true;
@@ -748,6 +708,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       .from("groups")
       .update({
         members: nextGroup.members || [],
+        expenses: nextGroup.expenses || [],
         pending: nextGroup.pending || [],
         cases: nextGroup.cases || [],
         hangout_proposals: nextGroup.hangoutProposals || [],
@@ -766,8 +727,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
   async function createCrewNotificationsForMembers(members = [], payload = {}) {
     if (!isSupabaseConfigured) return;
-    const recipientRows = members
-      .filter((member) => member.userId && member.userId !== currentUserId)
+    const { members: resolvedMembers } = await hydrateMembersWithProfileLinks(members);
+    const recipientRows = resolvedMembers
+      .filter((member) => member.userId)
       .map((member) => ({
         user_id: member.userId,
         recipient: member.name,
@@ -792,8 +754,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
     try {
       await sendNotificationEmails({
-        recipients: members
-          .filter((member) => member.userId && member.userId !== currentUserId && member.email)
+        recipients: resolvedMembers
+          .filter((member) => member.userId && member.email)
           .map((member) => ({ email: member.email, name: member.name })),
         subject: payload.emailSubject || `${payload.groupName || "Your crew"} has an update`,
         intro: payload.emailIntro || (typeof payload.message === "string" ? payload.message : "There is a new crew update waiting for you."),
@@ -828,6 +790,15 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (routeParams?.groupId) {
+      setSelectedGroupId(String(routeParams.groupId));
+    }
+    if (routeParams?.tab) {
+      setActiveTab(String(routeParams.tab));
+    }
+  }, [routeParams?.groupId, routeParams?.tab]);
 
   useEffect(() => {
     setAppData?.((prev) => {
@@ -865,137 +836,73 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     });
   }, [currentName, profile.availability, profile.username, setAppData]);
 
-  const inviteMember = async () => {
-    if (!selectedGroup || !inviteUsername.trim()) {
-      setNotice("Add a username to invite.");
-      return;
-    }
-    const username = normalizeUsernameTag(inviteUsername);
-    const invite = buildPendingInvite(username, selectedGroup.code);
-    const nextPending = [...(selectedGroup.pending || []), invite];
-    const saved = await persistPendingInvites(selectedGroup.id, nextPending);
-    if (!saved) return;
-
-    let invitedUserId = null;
-    if (isSupabaseConfigured && username) {
-      const { data: matchedProfile } = await supabase
-        .from("profiles")
-        .select("id, email, full_name")
-        .eq("username", username.replace(/^@/, ""))
-        .maybeSingle();
-      invitedUserId = matchedProfile?.id || null;
-
-      if (invitedUserId) {
-        const { error } = await supabase.from("notifications").insert({
-          user_id: invitedUserId,
-          recipient: username,
-          recipient_key: `user:${invitedUserId}`,
-          group_id: selectedGroup.id,
-          group_name: selectedGroup.name,
-          link: invite.inviteLink,
-          action_screen: "create-crew",
-          action_params: { groupCode: selectedGroup.code, inviteCode: invite.inviteCode, inviteFor: invite.name },
-          type: "crew-invite",
-          message: `${currentName} invited you to join ${selectedGroup.name}.`,
-          read: false,
-        });
-        if (error) {
-          console.warn("Crew invite notification did not save:", error.message);
-        }
-
-        try {
-          await sendNotificationEmails({
-            recipients: matchedProfile?.email ? [{ email: matchedProfile.email, name: matchedProfile.full_name || invite.name || username }] : [],
-            subject: `${currentName} invited you to join ${selectedGroup.name}`,
-            intro: `${currentName} sent you a crew invite for ${selectedGroup.name}.`,
-            ctaLabel: "Open crew invite",
-            ctaUrl: invite.inviteLink,
-            details: [
-              `Crew: ${selectedGroup.name}`,
-              `Invite code: ${invite.inviteCode}`,
-            ],
-          });
-        } catch (emailError) {
-          console.warn("Crew invite email did not send:", emailError.message);
-        }
-      }
-    }
-
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: (prev.groups || []).map((group) => (
-        group.id === selectedGroup.id
-          ? {
-              ...group,
-              pending: nextPending,
-            }
-          : group
-      )),
-      notifications: [
-        ...(prev.notifications || []),
-        {
-          id: createId("note"),
-          type: "crew-invite",
-          message: `${username}, ${currentName} invited you to join ${selectedGroup.name}.`,
-          groupId: selectedGroup.id,
-          groupName: selectedGroup.name,
-          userId: invitedUserId,
-          link: invite.inviteLink,
-          recipient: username,
-          recipientKey: invitedUserId ? `user:${invitedUserId}` : `username:${username.replace(/^@/, "")}`,
-          actionScreen: "create-crew",
-          actionParams: { groupCode: selectedGroup.code, inviteCode: invite.inviteCode, inviteFor: invite.name },
-          createdAt: new Date().toISOString(),
-          read: false,
-        },
-      ],
-    }));
-    setGeneratedInvite({ groupId: selectedGroup.id, link: invite.inviteLink });
-    setInviteUsername("");
-    setNotice(`${username} got a personalized invite code: ${invite.inviteCode}.`);
-  };
-
   const copyCrewInviteLink = async () => {
     if (!selectedGroup?.code) {
       setNotice("Pick a crew before copying an invite link.");
       return;
     }
 
-    let inviteLink = buildGroupInviteLink(selectedGroup.code);
-    if (inviteUsername.trim()) {
-      const invite = buildPendingInvite(inviteUsername, selectedGroup.code);
-      const nextPending = [...(selectedGroup.pending || []), invite];
-      const saved = await persistPendingInvites(selectedGroup.id, nextPending);
-      if (!saved) return;
-
-      setAppData?.((prev) => ({
-        ...prev,
-        groups: (prev.groups || []).map((group) => (
-          group.id === selectedGroup.id
-            ? { ...group, pending: nextPending }
-            : group
-        )),
-      }));
-      inviteLink = invite.inviteLink;
-      setInviteUsername("");
-    }
-
-    setGeneratedInvite({ groupId: selectedGroup.id, link: inviteLink });
-    const copied = await copyTextWithAlert(
-      inviteLink,
-      inviteUsername.trim()
-        ? "Personalized crew invite link copied."
-        : `Crew invite link copied for ${selectedGroup.name}.`
-    );
+    const inviteLink = buildGroupInviteLink(selectedGroup.code);
+    const copied = await copyTextWithAlert(inviteLink, `Crew invite link copied for ${selectedGroup.name}.`);
     if (copied) {
-      setNotice(
-        inviteUsername.trim()
-          ? "Personalized invite link generated and copied."
-          : `Invite link generated and copied for ${selectedGroup.name}.`
-      );
+      setNotice(`Invite link copied for ${selectedGroup.name}.`);
     } else {
-      setNotice("Invite link generated. Copy it from the box below.");
+      setNotice("We generated the crew link, but your browser blocked auto-copy.");
     }
+  };
+
+  const approveJoinRequest = async (request) => {
+    if (!selectedGroup || !request) return;
+    const alreadyMember = (selectedGroup.members || []).some((member) => pendingIdentityKey(member) === pendingIdentityKey(request));
+    const nextMembers = alreadyMember ? (selectedGroup.members || []) : [...(selectedGroup.members || []), {
+      name: request.name || request.username || "New member",
+      initials: getInitials(request.name || request.username || "NM"),
+      role: "Member",
+      userId: request.userId || null,
+      username: request.username || "",
+      bio: request.bio || "",
+      location: request.location || "",
+      email: request.email || "",
+      availability: request.availability,
+      avatar: request.avatar || "",
+    }];
+    const nextPending = (selectedGroup.pending || []).filter((item) => String(item.id) !== String(request.id));
+    const nextGroup = { ...selectedGroup, members: nextMembers, pending: nextPending };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
+    await createCrewNotificationsForMembers(nextGroup.members, {
+      type: "crew-request-approved",
+      groupId: selectedGroup.id,
+      groupName: selectedGroup.name,
+      link: `${getSiteUrl()}/#/friend-groups`,
+      actionScreen: "friend-groups",
+      actionParams: { groupId: selectedGroup.id, tab: "Members" },
+      message: `${request.name || request.username || "A member"} joined ${selectedGroup.name}.`,
+    });
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id ? nextGroup : group
+      )),
+    }));
+    setNotice(`${request.name || request.username || "That person"} was added to the crew.`);
+  };
+
+  const clearPendingInviteNote = async (pendingId) => {
+    if (!selectedGroup || !pendingId) return;
+    const nextGroup = {
+      ...selectedGroup,
+      pending: (selectedGroup.pending || []).filter((item) => String(item.id) !== String(pendingId)),
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id ? nextGroup : group
+      )),
+    }));
+    setNotice("Invite activity was cleared.");
   };
 
   const castProposalVote = async (proposalId, category, optionId) => {
@@ -1054,9 +961,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       groupName: nextGroup.name,
       proposalId: proposal.id,
       proposalCode: proposal.code,
-      link: proposal.link,
-      actionScreen: "join-hangout",
-      actionParams: { code: proposal.code },
+      link: `${getSiteUrl()}/#/friend-groups`,
+      actionScreen: "friend-groups",
+      actionParams: { groupId: nextGroup.id, tab: "Hangouts" },
       message: `${proposal.name} was finalized in ${nextGroup.name}.`,
       emailSubject: `${proposal.name} was finalized in ${nextGroup.name}`,
       emailIntro: `${proposal.name} now has a finalized crew pick in ${nextGroup.name}.`,
@@ -1170,7 +1077,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       },
       newTime: "",
       newLocation: "",
-      newInvite: "",
       newAgendaSection: "",
       newAgendaTime: "",
       newAgendaTitle: "",
@@ -1196,7 +1102,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       },
       newTime: "",
       newLocation: "",
-      newInvite: "",
       newAgendaSection: "",
       newAgendaTime: "",
       newAgendaTitle: "",
@@ -1225,16 +1130,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
         ? prev.locationOptions
         : [...prev.locationOptions, { id: createId("place"), label }],
       newLocation: "",
-    }));
-  };
-
-  const addEditExternalInvite = () => {
-    const invite = editDraft.newInvite.trim();
-    if (!invite) return;
-    setEditDraft((prev) => ({
-      ...prev,
-      externalInvites: prev.externalInvites.includes(invite) ? prev.externalInvites : [...prev.externalInvites, invite],
-      newInvite: "",
     }));
   };
 
@@ -1277,9 +1172,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     const nextDuration = editDraft.durationHours === "" ? null : Number(editDraft.durationHours);
     const allowedTimeIds = new Set(editDraft.timeOptions.map((option) => option.id));
     const allowedLocationIds = new Set(editDraft.locationOptions.map((option) => option.id));
-    const previousInvites = new Set(editingProposal.externalInvites || []);
-    const newExternalInvites = editDraft.externalInvites.filter((invite) => !previousInvites.has(invite));
-
     const updateProposal = (proposal) => {
       if (proposal.id !== editingProposal.id) return proposal;
       return {
@@ -1316,27 +1208,12 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
         groupName: selectedGroup.name,
         proposalId: editingProposal.id,
         proposalCode: editingProposal.code,
-        link: editingProposal.link,
-        actionScreen: "join-hangout",
-        actionParams: { code: editingProposal.code },
+        link: `${getSiteUrl()}/#/friend-groups`,
+        actionScreen: "friend-groups",
+        actionParams: { groupId: selectedGroup.id, tab: "Hangouts" },
         createdAt: new Date().toISOString(),
         read: false,
       },
-      ...newExternalInvites.map((invite) => ({
-        id: createId("note"),
-        type: "hangout-invite",
-        message: `${invite}, you were invited to ${editDraft.name.trim()}.`,
-        groupId: selectedGroup.id,
-        groupName: selectedGroup.name,
-        proposalId: editingProposal.id,
-        proposalCode: editingProposal.code,
-        link: editingProposal.link,
-        recipient: invite,
-        actionScreen: "join-hangout",
-        actionParams: { code: editingProposal.code },
-        createdAt: new Date().toISOString(),
-        read: false,
-      })),
     ];
 
     const nextGroup = {
@@ -1351,9 +1228,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
       groupName: nextGroup.name,
       proposalId: editingProposal.id,
       proposalCode: editingProposal.code,
-      link: editingProposal.link,
-      actionScreen: "join-hangout",
-      actionParams: { code: editingProposal.code },
+      link: `${getSiteUrl()}/#/friend-groups`,
+      actionScreen: "friend-groups",
+      actionParams: { groupId: nextGroup.id, tab: "Hangouts" },
       message: `${editDraft.name.trim()} was updated in ${nextGroup.name}.`,
       emailSubject: `${editDraft.name.trim()} was updated in ${nextGroup.name}`,
       emailIntro: `${editDraft.name.trim()} has fresh hangout updates in ${nextGroup.name}.`,
@@ -1380,7 +1257,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
     const canManageProposal = proposal.proposerName === currentName || isCurrentMemberAdmin;
     if (!canManageProposal) return;
 
-    const confirmed = window.confirm(`Delete ${proposal.name}? This removes the planned hangout, votes, invite code, and related notifications.`);
+    const confirmed = window.confirm(`Delete ${proposal.name}? This removes the planned hangout, votes, and related notifications.`);
     if (!confirmed) return;
 
     const nextGroup = {
@@ -1406,7 +1283,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
   const leaveGroup = async (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
-    const memberIndex = targetGroup.members.findIndex((m) => m.name === currentName || (profile.username && m.username === `@${profile.username}`));
+    const memberIndex = targetGroup.members.findIndex((m) => (
+      (currentUserId && String(m.userId || "") === String(currentUserId))
+      || m.name === currentName
+      || (profile.username && m.username === `@${profile.username}`)
+    ));
     if (memberIndex === -1) return;
     const member = targetGroup.members[memberIndex];
     const remainingMembers = targetGroup.members.filter((_, idx) => idx !== memberIndex);
@@ -1482,19 +1363,44 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
 
   const deleteGroup = async (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
-    const member = targetGroup.members.find((m) => m.name === currentName || m.username === `@${profile.username}`);
+    const member = targetGroup.members.find((m) => (
+      (currentUserId && String(m.userId || "") === String(currentUserId))
+      || m.name === currentName
+      || m.username === `@${profile.username}`
+    ));
     if (member?.role !== "Admin") return;
+    const isOwner = (
+      (currentUserId && String(targetGroup.ownerId || targetGroup.owner_id || "") === String(currentUserId))
+      || (profile.username && String(targetGroup.ownerUsername || targetGroup.owner_username || "").toLowerCase() === String(profile.username).toLowerCase())
+    );
 
-    const confirmed = window.confirm(`Delete ${targetGroup.name} for everyone? This removes the whole crew and its proposals.`);
-    if (!confirmed) return;
+    if (isOwner && (targetGroup.members?.length || 0) > 1) {
+      const deleteForEveryone = window.confirm(`Delete ${targetGroup.name} for everyone? Press OK to delete the whole crew. Press Cancel to choose leaving just for yourself instead.`);
+      if (!deleteForEveryone) {
+        const leaveOnly = window.confirm(`Do you want to remove only yourself from ${targetGroup.name} and keep the crew for everyone else?`);
+        if (leaveOnly) {
+          await leaveGroup(targetGroup);
+        }
+        return;
+      }
+    } else {
+      const confirmed = window.confirm(`Delete ${targetGroup.name} for everyone? This removes the whole crew and its proposals.`);
+      if (!confirmed) return;
+    }
 
     const saved = await persistSharedGroup(targetGroup, { remove: true });
     if (!saved) return;
 
     setAppData?.((prev) => ({
       ...prev,
-      groups: prev.groups.filter((group) => group.id !== targetGroup.id),
+      groups: (prev.groups || []).filter((group) => String(group.id) !== String(targetGroup.id)),
+      notifications: (prev.notifications || []).filter((notification) => String(notification.groupId) !== String(targetGroup.id)),
     }));
+    setSelectedGroupId((currentId) => (
+      String(currentId) === String(targetGroup.id)
+        ? (groups.find((group) => String(group.id) !== String(targetGroup.id))?.id || "")
+        : currentId
+    ));
     setNotice(`${targetGroup.name} was deleted.`);
   };
 
@@ -1566,7 +1472,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                         <div className="crew-header-actions">
                           <div className="crew-header-stats">
                           <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active hangouts</span>
-                          <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.pending?.length || 0} pending invites</span>
+                          <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.members.length} crew members</span>
                           </div>
                           <div className="crew-header-buttons">
                           <button
@@ -1593,7 +1499,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                     </div>
                     <div className="content-divider" style={{ margin: "22px 0 18px" }} />
                     <div className="tab-row">
-                      {["Hangouts", "Members", "Invites", "Debrief", "Bill Watch"].map((tab) => (
+                      {["Hangouts", "Members", "Invites", "Debrief", "Expenses"].map((tab) => (
                         <button key={tab} type="button" className={`tab-btn ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
                           {tab}
                         </button>
@@ -1699,7 +1605,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                                   Top place: {topLocation?.label || "No votes yet"}
                                 </div>
                                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                  <span className="stat-chip" style={{ background: "#eef8ff", color: "#155e75" }}>{proposal.externalInvites?.length || 0} outside invite{proposal.externalInvites?.length === 1 ? "" : "s"}</span>
+                                  <span className="stat-chip" style={{ background: "#eef8ff", color: "#155e75" }}>{proposal.participants?.length || 0} crew member{(proposal.participants?.length || 0) === 1 ? "" : "s"}</span>
                                   {proposal.status !== "finalized" ? <button type="button" className="btn secondary" onClick={() => finalizeProposal(proposal)}>Finalize leading pick</button> : null}
                                 </div>
                               </div>
@@ -1765,14 +1671,14 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                     <div className="section-grid" style={{ marginTop: 20 }}>
                       <div className="section-header">
                         <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Crew invites</h3>
-                        <p className="section-copy">Each invite gets its own code and link.</p>
+                        <p className="section-copy">Share one simple invite so people can join the crew without extra steps.</p>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "18px 20px", background: "#ffd93d", border: "4px solid #1a1a2e", borderRadius: 16, boxShadow: "5px 5px 0 #1a1a2e", marginBottom: 22 }}>
                         <div>
                           <p className="bangers" style={{ margin: "0 0 4px", fontSize: 13, letterSpacing: "0.12em", color: "#6b5a00" }}>YOUR CREW CODE</p>
                           <p className="bangers" style={{ margin: 0, fontSize: 42, letterSpacing: "0.22em", color: "#1a1a2e", lineHeight: 1 }}>{selectedGroup.code}</p>
-                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>Use this for the whole crew, or use the personal invites below.</p>
+                          <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>Share this code or the link below so someone can join the crew.</p>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
                           <button
@@ -1794,51 +1700,60 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                         </div>
                       </div>
 
-                      <div className="field">
-                        <label>Invite username</label>
-                        <input value={inviteUsername} onChange={(event) => setInviteUsername(event.target.value)} placeholder="theirusername" />
+                      <div className="invite-link-box">
+                        <strong>Share this invite link</strong>
+                        <div className="invite-link-value">{buildGroupInviteLink(selectedGroup.code)}</div>
+                        <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
+                          Send this link to someone so they can request to join or decline the invite with a note.
+                        </p>
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-                        <button type="button" className="btn primary" onClick={inviteMember}>Create personal invite</button>
-                        <button type="button" className="btn ghost" onClick={copyCrewInviteLink}>Generate & copy invite link</button>
+                        <button type="button" className="btn primary" onClick={copyCrewInviteLink}>Copy crew invite link</button>
                       </div>
-                      {generatedInviteLink ? (
-                        <div className="invite-link-box">
-                          <strong>Share this invite link</strong>
-                          <div className="invite-link-value">{generatedInviteLink}</div>
-                          <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
-                            Send this link to someone so they open Outsiders with their invite code already attached.
-                          </p>
-                        </div>
-                      ) : null}
                       <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
-                        {selectedGroup.pending?.length ? selectedGroup.pending.map((invite) => (
-                          <div key={invite.id || `${invite.username}-${invite.inviteCode || ""}`} className="pending-row" style={{ display: "grid", gap: 10 }}>
-                            <strong>{invite.username}</strong>
-                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                              <span className="stat-chip" style={{ background: "#eef8ff", color: "#155e75" }}>
-                                Invite code {invite.inviteCode || selectedGroup.code}
-                              </span>
-                              <button
-                                type="button"
-                                className="btn ghost"
-                                style={{ padding: "8px 12px", fontSize: 13 }}
-                                onClick={() => void copyTextWithAlert(invite.inviteCode || selectedGroup.code, `Invite code copied for ${invite.username}.`)}
-                              >
-                                Copy code
-                              </button>
-                              <button
-                                type="button"
-                                className="btn ghost"
-                                style={{ padding: "8px 12px", fontSize: 13 }}
-                                onClick={() => void copyTextWithAlert(invite.inviteLink || buildGroupInviteLink(selectedGroup.code), `Invite link copied for ${invite.username}.`)}
-                              >
-                                Copy link
-                              </button>
+                        <div className="pending-row" style={{ display: "grid", gap: 10 }}>
+                          <strong>Join requests</strong>
+                          {pendingJoinRequests.length ? pendingJoinRequests.map((request) => (
+                            <div key={request.id} className="invite-link-box" style={{ marginTop: 0 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                <div>
+                                  <strong>{request.name || request.username || "Unknown user"}</strong>
+                                  <div style={{ color: "#667085", fontWeight: 800 }}>
+                                    {request.username || "No username"} · requested {new Date(request.createdAt || Date.now()).toLocaleString()}
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                  <button type="button" className="btn primary" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => void approveJoinRequest(request)}>Approve</button>
+                                  <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => void clearPendingInviteNote(request.id)}>Remove</button>
+                                </div>
+                              </div>
+                              {request.location || request.bio ? (
+                                <div style={{ color: "#667085", fontWeight: 700, lineHeight: 1.5 }}>
+                                  {request.location ? `Location: ${request.location}` : null}
+                                  {request.location && request.bio ? " · " : ""}
+                                  {request.bio ? request.bio : null}
+                                </div>
+                              ) : null}
                             </div>
-                            <div className="invite-link-value">{invite.inviteLink || buildGroupInviteLink(selectedGroup.code)}</div>
-                          </div>
-                        )) : <div className="pending-row"><strong>No pending invites.</strong></div>}
+                          )) : <div style={{ color: "#667085", fontWeight: 800 }}>No join requests yet.</div>}
+                        </div>
+                        <div className="pending-row" style={{ display: "grid", gap: 10 }}>
+                          <strong>Declines</strong>
+                          {pendingDeclines.length ? pendingDeclines.map((item) => (
+                            <div key={item.id} className="invite-link-box" style={{ marginTop: 0 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                <div>
+                                  <strong>{item.name || item.username || "Unknown user"}</strong>
+                                  <div style={{ color: "#667085", fontWeight: 800 }}>
+                                    {item.username || "No username"} · declined {new Date(item.createdAt || Date.now()).toLocaleString()}
+                                  </div>
+                                </div>
+                                <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => void clearPendingInviteNote(item.id)}>Clear</button>
+                              </div>
+                              <div className="invite-link-value">{item.clarification || "No clarification given."}</div>
+                            </div>
+                          )) : <div style={{ color: "#667085", fontWeight: 800 }}>No decline notes yet.</div>}
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -1869,90 +1784,19 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                     </div>
                   ) : null}
 
-                  {activeTab === "Bill Watch" ? (
+                  {activeTab === "Expenses" ? (
                     <div className="section-grid" style={{ marginTop: 20 }}>
                       <div className="section-header">
-                        <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Bill Watch</h3>
-                        <p className="section-copy">Pick who you trust to track who paid, keep the split clean, and stay on top of balances. The summary stays at the top, votes stay in the left column, and the checklist stays on the right.</p>
+                        <h3 className="bangers" style={{ margin: 0, fontSize: 24 }}>Shared Expenses</h3>
+                        <p className="section-copy">Anyone in the crew can add expenses, and everyone in the crew can see the same running totals and balances.</p>
                       </div>
-                      <div className="summary-grid" style={{ marginBottom: 18 }}>
-                        <div className="summary-card" style={{ background: "#eef8ff" }}>
-                          <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Your vote</p>
-                          <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#155e75" }}>
-                            {myBillWatchVote || "Not picked yet"}
-                          </p>
-                        </div>
-                        <div className="summary-card" style={{ background: "#fff5e6" }}>
-                          <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Current leader</p>
-                          <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#9a6700" }}>
-                            {billLeader?.isTie ? "Tie vote" : (billLeader?.name || "No leader yet")}
-                          </p>
-                        </div>
-                        <div className="summary-card" style={{ background: "#eefdf5" }}>
-                          <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Votes cast</p>
-                          <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#0f766e" }}>
-                            {Object.keys(selectedBillWatch.votes || {}).length}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="bill-watch-shell">
-                        <div className="bill-watch-main">
-                          <div className="vote-grid">
-                            {selectedGroup.members.map((member) => {
-                              const totalVotes = countMemberVotes(selectedBillWatch.votes, member.name);
-                              const isMine = myBillWatchVote === member.name;
-                              return (
-                                <div key={member.name} className={`bill-card ${isMine ? "active" : ""}`}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                                    <div>
-                                      <strong style={{ display: "block", fontSize: 18 }}>{member.name}</strong>
-                                      <div className="bill-vote-meta">
-                                        <span className="mini-pill">{totalVotes} vote{totalVotes === 1 ? "" : "s"}</span>
-                                        {isMine ? <span className="mini-pill" style={{ background: "#e8fde8", color: "#0f766e" }}>Your pick</span> : null}
-                                      </div>
-                                    </div>
-                                    <button type="button" className={`btn ${isMine ? "ghost" : "secondary"}`} onClick={() => castBillWatchVote(member.name)}>
-                                      {isMine ? "Remove my vote" : "Vote for this person"}
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        <div className="bill-watch-side">
-                          <div className="checklist-panel">
-                            <div>
-                              <strong style={{ display: "block", marginBottom: 6 }}>Bill Watch checklist</strong>
-                              <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>Set the handoff so whoever wins knows exactly what your crew expects.</p>
-                            </div>
-                            <div className="field">
-                              <label>Add a responsibility</label>
-                              <input
-                                value={billChecklistDraft}
-                                onChange={(event) => setBillChecklistDraft(event.target.value)}
-                                placeholder="Example: Post Venmo reminders by Sunday night"
-                              />
-                            </div>
-                            <button type="button" className="btn secondary" onClick={addBillWatchChecklistItem}>
-                              Add checklist item
-                            </button>
-                          </div>
-                          <div className="vote-grid">
-                            {(selectedBillWatch.checklist || []).length ? selectedBillWatch.checklist.map((item) => (
-                              <div key={item} className="checklist-item">
-                                <span style={{ fontWeight: 800, color: "#475467" }}>{item}</span>
-                                <button type="button" className="btn ghost" style={{ padding: "8px 10px", fontSize: 13 }} onClick={() => removeBillWatchChecklistItem(item)}>
-                                  Remove
-                                </button>
-                              </div>
-                            )) : (
-                              <div className="bill-card">
-                                <strong>No checklist yet.</strong>
-                                <p style={{ margin: "8px 0 0", color: "#667085" }}>Add a few expectations so your Bill Watch pick knows what your crew wants covered.</p>
-                              </div>
-                            )}
-                          </div>
+                      <div className="bill-card" style={{ display: "grid", gap: 14 }}>
+                        <strong style={{ fontSize: 20 }}>Everyone can log what they bought.</strong>
+                        <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>
+                          There is no separate record-keeper role anymore. Once an expense is added in Bill Split, everyone in {selectedGroup.name} sees it.
+                        </p>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          <button type="button" className="btn primary" onClick={() => onNavigate?.("bill-split")}>Open Bill Split</button>
                         </div>
                       </div>
                     </div>
@@ -2031,25 +1875,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData 
                   </div>
                 ))}
               </div>
-
-              <div className="field">
-                <label>Outside invites</label>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <input value={editDraft.newInvite} onChange={(event) => setEditDraft((prev) => ({ ...prev, newInvite: event.target.value }))} placeholder="name, @handle, or phone note" />
-                  <button type="button" className="btn secondary" onClick={addEditExternalInvite}>Add invite</button>
-                </div>
-              </div>
-              <div className="edit-list">
-                {editDraft.externalInvites.length ? editDraft.externalInvites.map((invite) => (
-                  <div key={invite} className="edit-row">
-                    <span>{invite}</span>
-                    <button type="button" className="btn ghost" style={{ padding: "7px 10px", fontSize: 12 }} onClick={() => setEditDraft((prev) => ({ ...prev, externalInvites: prev.externalInvites.filter((item) => item !== invite) }))}>Remove</button>
-                  </div>
-                )) : (
-                  <div className="edit-row"><span>No outside invites yet.</span></div>
-                )}
-              </div>
-
               <div className="field">
                 <label>Reservation status</label>
                 <select

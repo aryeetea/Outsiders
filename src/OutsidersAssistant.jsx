@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getAllHangoutProposals, getDisplayName } from "./appState";
 
 const STORAGE_KEY = "outsiders-bonafide-assistant";
@@ -9,7 +9,6 @@ const SCREEN_LABELS = {
   signup: "Sign Up",
   dashboard: "Dashboard",
   "create-hangout": "Create Hangout",
-  "join-hangout": "Join Hangout",
   voting: "Voting",
   "friend-groups": "Friend Groups",
   "trip-planning": "Trip Planning",
@@ -21,24 +20,24 @@ const SCREEN_LABELS = {
 
 const QUICK_ACTIONS = {
   default: [
-    "Recommend places I would probably like based on my app history.",
-    "What should I work on next in this app?",
-    "Give me a short plan using the data on this page.",
+    "Recommend a few places I'd actually like based on my app history.",
+    "Help me figure out the best next move in this app.",
+    "Give me a short plan using what's on this page.",
   ],
   dashboard: [
     "What should my crew focus on next?",
-    "Summarize my hangouts, trips, and notifications.",
-    "Recommend a few places my crew would probably love.",
+    "Summarize my hangouts, trips, and notifications like a real friend would.",
+    "Recommend a few places my crew would genuinely love.",
   ],
   "friend-groups": [
-    "Recommend places for this crew based on what we seem to like.",
+    "Recommend places for this crew based on what we actually seem to like.",
     "Help me write a message to rally the crew.",
     "Which hangouts need attention first?",
     "Draft a fun invite or follow-up note for this crew.",
   ],
   "create-hangout": [
     "Recommend real places for this hangout based on the vibe I want.",
-    "Brainstorm 5 hangout ideas that fit this crew.",
+    "Brainstorm 5 hangout ideas that really fit this crew.",
     "Write a better hangout description for me.",
   ],
   "trip-planning": [
@@ -68,9 +67,14 @@ const QUICK_ACTIONS = {
   ],
 };
 
+function getSpeechRecognitionConstructor() {
+  if (typeof window === "undefined") return null;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
 function readStoredAssistantState() {
   if (typeof window === "undefined") {
-    return { isOpen: false, previousResponseId: null, messages: [], size: "normal" };
+    return { isOpen: false, previousResponseId: null, messages: [], size: "normal", autoSpeakReplies: true };
   }
 
   try {
@@ -80,9 +84,10 @@ function readStoredAssistantState() {
       previousResponseId: typeof parsed.previousResponseId === "string" ? parsed.previousResponseId : null,
       messages: Array.isArray(parsed.messages) ? parsed.messages.slice(-14) : [],
       size: parsed.size === "large" ? "large" : "normal",
+      autoSpeakReplies: typeof parsed.autoSpeakReplies === "boolean" ? parsed.autoSpeakReplies : true,
     };
   } catch {
-    return { isOpen: false, previousResponseId: null, messages: [], size: "normal" };
+    return { isOpen: false, previousResponseId: null, messages: [], size: "normal", autoSpeakReplies: true };
   }
 }
 
@@ -200,50 +205,6 @@ function LauncherIcon() {
   );
 }
 
-function buildLocalFallbackReply(prompt, context, route) {
-  const lower = String(prompt || "").toLowerCase();
-  const name = context?.currentUser?.name || "You";
-  const groups = context?.groups || [];
-  const proposals = context?.proposals || [];
-  const trips = context?.trips || [];
-  const notifications = context?.notifications || [];
-
-  if (lower.includes("next") || lower.includes("what should i work on")) {
-    const steps = [];
-    if ((notifications || []).some((item) => !item.read)) {
-      steps.push("Check your unread notifications first.");
-    }
-    if ((proposals || []).some((proposal) => proposal.status !== "finalized")) {
-      steps.push("Review the hangouts that are still waiting on votes or updates.");
-    }
-    if ((trips || []).length) {
-      steps.push("Open your trip planner and tighten the shared itinerary or checklist.");
-    }
-    if (!steps.length) {
-      steps.push("You look caught up. Start a new hangout or trip when you are ready.");
-    }
-    return `${name}, here is the cleanest next-step plan:\n\n- ${steps.join("\n- ")}`;
-  }
-
-  if (lower.includes("summarize")) {
-    return `${name}, here is your quick app snapshot:\n\n- Crews: ${groups.length}\n- Active hangouts: ${proposals.length}\n- Trips: ${trips.length}\n- Recent notifications: ${notifications.length}\n\nOpen the page you want and I can help turn that into a message, outline, or checklist.`;
-  }
-
-  if (lower.includes("message") || lower.includes("write") || lower.includes("draft")) {
-    return `Try this:\n\n"Hey crew, I tightened the plan on this page. Take a quick look when you can and drop your vote or update so we can lock things in."`;
-  }
-
-  if (route === "trip-planning") {
-    return `I can still help from this page even without the live AI route.\n\n- tighten the day-by-day itinerary\n- suggest a cleaner trip message\n- turn the current plan into a short checklist\n\nTry asking: "Turn this trip into a simple next-step checklist."`;
-  }
-
-  if (route === "create-hangout" || route === "hangouts" || route === "friend-groups") {
-    return `I can still help from your hangout context.\n\nTry asking for one of these:\n- "Write a better hangout description."\n- "Give me a short rally message for the crew."\n- "What should we finalize next?"`;
-  }
-
-  return `I’m still available in lightweight mode right now.\n\nI can help you:\n- decide the next step\n- draft a message\n- summarize what is on this page\n- turn the current page into a checklist`;
-}
-
 export default function OutsidersAssistant({ route, appData }) {
   const stored = useMemo(() => readStoredAssistantState(), []);
   const [isOpen, setIsOpen] = useState(stored.isOpen);
@@ -253,13 +214,102 @@ export default function OutsidersAssistant({ route, appData }) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [speechEnabled, setSpeechEnabled] = useState(false);
+  const [autoSpeakReplies, setAutoSpeakReplies] = useState(Boolean(stored.autoSpeakReplies));
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const recognitionRef = useRef(null);
+  const shouldAutoSendVoiceRef = useRef(false);
 
   const context = useMemo(() => buildContext(route, appData), [appData, route]);
   const quickActions = (QUICK_ACTIONS[route?.screen] || QUICK_ACTIONS.default).slice(0, 2);
 
   useEffect(() => {
-    persistAssistantState({ isOpen, previousResponseId, messages, size: panelSize });
-  }, [isOpen, previousResponseId, messages, panelSize]);
+    persistAssistantState({ isOpen, previousResponseId, messages, size: panelSize, autoSpeakReplies });
+  }, [isOpen, previousResponseId, messages, panelSize, autoSpeakReplies]);
+
+  useEffect(() => {
+    const SpeechRecognitionCtor = getSpeechRecognitionConstructor();
+    setVoiceSupported(Boolean(SpeechRecognitionCtor));
+    setSpeechEnabled(typeof window !== "undefined" && "speechSynthesis" in window);
+  }, []);
+
+  useEffect(() => {
+    if (!voiceSupported) return undefined;
+
+    const SpeechRecognitionCtor = getSpeechRecognitionConstructor();
+    if (!SpeechRecognitionCtor) return undefined;
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      const results = Array.from(event.results || []);
+      const transcript = results
+        .map((result) => result?.[0]?.transcript || "")
+        .join(" ")
+        .trim();
+      const finalTranscript = results
+        .filter((result) => result?.isFinal)
+        .map((result) => result?.[0]?.transcript || "")
+        .join(" ")
+        .trim();
+
+      setLiveTranscript(transcript);
+      setInput(transcript);
+
+      if (finalTranscript) {
+        setInput(finalTranscript);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      const code = event?.error || "unknown";
+      if (code !== "aborted") {
+        setError("Voice capture had a hiccup. Try the mic again or type instead.");
+      }
+      shouldAutoSendVoiceRef.current = false;
+      setLiveTranscript("");
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      const finalPrompt = (liveTranscript || input).trim();
+      setIsListening(false);
+      setLiveTranscript("");
+      if (shouldAutoSendVoiceRef.current && finalPrompt) {
+        shouldAutoSendVoiceRef.current = false;
+        void sendMessage(finalPrompt);
+        return;
+      }
+      shouldAutoSendVoiceRef.current = false;
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.stop();
+      recognitionRef.current = null;
+    };
+  }, [voiceSupported, input, liveTranscript]);
+
+  useEffect(() => {
+    if (!speechEnabled || !autoSpeakReplies || !messages.length) return;
+
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role !== "assistant" || !lastMessage.content) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(lastMessage.content);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+  }, [messages, speechEnabled, autoSpeakReplies]);
 
   const sendMessage = async (rawPrompt) => {
     const prompt = rawPrompt.trim();
@@ -285,12 +335,6 @@ export default function OutsidersAssistant({ route, appData }) {
 
       const payload = await response.json();
       if (!response.ok) {
-        if (response.status === 404 || response.status === 500) {
-          const fallbackText = buildLocalFallbackReply(prompt, context, route?.screen);
-          setPreviousResponseId(null);
-          setMessages((current) => [...current, { role: "assistant", content: fallbackText, sources: [] }]);
-          return;
-        }
         throw new Error(payload?.error || "The assistant could not answer right now.");
       }
 
@@ -298,16 +342,56 @@ export default function OutsidersAssistant({ route, appData }) {
       setMessages((current) => [...current, { role: "assistant", content: payload.text, sources: payload.sources || [] }]);
     } catch (err) {
       setError(err.message || "The assistant could not answer right now.");
-      setMessages((current) => current.filter((message, index) => !(index === current.length - 1 && message.role === "user" && message.content === prompt)));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      setError("Voice input is not supported in this browser yet.");
+      return;
+    }
+
+    setError("");
+
+    if (isListening) {
+      shouldAutoSendVoiceRef.current = false;
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      setLiveTranscript("");
+      shouldAutoSendVoiceRef.current = true;
+      recognitionRef.current.start();
+      setIsListening(true);
+    } catch {
+      shouldAutoSendVoiceRef.current = false;
+      setError("Voice input could not start just now. Try the mic again.");
+      setIsListening(false);
+    }
+  };
+
+  const speakMessage = (content) => {
+    if (!speechEnabled || typeof window === "undefined" || !content) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(content);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
   };
 
   const resetConversation = () => {
     setPreviousResponseId(null);
     setMessages([]);
     setError("");
+    setLiveTranscript("");
+    shouldAutoSendVoiceRef.current = false;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
   };
 
   return (
@@ -428,6 +512,41 @@ export default function OutsidersAssistant({ route, appData }) {
           display: grid;
           gap: 8px;
         }
+        .oa-voice-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border: 3px solid #17151f;
+          border-radius: 16px;
+          padding: 10px 12px;
+          background: #fff5d6;
+          box-shadow: 3px 3px 0 #17151f;
+        }
+        .oa-voice-banner.live {
+          background: #ffe0e0;
+          box-shadow: 3px 3px 0 #ff6b6b;
+        }
+        .oa-voice-dot {
+          width: 12px;
+          height: 12px;
+          border-radius: 999px;
+          background: #ff6b6b;
+          border: 2px solid #17151f;
+          flex-shrink: 0;
+          animation: oa-pulse 1s ease-in-out infinite;
+        }
+        .oa-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          font-weight: 800;
+          color: #475569;
+        }
+        .oa-toggle input {
+          accent-color: #ff6b6b;
+        }
         .oa-input {
           width: 100%;
           min-height: 68px;
@@ -477,6 +596,10 @@ export default function OutsidersAssistant({ route, appData }) {
           font-size: 12px;
           line-height: 1.45;
         }
+        @keyframes oa-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.15); opacity: 0.65; }
+        }
         @media (max-width: 720px) {
           .oa-wrap {
             right: 12px;
@@ -499,14 +622,14 @@ export default function OutsidersAssistant({ route, appData }) {
 
       <div className="oa-wrap">
         {isOpen ? (
-          <section className={`oa-panel ${panelSize === "large" ? "large" : ""}`} aria-label="Outsiders AI assistant">
+          <section className={`oa-panel ${panelSize === "large" ? "large" : ""}`} aria-label="Dash assistant">
             <div className="oa-header">
-              <div className="oa-kicker">Bona Fide Assistant</div>
+              <div className="oa-kicker">Dash</div>
               <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
                 <div>
-                  <div className="bangers" style={{ fontSize: 24, color: "#17151f" }}>Outsiders AI</div>
+                  <div className="bangers" style={{ fontSize: 24, color: "#17151f" }}>Dash</div>
                   <div style={{ fontSize: 12, color: "#667085", fontWeight: 800 }}>
-                    {SCREEN_LABELS[route?.screen] || "App"} helper
+                    {SCREEN_LABELS[route?.screen] || "App"} planner
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -528,11 +651,18 @@ export default function OutsidersAssistant({ route, appData }) {
             <div className="oa-messages">
               {!messages.length ? (
                 <div className="oa-bubble assistant">
-                  I can help with the page you are on right now: next steps, drafts, summaries, place ideas, and cleaner planning notes.
+                  I can help with real hangout ideas, food picks, trip plans, drafts, and sharper next steps using the live AI service and your app context. No canned placeholder replies here.
                 </div>
               ) : messages.map((message, index) => (
                 <div key={`${message.role}-${index}`} className={`oa-bubble ${message.role}`}>
                   {message.content}
+                  {message.role === "assistant" && speechEnabled ? (
+                    <div style={{ marginTop: 10 }}>
+                      <button type="button" className="oa-chip" onClick={() => speakMessage(message.content)}>
+                        Read aloud
+                      </button>
+                    </div>
+                  ) : null}
                   {message.role === "assistant" && Array.isArray(message.sources) && message.sources.length ? (
                     <div className="oa-sources">
                       {message.sources.map((source) => (
@@ -544,16 +674,43 @@ export default function OutsidersAssistant({ route, appData }) {
                   ) : null}
                 </div>
               ))}
-              {isLoading ? <div className="oa-bubble assistant">Thinking through your crew context...</div> : null}
+              {isLoading ? <div className="oa-bubble assistant">Pulling together the best move for this...</div> : null}
               {error ? <div className="oa-bubble assistant" style={{ background: "#fff0f0", color: "#991b1b" }}>{error}</div> : null}
             </div>
 
             <div className="oa-composer">
+              {voiceSupported || speechEnabled ? (
+                <div className={`oa-voice-banner ${isListening ? "live" : ""}`}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    {isListening ? <span className="oa-voice-dot" aria-hidden="true" /> : null}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 900, color: "#17151f" }}>
+                        {isListening ? "Dash is listening and will send when you stop talking." : "Dash voice replies are ready."}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748b", overflowWrap: "anywhere" }}>
+                        {isListening
+                          ? (liveTranscript || "Say what you need and Dash will take it from there.")
+                          : (voiceSupported ? "Dash will speak replies automatically, and you can also tap the mic to talk." : "Dash will speak replies automatically when it answers.")}
+                      </div>
+                    </div>
+                  </div>
+                  {speechEnabled ? (
+                    <label className="oa-toggle">
+                      <input
+                        type="checkbox"
+                        checked={autoSpeakReplies}
+                        onChange={(event) => setAutoSpeakReplies(event.target.checked)}
+                      />
+                      Auto-read replies
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
               <textarea
                 className="oa-input"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="Ask for next steps, a draft, a summary, or ideas..."
+                placeholder={isListening ? "Listening and auto-sending when you're done..." : "Ask Dash for a plan, a place, a draft, or a better idea..."}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
@@ -564,14 +721,29 @@ export default function OutsidersAssistant({ route, appData }) {
               <div className="oa-actions">
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <button type="button" className="oa-btn primary" onClick={() => sendMessage(input)} disabled={isLoading}>
-                    Ask AI
+                    Ask Dash
                   </button>
+                  {voiceSupported ? (
+                    <button type="button" className={`oa-btn ${isListening ? "secondary" : ""}`} onClick={toggleListening} disabled={isLoading}>
+                      {isListening ? "Stop Mic" : "Use Mic"}
+                    </button>
+                  ) : null}
+                  {speechEnabled ? (
+                    <button
+                      type="button"
+                      className="oa-btn"
+                      onClick={() => setAutoSpeakReplies((current) => !current)}
+                      disabled={isLoading}
+                    >
+                      {autoSpeakReplies ? "Auto Voice On" : "Auto Voice Off"}
+                    </button>
+                  ) : null}
                   <button type="button" className="oa-btn secondary" onClick={resetConversation} disabled={isLoading}>
                     New Chat
                   </button>
                 </div>
                 <div className="oa-note">
-                  Uses your live app context. Press Enter to send.
+                  Uses your live app context. Press Enter to send, or use the mic for hands-free prompts.
                 </div>
               </div>
             </div>
@@ -582,7 +754,7 @@ export default function OutsidersAssistant({ route, appData }) {
           type="button"
           className="oa-launcher"
           onClick={() => setIsOpen((current) => !current)}
-          aria-label={isOpen ? "Close Outsiders AI" : "Open Outsiders AI"}
+          aria-label={isOpen ? "Close Dash" : "Open Dash"}
         >
           <LauncherIcon />
         </button>

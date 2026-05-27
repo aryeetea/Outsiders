@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
-import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { buildHangoutInviteLink } from "./siteConfig";
+import { getSiteUrl } from "./siteConfig";
 import { availabilityToText, formatTimeLabel, recommendHangoutTimes } from "./scheduling";
-import { isSupabaseConfigured, supabase } from "./supabase";
+import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -471,11 +470,6 @@ function memberKey(member) {
   return member.userId || member.username || member.name;
 }
 
-function generateCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-
 function formatDurationHours(value) {
   if (!Number.isFinite(value) || value <= 0) return "Flexible";
   return `${value} hour${value === 1 ? "" : "s"}`;
@@ -521,7 +515,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [timeOptions, setTimeOptions] = useState([]);
   const [locationOptions, setLocationOptions] = useState([]);
-  const [externalInvites] = useState([]);
+  const externalInvites = [];
   const [agenda, setAgenda] = useState([]);
   const [agendaSuggestions, setAgendaSuggestions] = useState([]);
   const [agendaError, setAgendaError] = useState("");
@@ -620,7 +614,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
         description: form.description.trim(),
         timeOptions,
         locationOptions,
-        externalInvites,
+        externalInvites: [],
         planningDetails: {
           reservationStatus: form.reservationStatus,
           reservationName: form.reservationName.trim(),
@@ -686,7 +680,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     setIsCreatingProposal(true);
     setError("");
 
-    const code = generateCode();
     const chosenMemberKeys = selectedMembers.length ? selectedMembers : participants.map(memberKey);
     const proposalParticipants = participants.filter((member) => chosenMemberKeys.includes(memberKey(member)));
     const proposal = {
@@ -698,8 +691,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       status: "proposed",
-      code,
-      link: buildHangoutInviteLink(code),
+      code: "",
+      link: "",
       createdAt: new Date().toISOString(),
       proposerName: getDisplayName(profile),
       proposerKey: getCurrentUserKey(profile),
@@ -707,7 +700,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       locationOptions,
       votes: { availability: {}, vibe: {}, time: {}, location: {} },
       participants: proposalParticipants,
-      externalInvites,
+      externalInvites: [],
       recommendations,
       agenda,
       agendaSuggestions,
@@ -723,41 +716,15 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
     let nextGroupMembers = selectedGroup.members || [];
     if (isSupabaseConfigured) {
-      const usernamesToResolve = nextGroupMembers
-        .filter((member) => !member.userId && member.username)
-        .map((member) => String(member.username).replace(/^@/, "").toLowerCase());
-
-      if (usernamesToResolve.length) {
-        const { data: profileMatches } = await supabase
-          .from("profiles")
-          .select("id, username, email, full_name")
-          .in("username", usernamesToResolve);
-
-        const profileByUsername = new Map(
-          (profileMatches || []).map((item) => [String(item.username || "").toLowerCase(), item])
-        );
-
-        nextGroupMembers = nextGroupMembers.map((member) => {
-          const normalizedUsername = String(member.username || "").replace(/^@/, "").toLowerCase();
-          const profileMatch = profileByUsername.get(normalizedUsername);
-          return (!normalizedUsername || !profileMatch)
-            ? member
-            : {
-                ...member,
-                userId: member.userId || profileMatch.id,
-                email: member.email || profileMatch.email || "",
-                name: member.name || profileMatch.full_name || member.name,
-              };
-        });
-      }
+      const hydrated = await hydrateMembersWithProfileLinks(nextGroupMembers);
+      nextGroupMembers = hydrated.members;
     }
 
-    const otherMembers = nextGroupMembers.filter((member) => member.name !== getDisplayName(profile));
-    const memberNotifications = otherMembers.map((member) => ({
+    const memberNotifications = nextGroupMembers.map((member) => ({
       id: createId("note"),
       userId: member.userId || null,
-      type: "hangout-invite",
-      message: `${member.name}, ${getDisplayName(profile)} invited you to ${proposal.name}.`,
+      type: "hangout-updated",
+      message: `${getDisplayName(profile)} shared a new hangout in ${selectedGroup.name}: ${proposal.name}.`,
       groupId: selectedGroup.id,
       groupName: selectedGroup.name,
       proposalId: proposal.id,
@@ -765,8 +732,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       link: proposal.link,
       recipient: member.name,
       recipientKey: notificationRecipientKey(member),
-      actionScreen: "join-hangout",
-      actionParams: { code: proposal.code },
+      actionScreen: "friend-groups",
+      actionParams: { groupId: selectedGroup.id, tab: "Hangouts" },
       createdAt: new Date().toISOString(),
       read: false,
     }));
@@ -819,11 +786,11 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
 
       try {
         await sendNotificationEmails({
-          recipients: otherMembers.filter((member) => member.email).map((member) => ({ email: member.email, name: member.name })),
+          recipients: nextGroupMembers.filter((member) => member.email).map((member) => ({ email: member.email, name: member.name })),
           subject: `${getDisplayName(profile)} created a new hangout in ${selectedGroup.name}`,
           intro: `${getDisplayName(profile)} just created "${proposal.name}" in ${selectedGroup.name}.`,
-          ctaLabel: "Open hangout",
-          ctaUrl: proposal.link,
+          ctaLabel: "Open crew hangouts",
+          ctaUrl: `${getSiteUrl()}/#/friend-groups`,
           details: [
             `Crew: ${selectedGroup.name}`,
             `Time options: ${proposal.timeOptions.length}`,
@@ -1133,7 +1100,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                         <p className="share-summary-item"><strong>Crew</strong>{selectedGroup ? `${selectedGroup.emoji} ${selectedGroup.name}` : "No crew selected"}</p>
                         <p className="share-summary-item"><strong>Duration</strong>{formatDurationHours(durationHours)}</p>
                         <p className="share-summary-item"><strong>Vote setup</strong>{timeOptions.length} time options · {locationOptions.length} place options</p>
-                        <p className="share-summary-item"><strong>Outside guests</strong>{externalInvites.length} external invite{externalInvites.length === 1 ? "" : "s"}</p>
+                        <p className="share-summary-item"><strong>Crew access</strong>Everyone in the crew gets this hangout automatically</p>
                         <p className="share-summary-item">{timeOptions.length ? "✓ Time options added" : "• Add at least one time option"}</p>
                         <p className="share-summary-item">{locationOptions.length ? "✓ Place options added" : "• Add at least one place option"}</p>
                         <p className="share-summary-item">{form.name.trim() ? "✓ Hangout name added" : "• Give the hangout a clear name"}</p>
@@ -1154,20 +1121,17 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
               <h1 className="bangers" style={{ margin: "14px 0 8px", fontSize: 42 }}>{createdProposal.name}</h1>
               <p style={{ margin: "0 0 16px", color: "#667085" }}>The crew can now vote on this hangout inside {createdProposal.groupName}. Notifications have been added for the rest of the crew.</p>
               <div className="summary-box">
-                <strong style={{ display: "block", marginBottom: 8 }}>Invite code</strong>
+                <strong style={{ display: "block", marginBottom: 8 }}>Ready for crew voting</strong>
                 <p style={{ margin: "0 0 10px", color: "#667085" }}>Duration: {formatDurationHours(createdProposal.durationHours)}</p>
-                <div className="bangers" style={{ fontSize: 42, letterSpacing: "0.18em" }}>{createdProposal.code}</div>
-                <p style={{ margin: "10px 0 0", color: "#667085" }}>{createdProposal.link}</p>
+                <p style={{ margin: 0, color: "#667085" }}>Everything now lives in the crew's hangout voting space.</p>
               </div>
               <div className="summary-box" style={{ marginTop: 14 }}>
                 <strong style={{ display: "block", marginBottom: 8 }}>What to do next</strong>
                 <p style={{ margin: "0 0 8px", color: "#667085" }}>1. Confirm the best time after voting.</p>
                 <p style={{ margin: "0 0 8px", color: "#667085" }}>2. Share the meeting point and reservation details.</p>
-                <p style={{ margin: 0, color: "#667085" }}>3. Check whether anyone else needs the invite link.</p>
+                <p style={{ margin: 0, color: "#667085" }}>3. Open the crew page if you want to keep shaping the plan together.</p>
               </div>
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
-                <button type="button" className="btn ghost" onClick={() => void copyTextWithAlert(createdProposal.code, "Hangout code copied.")}>Copy code</button>
-                <button type="button" className="btn ghost" onClick={() => void copyTextWithAlert(createdProposal.link, "Hangout invite link copied.")}>Copy link</button>
                 <button type="button" className="btn primary" onClick={() => onNavigate?.("friend-groups")}>Open crew voting</button>
                 <button type="button" className="btn ghost" onClick={() => onNavigate?.("create-hangout")}>Create another</button>
               </div>

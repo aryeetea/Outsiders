@@ -373,7 +373,6 @@ const QUICK_ACTIONS = [
   ["Start a hangout", "create-hangout", "Share a time, place, and vibe with your crew."],
   ["Create a crew", "create-crew", "Start a new crew or use a code to join one."],
   ["My crew", "friend-groups", "See hangout voting, roast boards, and invites."],
-  ["Join hangout", "join-hangout", "Use a code to hop into an invite."],
   ["Availability", "profile", "Update your weekly sheet before plans move."],
 ];
 

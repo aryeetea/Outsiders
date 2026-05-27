@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { createId, getCurrentUserKey } from "./appState";
 import { getVisibleGroupsForProfile } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -154,17 +156,22 @@ const STYLES = `
 `;
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
-const INITIAL_EXPENSES = [];
-
 const IconPlus = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IconArrow = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
 
 function calcBalances(expenses, members) {
+  const memberIndexByKey = new Map(members.map((member, index) => [member.key, index]));
   const balances = members.map(() => 0);
   expenses.filter(e => !e.settled).forEach(e => {
-    const share = e.amount / e.splitWith.length;
-    e.splitWith.forEach(i => { balances[i] -= share; });
-    balances[e.paidBy] += e.amount;
+    const splitKeys = Array.isArray(e.splitWithKeys) ? e.splitWithKeys.filter((key) => memberIndexByKey.has(key)) : [];
+    const paidByIndex = memberIndexByKey.get(e.paidByKey);
+    if (paidByIndex === undefined || !splitKeys.length) return;
+    const share = e.amount / splitKeys.length;
+    splitKeys.forEach((key) => {
+      const memberIndex = memberIndexByKey.get(key);
+      if (memberIndex !== undefined) balances[memberIndex] -= share;
+    });
+    balances[paidByIndex] += e.amount;
   });
   return balances;
 }
@@ -187,31 +194,11 @@ function calcSettlements(balances) {
   return settlements;
 }
 
-function countMemberVotes(votes = {}, memberName) {
-  return Object.values(votes).filter((value) => value === memberName).length;
-}
-
-function getLeaderFromMemberVotes(members = [], votes = {}) {
-  const ranked = members
-    .map((member) => ({ name: member.name, votes: countMemberVotes(votes, member.name) }))
-    .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name));
-
-  const top = ranked[0];
-  const runnerUp = ranked[1];
-
-  if (!top || top.votes === 0) return null;
-  if (runnerUp && runnerUp.votes === top.votes) {
-    return { name: "", votes: top.votes, isTie: true };
-  }
-  return { name: top.name, votes: top.votes, isTie: false };
-}
-
 function getFallbackMembers() {
-  return [{ initials: "YOU", name: "You" }];
+  return [{ key: "local:you", initials: "YOU", name: "You" }];
 }
 
 export default function OutsidersBillSplit({ onNavigate, appData, setAppData }) {
-  const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
   const [showModal, setShowModal] = useState(false);
   const profile = useMemo(() => appData?.profile || {}, [appData?.profile]);
   const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], profile), [appData?.groups, profile]);
@@ -234,28 +221,64 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData }) 
   }, [groups, selectedGroupId]);
   const members = useMemo(
     () => (selectedGroup?.members?.length ? selectedGroup.members.map((member) => ({
+      key: member.userId ? `user:${member.userId}` : (member.username ? `username:${String(member.username).replace(/^@/, "").toLowerCase()}` : `name:${String(member.name || "").trim().toLowerCase()}`),
       initials: member.initials || member.name?.slice(0, 3)?.toUpperCase() || "??",
       name: member.name,
     })) : getFallbackMembers()),
     [selectedGroup]
   );
-  const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
-  const billWatchVoteEntries = Object.entries(selectedBillWatch.votes || {});
-  const billWatchLeader = getLeaderFromMemberVotes(selectedGroup?.members || [], selectedBillWatch.votes || {});
+  const currentUserKey = getCurrentUserKey(profile);
+  const expenses = useMemo(() => Array.isArray(selectedGroup?.expenses) ? selectedGroup.expenses : [], [selectedGroup]);
 
   const balances = calcBalances(expenses, members);
   const settlements = calcSettlements(balances);
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
   const unsettled = expenses.filter(e => !e.settled).reduce((s, e) => s + e.amount, 0);
 
+  const persistExpenses = async (nextExpenses) => {
+    if (!selectedGroup) return;
+    const nextGroup = { ...selectedGroup, expenses: nextExpenses };
+    if (isSupabaseConfigured && selectedGroup.id && !String(selectedGroup.id).startsWith("group-")) {
+      await supabase
+        .from("groups")
+        .update({ expenses: nextExpenses })
+        .eq("id", selectedGroup.id);
+    }
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: (prev.groups || []).map((group) => (
+        String(group.id) === String(selectedGroup.id) ? nextGroup : group
+      )),
+    }));
+  };
+
   const addExpense = () => {
-    if (!form.desc.trim() || !form.amount) return;
-    setExpenses(prev => [...prev, { id: Date.now(), desc: form.desc, amount: Number(form.amount), paidBy: Number(form.paidBy), splitWith: form.splitWith, settled: false, emoji: "💸" }]);
+    if (!selectedGroup || !form.desc.trim() || !form.amount) return;
+    const paidByMember = members[Number(form.paidBy)];
+    const splitWithKeys = form.splitWith.map((index) => members[index]?.key).filter(Boolean);
+    if (!paidByMember || !splitWithKeys.length) return;
+    const nextExpenses = [
+      ...expenses,
+      {
+        id: createId("expense"),
+        desc: form.desc.trim(),
+        amount: Number(form.amount),
+        paidByKey: paidByMember.key,
+        splitWithKeys,
+        settled: false,
+        emoji: "💸",
+        addedBy: currentUserKey,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    void persistExpenses(nextExpenses);
     setForm({ desc: "", amount: "", paidBy: 0, splitWith: [0] });
     setShowModal(false);
   };
 
-  const settleUp = (expId) => setExpenses(prev => prev.map(e => e.id === expId ? { ...e, settled: true } : e));
+  const settleUp = (expId) => void persistExpenses(expenses.map((expense) => (
+    expense.id === expId ? { ...expense, settled: true } : expense
+  )));
   const toggleSplit = (i) => setForm(prev => ({ ...prev, splitWith: prev.splitWith.includes(i) ? prev.splitWith.filter(x => x !== i) : [...prev.splitWith, i] }));
   const profileName = profile.name || profile.username || "You";
 
@@ -274,43 +297,29 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData }) 
               </div>
               <h1 className="bill-title">Bill Split</h1>
               <div className="bill-subtitle">
-                {selectedGroup ? "Track spending, payouts, and who still owes what." : "No expenses are loaded until you add them."}
+                {selectedGroup ? "Everyone in the crew can add expenses, and everyone in the crew can see them." : "Pick a crew first, then start adding shared expenses."}
               </div>
               <div className="bill-actions">
                 <button className="btn-primary" onClick={() => setShowModal(true)}><IconPlus /> Add Expense</button>
               </div>
             </div>
 
-            <div className="bill-section-label">Crew Tracker</div>
+            <div className="bill-section-label">Shared Expenses</div>
             <div className="card" style={{ background: "#e8f4fd", borderColor: "#4ecdc4", boxShadow: "5px 5px 0 #4ecdc4", marginBottom: 24 }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
                 <div style={{ flex: 1, minWidth: 240 }}>
-                  <p className="bangers" style={{ fontSize: 18, margin: "0 0 6px" }}>Bill Watch Roster 🧮</p>
+                  <p className="bangers" style={{ fontSize: 18, margin: "0 0 6px" }}>Crew expense room 💸</p>
                   <p style={{ fontSize: 13, fontWeight: 700, color: "#555", margin: "0 0 10px" }}>
-                    This is where you can see who your crew voted to track payments and keep the split math clean.
+                    No special role is needed here. Anyone in the crew can log what they paid for, and the whole crew sees the same running list.
                   </p>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                     <span className="badge" style={{ background: "#fff", color: "#4ecdc4", borderColor: "#4ecdc4" }}>
-                      {billWatchLeader?.isTie ? `Tie at ${billWatchLeader.votes} vote${billWatchLeader.votes === 1 ? "" : "s"}` : (billWatchLeader?.name ? `${billWatchLeader.name} leading` : "No vote yet")}
+                      {selectedGroup?.members?.length || 0} crew member{(selectedGroup?.members?.length || 0) === 1 ? "" : "s"} can add expenses
                     </span>
                     <span className="badge" style={{ background: "#fff", color: "#1a1a2e", borderColor: "#1a1a2e" }}>
-                      {billWatchVoteEntries.length} total vote{billWatchVoteEntries.length === 1 ? "" : "s"}
-                    </span>
-                    <span className="badge" style={{ background: "#fff", color: "#ff9a3c", borderColor: "#ff9a3c" }}>
-                      Tracker: {selectedBillWatch.electedMemberName || (billWatchLeader?.isTie ? "Tie vote right now" : "Not assigned yet")}
+                      Everyone sees the same totals
                     </span>
                   </div>
-                  {(selectedBillWatch.checklist || []).length > 0 ? (
-                    <div>
-                      {(selectedBillWatch.checklist || []).map((item) => (
-                        <p key={item} style={{ fontSize: 12, fontWeight: 800, color: "#555", margin: "0 0 6px" }}>• {item}</p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p style={{ fontSize: 12, fontWeight: 800, color: "#777", margin: 0 }}>
-                      No money-job checklist yet. Set it up in Friend Groups under Bill Watch.
-                    </p>
-                  )}
                 </div>
 
                 <div style={{ minWidth: 240, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -323,16 +332,13 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData }) 
                     </select>
                   </div>
                   <div style={{ background: "#fff", border: "3px solid #1a1a2e", borderRadius: 12, padding: "12px 14px", boxShadow: "3px 3px 0 #1a1a2e" }}>
-                    <p className="bangers" style={{ fontSize: 14, margin: "0 0 8px" }}>Vote board</p>
-                    {selectedGroup?.members?.length ? selectedGroup.members.map((member) => {
-                      const voteCount = countMemberVotes(selectedBillWatch.votes, member.name);
-                      return (
-                        <div key={member.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 900, color: "#1a1a2e" }}>{member.name}</span>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: "#666" }}>{voteCount} vote{voteCount === 1 ? "" : "s"}</span>
-                        </div>
-                      );
-                    }) : <p style={{ fontSize: 12, fontWeight: 800, color: "#888", margin: 0 }}>Create a crew first to see the voted record keeper.</p>}
+                    <p className="bangers" style={{ fontSize: 14, margin: "0 0 8px" }}>Crew access</p>
+                    {selectedGroup?.members?.length ? selectedGroup.members.map((member) => (
+                      <div key={member.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 900, color: "#1a1a2e" }}>{member.name}</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: "#666" }}>Can add and view</span>
+                      </div>
+                    )) : <p style={{ fontSize: 12, fontWeight: 800, color: "#888", margin: 0 }}>Create a crew first to start sharing expenses.</p>}
                   </div>
                 </div>
               </div>
@@ -372,7 +378,9 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData }) 
                     <div style={{ width: 44, height: 44, background: e.settled ? "#f0ebe0" : "#fff4e6", border: `3px solid ${e.settled ? "#ccc" : "#ff9a3c"}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, boxShadow: `3px 3px 0 ${e.settled ? "#ccc" : "#ff9a3c"}`, flexShrink: 0 }}>{e.emoji}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontWeight: 900, fontSize: 14, margin: 0, color: e.settled ? "#aaa" : "#1a1a2e", textDecoration: e.settled ? "line-through" : "none" }}>{e.desc}</p>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: 0 }}>Paid by {members[e.paidBy].initials} · Split {e.splitWith.length} ways</p>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: "#888", margin: 0 }}>
+                        Paid by {members.find((member) => member.key === e.paidByKey)?.initials || "??"} · Split {(e.splitWithKeys || []).length} ways
+                      </p>
                     </div>
                     <span className="bangers" style={{ fontSize: 20, color: e.settled ? "#aaa" : "#ff6b6b" }}>${e.amount}</span>
                     {!e.settled

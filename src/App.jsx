@@ -14,7 +14,6 @@ import OutsidersDashboard from "./OutsidersDashboard";
 import OutsidersDebrief from "./OutsidersDebrief";
 import OutsidersFriendGroups from "./OutsidersFriendGroups";
 import OutsidersHangouts from "./OutsidersHangouts";
-import OutsidersJoinHangout from "./Outsidersjoinhangout";
 import OutsidersLanding from "./OutsidersLanding";
 import OutsidersLogIn from "./OutsidersLogIn";
 import OutsidersProfile from "./OutsidersProfile";
@@ -22,7 +21,7 @@ import OutsidersRateOuting from "./OutsidersRateOuting";
 import OutsidersSignUp from "./Outsiderssignup";
 import OutsidersTripPlanning from "./OutsidersTripPlanning";
 import OutsidersVoting from "./OutsidersVoting";
-import { isSupabaseConfigured, supabase } from "./supabase";
+import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
 const DEFAULT_SCREEN = "landing";
 const APP_DATA_STORAGE_KEY = "outsiders-app-data";
@@ -38,7 +37,6 @@ const SCREEN_COMPONENTS = {
   "hangouts": OutsidersHangouts,
   "create-hangout": OutsidersCreateHangout,
   "create-crew": OutsidersCreateCrew,
-  "join-hangout": OutsidersJoinHangout,
   "voting": OutsidersVoting,
   "friend-groups": OutsidersFriendGroups,
   "trip-planning": OutsidersTripPlanning,
@@ -100,7 +98,6 @@ export default function App() {
   const latestAppDataRef = useRef(appData);
 
 async function fetchSharedAppData(user, previousAppData = {}) {
-    const metadataGroups = Array.isArray(user.user_metadata?.joined_groups) ? user.user_metadata.joined_groups : [];
     const { data: profileRow } = await supabase
       .from("profiles")
       .select("full_name, username, email, availability, avatar_url")
@@ -117,7 +114,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       availability: profileRow?.availability || user.user_metadata?.availability || DEFAULT_PROFILE.availability,
     };
 
-    const { data: groupRows, error: groupRowsError } = await supabase
+    const { data: rawGroupRows, error: groupRowsError } = await supabase
       .from("groups")
       .select("*");
     const { data: notificationRows, error: notificationRowsError } = await supabase
@@ -130,24 +127,32 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       .select("*")
       .order("created_at", { ascending: false });
 
+    const groupRows = !groupRowsError && Array.isArray(rawGroupRows)
+      ? await Promise.all(rawGroupRows.map(async (group) => {
+        const { members, changed } = await hydrateMembersWithProfileLinks(group.members || []);
+        return { ...group, members, _membersChanged: changed };
+      }))
+      : [];
+
+    const changedGroupRows = groupRows.filter((group) => group?._membersChanged && group?.id);
+    if (changedGroupRows.length) {
+      await Promise.all(
+        changedGroupRows.map((group) => supabase
+          .from("groups")
+          .update({ members: group.members })
+          .eq("id", group.id))
+      );
+    }
+
     const sharedGroups = !groupRowsError && Array.isArray(groupRows)
       ? groupRows.filter((group) => isProfileMemberOfGroup(group, hydratedProfile))
       : null;
-    const metadataGroupIds = metadataGroups.map((group) => String(group?.id || "")).filter(Boolean);
-    const metadataGroupCodes = metadataGroups.map((group) => String(group?.code || "").trim().toUpperCase()).filter(Boolean);
-    const metadataMatchedDbGroups = !groupRowsError && Array.isArray(groupRows)
-      ? groupRows.filter((group) => (
-        metadataGroupIds.includes(String(group?.id || ""))
-        || metadataGroupCodes.includes(String(group?.code || "").trim().toUpperCase())
-      ))
-      : [];
     const fallbackGroups = (Array.isArray(previousAppData.groups) ? previousAppData.groups : []).filter((group) => (
       isProfileMemberOfGroup(group, hydratedProfile)
-      || isProfileMemberOfGroup(group, previousAppData.profile || {})
     ));
     const effectiveGroups = Array.isArray(sharedGroups)
-      ? mergeGroupsByIdentity(sharedGroups, mergeGroupsByIdentity(metadataMatchedDbGroups, mergeGroupsByIdentity(metadataGroups, fallbackGroups)))
-      : mergeGroupsByIdentity(metadataMatchedDbGroups, mergeGroupsByIdentity(metadataGroups, fallbackGroups));
+      ? mergeGroupsByIdentity(sharedGroups, fallbackGroups)
+      : fallbackGroups;
     const sharedGroupIds = Array.isArray(effectiveGroups) ? effectiveGroups.map((group) => String(group.id)) : [];
     const hydratedHangouts = Array.isArray(effectiveGroups)
       ? effectiveGroups.flatMap((group) => (group.hangout_proposals || group.hangoutProposals || []).map((proposal) => ({

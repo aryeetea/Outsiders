@@ -400,7 +400,6 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
           <button type="button" className={voteStillNeeded ? "btn primary" : "btn secondary"} onClick={() => onNavigate?.("friend-groups")}>
             {voteStillNeeded ? "Open full crew voting" : "Open in crew"}
           </button>
-          <button type="button" className="btn ghost" onClick={() => onNavigate?.("join-hangout", { code: proposal.code })}>Open invite</button>
           {isMine ? (
             <button type="button" className="btn ghost" onClick={() => void deleteProposal(proposal)}>Delete hangout</button>
           ) : null}
@@ -421,7 +420,6 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
               <p style={{ margin: 0, color: "#555", fontWeight: 800, lineHeight: 1.6 }}>Track what is still being voted on, what is finalized, and jump into the right crew when it is time to manage details.</p>
               <div className="actions">
                 <button type="button" className="btn primary" onClick={() => onNavigate?.("create-hangout")}>Create hangout</button>
-                <button type="button" className="btn ghost" onClick={() => onNavigate?.("join-hangout")}>Join by code</button>
               </div>
             </section>
 
