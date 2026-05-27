@@ -520,7 +520,6 @@ where planning_checklist is null;
 
 update public.trips
 set booking_info = '{}'::jsonb
-where booking_info is null;
 
 update public.trips
 set trip_preferences = '[]'::jsonb

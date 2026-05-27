@@ -45,15 +45,15 @@ function IconBell() {
 
 const NAV_ITEMS = [
   { icon: <IconDashboard />, label: "Dashboard", target: "dashboard" },
+  { icon: <IconProfile />, label: "Profile", target: "profile" },
   { icon: <IconCrew />, label: "My Crew", target: "friend-groups" },
   { icon: <IconCreateCrew />, label: "Create Crew", target: "create-crew" },
-  { icon: <IconDebrief />, label: "Debrief Court", target: "debrief" },
   { icon: <IconHangouts />, label: "Hangouts", target: "hangouts" },
   { icon: <IconCreateHangout />, label: "Create Hangout", target: "create-hangout" },
   { icon: <IconTrips />, label: "Trips", target: "trip-planning" },
   { icon: <IconBillSplit />, label: "Bill Split", target: "bill-split" },
   { icon: <IconRatings />, label: "Ratings", target: "rate-outing" },
-  { icon: <IconProfile />, label: "Profile", target: "profile" },
+  { icon: <IconDebrief />, label: "Debrief Court", target: "debrief" },
 ];
 
 function readCollapsed() {
