@@ -820,3 +820,31 @@ begin
   return saved_hangout;
 end;
 $$;
+
+-- =========================
+-- Realtime Publication
+-- =========================
+
+do $$
+begin
+  alter publication supabase_realtime add table public.profiles;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.groups;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.notifications;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.trips;
+exception when duplicate_object then null;
+end $$;
