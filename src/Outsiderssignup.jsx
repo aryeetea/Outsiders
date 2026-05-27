@@ -265,7 +265,48 @@ function mapSignupError(message = "") {
   ) {
     return "That username is already taken.";
   }
+  if (lower.includes("request body too large") || lower.includes("too large")) {
+    return "That photo is too large to upload. Try a smaller image.";
+  }
   return message || "We could not create that account right now.";
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read that photo. Try another image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageFromSrc(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not process that photo. Try another image."));
+    image.src = src;
+  });
+}
+
+async function compressAvatarFile(file) {
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImageFromSrc(source);
+  const maxSize = 512;
+  const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return source;
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.82);
 }
 
 export default function OutsidersSignUp({ onNavigate, setAppData, routeParams }) {
@@ -283,16 +324,18 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
   };
   const postAuthScreen = routeParams?.redirect || "dashboard";
 
-  const handleAvatar = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setAvatar(typeof reader.result === "string" ? reader.result : null);
-        setErrors(prev => ({ ...prev, avatar: "" }));
-      };
-      reader.onerror = () => setErrors(prev => ({ ...prev, avatar: "Could not read that photo. Try another image." }));
-      reader.readAsDataURL(file);
+  const handleAvatar = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const nextAvatar = await compressAvatarFile(file);
+      setAvatar(typeof nextAvatar === "string" ? nextAvatar : null);
+      setErrors(prev => ({ ...prev, avatar: "" }));
+    } catch (error) {
+      setErrors(prev => ({ ...prev, avatar: error.message || "Could not read that photo. Try another image." }));
+    } finally {
+      e.target.value = "";
     }
   };
   const handleChange = (field) => (e) => {

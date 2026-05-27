@@ -696,137 +696,151 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     setIsCreatingProposal(true);
     setError("");
 
-    const proposal = {
-      id: createId("proposal"),
-      name: form.name.trim(),
-      description: form.description.trim(),
-      durationHours,
-      durationMinutes: durationHours ? durationMinutes : null,
-      groupId: selectedGroup.id,
-      groupName: selectedGroup.name,
-      status: "proposed",
-      createdAt: new Date().toISOString(),
-      proposerName: getDisplayName(profile),
-      proposerKey: getCurrentUserKey(profile),
-      timeOptions,
-      locationOptions,
-      votes: { availability: {}, vibe: {}, time: {}, location: {} },
-      participants,
-      externalInvites: [],
-      recommendations,
-      agenda,
-      agendaSuggestions,
-      planningDetails: {
-        reservationStatus: form.reservationStatus,
-        reservationName: form.reservationName.trim(),
-        meetingPoint: form.meetingPoint.trim(),
-        followUpNotes: form.followUpNotes.trim(),
-      },
-      finalizedChoice: null,
-      ratings: [],
-    };
+    try {
+      const proposal = {
+        id: createId("proposal"),
+        name: form.name.trim(),
+        description: form.description.trim(),
+        durationHours,
+        durationMinutes: durationHours ? durationMinutes : null,
+        groupId: selectedGroup.id,
+        groupName: selectedGroup.name,
+        status: "proposed",
+        createdAt: new Date().toISOString(),
+        proposerName: getDisplayName(profile),
+        proposerKey: getCurrentUserKey(profile),
+        timeOptions,
+        locationOptions,
+        votes: { availability: {}, vibe: {}, time: {}, location: {} },
+        participants,
+        externalInvites: [],
+        recommendations,
+        agenda,
+        agendaSuggestions: [],
+        planningDetails: {
+          reservationStatus: form.reservationStatus,
+          reservationName: form.reservationName.trim(),
+          meetingPoint: form.meetingPoint.trim(),
+          followUpNotes: form.followUpNotes.trim(),
+        },
+        finalizedChoice: null,
+        ratings: [],
+      };
 
-    let nextGroupMembers = selectedGroup.members || [];
-    if (isSupabaseConfigured) {
-      const hydrated = await hydrateMembersWithProfileLinks(nextGroupMembers);
-      nextGroupMembers = hydrated.members;
-    }
-
-    const memberNotifications = nextGroupMembers.map((member) => ({
-      id: createId("note"),
-      userId: member.userId || null,
-      type: "hangout-updated",
-      message: `${getDisplayName(profile)} shared a new hangout in ${selectedGroup.name}: ${proposal.name}.`,
-      groupId: selectedGroup.id,
-      groupName: selectedGroup.name,
-      proposalId: proposal.id,
-      recipient: member.name,
-      recipientKey: notificationRecipientKey(member),
-      actionScreen: "friend-groups",
-      actionParams: { groupId: selectedGroup.id, tab: "Hangouts" },
-      createdAt: new Date().toISOString(),
-      read: false,
-    }));
-    const nextGroupProposalList = [...(selectedGroup.hangoutProposals || []), proposal];
-    const nextGroup = {
-      ...selectedGroup,
-      members: nextGroupMembers,
-      hangoutProposals: nextGroupProposalList,
-    };
-
-    if (isSupabaseConfigured && selectedGroup?.id) {
-      const { error: groupError } = await supabase
-        .from("groups")
-        .update({ members: nextGroupMembers, hangout_proposals: nextGroupProposalList })
-        .eq("id", selectedGroup.id);
-
-      if (groupError) {
-        setError(groupError.message || "We could not save that hangout yet.");
-        setIsCreatingProposal(false);
-        return;
+      let nextGroupMembers = selectedGroup.members || [];
+      if (isSupabaseConfigured) {
+        const hydrated = await hydrateMembersWithProfileLinks(nextGroupMembers);
+        nextGroupMembers = hydrated.members;
       }
 
-      if (memberNotifications.length) {
-        const { error: notificationError } = await supabase
-          .from("notifications")
-          .insert(
-            memberNotifications
-              .filter((item) => item.userId)
-              .map((item) => ({
-                user_id: item.userId,
-                recipient: item.recipient,
-                recipient_key: item.recipientKey,
-                group_id: item.groupId,
-                group_name: item.groupName,
-                proposal_id: item.proposalId,
-                action_screen: item.actionScreen,
-                action_params: item.actionParams,
-                type: item.type,
-                message: item.message,
-                read: false,
-              }))
-          );
+      const memberNotifications = nextGroupMembers.map((member) => ({
+        id: createId("note"),
+        userId: member.userId || null,
+        type: "hangout-updated",
+        message: `${getDisplayName(profile)} shared a new hangout in ${selectedGroup.name}: ${proposal.name}.`,
+        groupId: selectedGroup.id,
+        groupName: selectedGroup.name,
+        proposalId: proposal.id,
+        recipient: member.name,
+        recipientKey: notificationRecipientKey(member),
+        actionScreen: "friend-groups",
+        actionParams: { groupId: selectedGroup.id, tab: "Hangouts" },
+        createdAt: new Date().toISOString(),
+        read: false,
+      }));
+      const nextGroupProposalList = [...(selectedGroup.hangoutProposals || []), proposal];
+      const nextGroup = {
+        ...selectedGroup,
+        members: nextGroupMembers,
+        hangoutProposals: nextGroupProposalList,
+      };
 
-        if (notificationError) {
-          console.warn("Hangout notifications did not fully save:", notificationError.message);
+      if (isSupabaseConfigured && selectedGroup?.id) {
+        const { error: groupError } = await supabase
+          .from("groups")
+          .update({ members: nextGroupMembers, hangout_proposals: nextGroupProposalList })
+          .eq("id", selectedGroup.id);
+
+        if (groupError) {
+          const isNetworkError = /load failed|failed to fetch|network/i.test(groupError.message || "");
+          setError(
+            isNetworkError
+              ? "Couldn't reach the server. Check your connection and try again."
+              : groupError.message || "We could not save that hangout yet."
+          );
+          return;
+        }
+
+        if (memberNotifications.length) {
+          const { error: notificationError } = await supabase
+            .from("notifications")
+            .insert(
+              memberNotifications
+                .filter((item) => item.userId)
+                .map((item) => ({
+                  user_id: item.userId,
+                  recipient: item.recipient,
+                  recipient_key: item.recipientKey,
+                  group_id: item.groupId,
+                  group_name: item.groupName,
+                  proposal_id: item.proposalId,
+                  action_screen: item.actionScreen,
+                  action_params: item.actionParams,
+                  type: item.type,
+                  message: item.message,
+                  read: false,
+                }))
+            );
+
+          if (notificationError) {
+            console.warn("Hangout notifications did not fully save:", notificationError.message);
+          }
+        }
+
+        try {
+          await sendNotificationEmails({
+            recipients: nextGroupMembers.filter((member) => member.email).map((member) => ({ email: member.email, name: member.name })),
+            subject: `${getDisplayName(profile)} created a new hangout in ${selectedGroup.name}`,
+            intro: `${getDisplayName(profile)} just created "${proposal.name}" in ${selectedGroup.name}.`,
+            ctaLabel: "Open crew hangouts",
+            ctaUrl: `${getSiteUrl()}/#/friend-groups`,
+            details: [
+              `Crew: ${selectedGroup.name}`,
+              `Time options: ${proposal.timeOptions.length}`,
+              `Place options: ${proposal.locationOptions.length}`,
+            ],
+          });
+        } catch (emailError) {
+          console.warn("Hangout email notifications did not fully send:", emailError.message);
         }
       }
 
-      try {
-        await sendNotificationEmails({
-          recipients: nextGroupMembers.filter((member) => member.email).map((member) => ({ email: member.email, name: member.name })),
-          subject: `${getDisplayName(profile)} created a new hangout in ${selectedGroup.name}`,
-          intro: `${getDisplayName(profile)} just created "${proposal.name}" in ${selectedGroup.name}.`,
-          ctaLabel: "Open crew hangouts",
-          ctaUrl: `${getSiteUrl()}/#/friend-groups`,
-          details: [
-            `Crew: ${selectedGroup.name}`,
-            `Time options: ${proposal.timeOptions.length}`,
-            `Place options: ${proposal.locationOptions.length}`,
-          ],
-        });
-      } catch (emailError) {
-        console.warn("Hangout email notifications did not fully send:", emailError.message);
-      }
+      setAppData?.((prev) => ({
+        ...prev,
+        groups: prev.groups.map((group) => (
+          group.id === selectedGroup.id
+            ? nextGroup
+            : group
+        )),
+        hangouts: [...(prev.hangouts || []), proposal],
+        notifications: [...(prev.notifications || []), ...memberNotifications.filter((item) => item.userId === currentUserId)],
+      }));
+
+      setCreatedProposal({
+        ...proposal,
+        groupName: selectedGroup.name,
+      });
+      setError("");
+    } catch (err) {
+      const isNetworkError = /load failed|failed to fetch|network/i.test(err?.message || "");
+      setError(
+        isNetworkError
+          ? "Couldn't reach the server. Check your connection and try again."
+          : err?.message || "Something went wrong. Please try again."
+      );
+    } finally {
+      setIsCreatingProposal(false);
     }
-
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: prev.groups.map((group) => (
-        group.id === selectedGroup.id
-          ? nextGroup
-          : group
-      )),
-      hangouts: [...(prev.hangouts || []), proposal],
-      notifications: [...(prev.notifications || []), ...memberNotifications.filter((item) => item.userId === currentUserId)],
-    }));
-
-    setCreatedProposal({
-      ...proposal,
-      groupName: selectedGroup.name,
-    });
-    setError("");
-    setIsCreatingProposal(false);
   };
 
   return (
