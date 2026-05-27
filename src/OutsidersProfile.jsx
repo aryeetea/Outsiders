@@ -593,6 +593,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
 
       if (user) {
         const { error: profileError } = await supabase.rpc("save_my_profile", {
+          next_profile_id: user.id,
           next_full_name: nextProfile.name.trim() || user.user_metadata?.full_name || user.email?.split("@")[0] || "You",
           next_username: cleanUsername || user.user_metadata?.username || user.email?.split("@")[0] || `user-${user.id.slice(0, 8)}`,
           next_email: nextProfile.email.trim() || user.email || "",

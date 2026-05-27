@@ -342,6 +342,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
 
     if (data.user && data.session) {
       const { error: profileError } = await supabase.rpc("save_my_profile", {
+        next_profile_id: data.user.id,
         next_full_name: form.name.trim(),
         next_username: cleanUsername,
         next_email: form.email.trim(),

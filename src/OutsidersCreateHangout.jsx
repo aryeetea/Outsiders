@@ -496,9 +496,19 @@ async function requestHangoutAgendaSuggestions(payload) {
 
 export default function OutsidersCreateHangout({ onNavigate, appData, setAppData }) {
   const profile = useMemo(() => appData?.profile || {}, [appData?.profile]);
-  const groups = useMemo(() => getVisibleGroupsForProfile(appData?.groups || [], profile), [appData?.groups, profile]);
   const profileName = profile.name || profile.username || "You";
   const [currentUserId, setCurrentUserId] = useState(null);
+  const effectiveProfile = useMemo(
+    () => ({
+      ...profile,
+      id: profile.id || currentUserId || "",
+    }),
+    [currentUserId, profile]
+  );
+  const groups = useMemo(
+    () => getVisibleGroupsForProfile(appData?.groups || [], effectiveProfile),
+    [appData?.groups, effectiveProfile]
+  );
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || "");
   const [form, setForm] = useState({
     name: "",
@@ -556,15 +566,33 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     let active = true;
 
     async function loadCurrentUser() {
-      const { data } = await supabase.auth.getUser();
-      if (active) setCurrentUserId(data.user?.id || null);
+      const { data: userData } = await supabase.auth.getUser();
+      let resolvedUserId = userData?.user?.id || null;
+
+      if (!resolvedUserId) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        resolvedUserId = sessionData?.session?.user?.id || null;
+      }
+
+      if (!active) return;
+
+      setCurrentUserId(resolvedUserId);
+      if (resolvedUserId && !profile.id) {
+        setAppData?.((prev) => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            id: resolvedUserId,
+          },
+        }));
+      }
     }
 
-    loadCurrentUser();
+    void loadCurrentUser();
     return () => {
       active = false;
     };
-  }, []);
+  }, [profile.id, setAppData]);
 
   const addRecommendedTime = (rec) => {
     const option = {

@@ -639,6 +639,7 @@ end;
 $$;
 
 create or replace function public.save_my_profile(
+  next_profile_id uuid,
   next_full_name text,
   next_username text,
   next_email text,
@@ -660,7 +661,7 @@ begin
     avatar_url
   )
   values (
-    auth.uid(),
+    next_profile_id,
     next_full_name,
     next_username,
     next_email,
@@ -678,7 +679,7 @@ begin
 end;
 $$;
 
-grant execute on function public.save_my_profile(text, text, text, text) to authenticated;
+grant execute on function public.save_my_profile(uuid, text, text, text, text) to authenticated;
 
 create or replace function public.get_participant_availability(participant_ids uuid[])
 returns table (

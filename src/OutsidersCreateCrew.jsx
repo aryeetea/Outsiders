@@ -230,10 +230,17 @@ export default function OutsidersCreateCrew({
     if (!isSupabaseConfigured) return undefined;
     let active = true;
     async function loadCurrentUser() {
-      const { data } = await supabase.auth.getUser();
-      if (active) setCurrentUserId(data?.user?.id || null);
+      const { data: userData } = await supabase.auth.getUser();
+      let resolvedUserId = userData?.user?.id || null;
+
+      if (!resolvedUserId) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        resolvedUserId = sessionData?.session?.user?.id || null;
+      }
+
+      if (active) setCurrentUserId(resolvedUserId);
     }
-    loadCurrentUser();
+    void loadCurrentUser();
     return () => { active = false; };
   }, []);
 
@@ -345,11 +352,16 @@ export default function OutsidersCreateCrew({
 
       if (isSupabaseConfigured) {
         // Always fetch the freshest session directly from Supabase auth.
-        // Never rely on local state (currentUserId) for this check.
-        const { data } = await supabase.auth.getUser();
-        resolvedUserId = data?.user?.id ?? null;
+        // Never rely on local state (currentUserId) for the redirect decision.
+        const { data: userData } = await supabase.auth.getUser();
+        resolvedUserId = userData?.user?.id ?? null;
 
-        // Only redirect when getUser genuinely returns no user.
+        if (!resolvedUserId) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          resolvedUserId = sessionData?.session?.user?.id ?? null;
+        }
+
+        // Only redirect when Supabase genuinely returns no authenticated user.
         if (!resolvedUserId) {
           showNotice("Log in first so your crew is saved to your account.");
           onNavigate?.("login", { redirect: "create-crew" });
