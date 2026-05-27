@@ -341,12 +341,11 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
     }
 
     if (data.user && data.session) {
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: data.user.id,
-        full_name: form.name.trim(),
-        username: cleanUsername,
-        email: form.email.trim(),
-        avatar_url: avatar,
+      const { error: profileError } = await supabase.rpc("save_my_profile", {
+        next_full_name: form.name.trim(),
+        next_username: cleanUsername,
+        next_email: form.email.trim(),
+        next_avatar_url: avatar,
       });
 
       if (profileError) {

@@ -138,6 +138,7 @@ create table if not exists public.groups (
   owner_id uuid not null references auth.users(id) on delete cascade,
   owner_username text,
   members jsonb not null default '[]'::jsonb,
+  expenses jsonb not null default '[]'::jsonb,
   pending jsonb not null default '[]'::jsonb,
   cases jsonb not null default '[]'::jsonb,
   hangout_proposals jsonb not null default '[]'::jsonb,
@@ -155,6 +156,7 @@ alter table public.groups
   add column if not exists owner_id uuid references auth.users(id) on delete cascade,
   add column if not exists owner_username text,
   add column if not exists members jsonb not null default '[]'::jsonb,
+  add column if not exists expenses jsonb not null default '[]'::jsonb,
   add column if not exists pending jsonb not null default '[]'::jsonb,
   add column if not exists cases jsonb not null default '[]'::jsonb,
   add column if not exists hangout_proposals jsonb not null default '[]'::jsonb,
@@ -520,6 +522,7 @@ where planning_checklist is null;
 
 update public.trips
 set booking_info = '{}'::jsonb
+where booking_info is null;
 
 update public.trips
 set trip_preferences = '[]'::jsonb
@@ -634,6 +637,48 @@ begin
   return saved_profile;
 end;
 $$;
+
+create or replace function public.save_my_profile(
+  next_full_name text,
+  next_username text,
+  next_email text,
+  next_avatar_url text
+)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  saved_profile public.profiles;
+begin
+  insert into public.profiles (
+    id,
+    full_name,
+    username,
+    email,
+    avatar_url
+  )
+  values (
+    auth.uid(),
+    next_full_name,
+    next_username,
+    next_email,
+    next_avatar_url
+  )
+  on conflict (id) do update set
+    full_name = excluded.full_name,
+    username = excluded.username,
+    email = excluded.email,
+    avatar_url = excluded.avatar_url,
+    updated_at = now()
+  returning * into saved_profile;
+
+  return saved_profile;
+end;
+$$;
+
+grant execute on function public.save_my_profile(text, text, text, text) to authenticated;
 
 create or replace function public.get_participant_availability(participant_ids uuid[])
 returns table (
