@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Component, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_PROFILE,
   isProfileMemberOfGroup,
@@ -24,6 +24,66 @@ import OutsidersVoting from "./OutsidersVoting";
 import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
 const DEFAULT_SCREEN = "landing";
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "column",
+          gap: 16,
+          fontFamily: "'Nunito', sans-serif",
+          background: "#fffdf9",
+          padding: 24,
+          textAlign: "center",
+        }}>
+          <div style={{
+            width: 56, height: 56, background: "#ff6b6b",
+            border: "4px solid #1a1a2e", borderRadius: 14,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 28, boxShadow: "4px 4px 0 #1a1a2e",
+          }}>⚡</div>
+          <h2 style={{ margin: 0, fontFamily: "'Bangers', cursive", fontSize: 36, letterSpacing: "0.04em", color: "#1a1a2e" }}>
+            Something went wrong
+          </h2>
+          <p style={{ margin: 0, color: "#667085", fontWeight: 700, maxWidth: 400 }}>
+            {this.state.error?.message || "An unexpected error occurred."}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: 8, padding: "12px 28px",
+              background: "#ff6b6b", color: "#fff",
+              border: "3px solid #1a1a2e", borderRadius: 10,
+              fontFamily: "'Bangers', cursive", fontSize: 20,
+              letterSpacing: "0.06em", cursor: "pointer",
+              boxShadow: "4px 4px 0 #1a1a2e",
+            }}
+          >
+            Refresh page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
 const APP_DATA_STORAGE_KEY = "outsiders-app-data";
 const LAST_APP_ROUTE_STORAGE_KEY = "outsiders-last-app-route";
 const PUBLIC_SCREENS = new Set(["landing", "login", "signup"]);
@@ -382,8 +442,9 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     && profileNeedsAvailability(appData.profile);
 
   return (
-    <>
-      <style>{`
+    <ErrorBoundary>
+      <>
+        <style>{`
         .availability-gate {
           position: fixed;
           inset: 0;
@@ -493,6 +554,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
           </div>
         </div>
       ) : null}
-    </>
+      </>
+    </ErrorBoundary>
   );
 }
