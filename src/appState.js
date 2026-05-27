@@ -38,20 +38,32 @@ export function isProfileMemberOfGroup(group = {}, profile = {}) {
   const currentUserId = String(profile?.id || profile?.userId || "").trim();
   const displayName = normalizeName(getDisplayName(profile));
   const username = normalizeUsername(profile?.username || "");
+  const members = group?.members || [];
 
-  if (currentUserId && String(group?.owner_id || group?.ownerId || "").trim() === currentUserId) {
-    return true;
-  }
-
-  if (username && normalizeUsername(group?.owner_username || group?.ownerUsername || "") === username) {
-    return true;
-  }
-
-  return (group?.members || []).some((member) => (
+  // The members array is the canonical list of who is currently in the crew.
+  // Any user found here is considered active — whether they're admin, owner, etc.
+  const isInMembers = members.some((member) => (
     (currentUserId && String(member?.userId || "").trim() === currentUserId)
     || (username && normalizeUsername(member?.username || "") === username)
     || (displayName && normalizeName(member?.name || "") === displayName)
   ));
+
+  if (isInMembers) return true;
+
+  // Owner fallback: trust owner_id / owner_username ONLY if the members array
+  // is still empty (e.g. a freshly created group that hasn't populated members
+  // yet). If members is non-empty and the owner isn't in it, they have left the
+  // group and should no longer see it — this makes leave/delete permanent.
+  if (!members.length) {
+    if (currentUserId && String(group?.owner_id || group?.ownerId || "").trim() === currentUserId) {
+      return true;
+    }
+    if (username && normalizeUsername(group?.owner_username || group?.ownerUsername || "") === username) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function getVisibleGroupsForProfile(groups = [], profile = {}) {

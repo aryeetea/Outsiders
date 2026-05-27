@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { getSiteUrl } from "./siteConfig";
+import { buildHangoutInviteLink, getSiteUrl } from "./siteConfig";
 import { availabilityToText, formatTimeLabel, recommendHangoutTimes } from "./scheduling";
 import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
@@ -466,6 +466,11 @@ const STYLES = `
   }
 `;
 
+function generateCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
 function memberKey(member) {
   return member.userId || member.username || member.name;
 }
@@ -699,6 +704,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     try {
       const proposal = {
         id: createId("proposal"),
+        code: generateCode(),
         name: form.name.trim(),
         description: form.description.trim(),
         durationHours,

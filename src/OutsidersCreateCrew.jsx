@@ -16,81 +16,63 @@ const STYLES = `
     background: #fff4b8;
   }
   .shell {
-    max-width: 1120px;
+    max-width: 900px;
     margin: 0 auto;
-    padding: 28px 20px 48px;
-    display: grid;
-    gap: 22px;
-  }
-  .hero, .card {
-    border-radius: 22px;
-    border: 4px solid #17151f;
-    background: #fffdf7;
-    box-shadow: 8px 8px 0 #17151f;
+    padding: 28px 24px 60px;
   }
   .hero {
-    padding: 30px;
-    background: #fff2a6;
+    margin-bottom: 32px;
   }
-  .card {
-    padding: 24px;
-  }
+  .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
   .grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
   }
-  .field {
-    display: grid;
-    gap: 8px;
+  .card {
+    background: #fff;
+    border: 4px solid #17151f;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 6px 6px 0 #17151f;
   }
-  .field label {
-    font: 400 14px 'Bangers', cursive;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .field input, .field select, .field textarea {
-    width: 100%;
+  .field { display: grid; gap: 6px; }
+  .field label { font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .field input, .field select {
     border: 3px solid #17151f;
-    border-radius: 12px;
-    padding: 13px 14px;
-    background: #fff7e4;
+    border-radius: 10px;
+    padding: 10px 12px;
     font: 700 15px 'Nunito', sans-serif;
-    color: #17151f;
-    box-shadow: 3px 3px 0 #17151f;
+    background: #fffdf7;
     outline: none;
+    width: 100%;
   }
-  .field input:focus, .field select:focus, .field textarea:focus {
-    border-color: #ff6b6b;
-    box-shadow: 4px 4px 0 #ff6b6b;
-  }
-  .field textarea {
-    min-height: 108px;
-    resize: vertical;
-  }
+  .field input:focus, .field select:focus { border-color: #ff6b6b; }
   .btn {
     border: 3px solid #17151f;
-    border-radius: 12px;
-    padding: 13px 16px;
+    border-radius: 10px;
+    padding: 11px 20px;
+    font: 800 15px 'Nunito', sans-serif;
     cursor: pointer;
-    font: 400 15px 'Bangers', cursive;
-    letter-spacing: 0.06em;
-    box-shadow: 4px 4px 0 #17151f;
+    transition: transform 120ms, box-shadow 120ms;
   }
-  .btn.primary { background: #ff6b6b; color: #fff; }
-  .btn.secondary { background: #ffd93d; color: #17151f; }
-  .btn.ghost { background: #fff; color: #17151f; }
   .btn:hover { transform: translate(-1px, -2px); }
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-  .bangers { font-family: 'Bangers', cursive; letter-spacing: 0.04em; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn.primary { background: #ff6b6b; color: #fff; box-shadow: 4px 4px 0 #17151f; }
+  .btn.primary:hover { box-shadow: 5px 5px 0 #17151f; }
+  .btn.secondary { background: #ffd93d; color: #17151f; box-shadow: 4px 4px 0 #17151f; }
+  .btn.secondary:hover { box-shadow: 5px 5px 0 #17151f; }
+  .btn.ghost { background: #fff; color: #17151f; box-shadow: 3px 3px 0 #17151f; }
+  .btn.ghost:hover { box-shadow: 4px 4px 0 #17151f; }
   .notice {
-    border-radius: 16px;
+    border-radius: 14px;
     border: 3px solid #ff9a3c;
-    background: #fff4e6;
-    box-shadow: 5px 5px 0 #ff9a3c;
-    padding: 14px 16px;
+    background: #fff5e6;
+    box-shadow: 4px 4px 0 #ff9a3c;
+    padding: 12px 16px;
     font-weight: 800;
-    color: #7a4d00;
+    color: #7a3b00;
+    margin-bottom: 20px;
   }
   .notice.success {
     border-color: #51cf66;
@@ -227,54 +209,22 @@ export default function OutsidersCreateCrew({
   const [notice, setNotice] = useState({ text: "", type: "warn" });
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [generatedInviteCode, setGeneratedInviteCode] = useState("");
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [inviteTarget, setInviteTarget] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const showNotice = (text, type = "warn") => setNotice({ text, type });
   const clearNotice = () => setNotice({ text: "", type: "warn" });
 
-  // Load current user on mount
+  // Load current user ID on mount
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
-    let active = true;
-    async function loadCurrentUser() {
-      const { data: userData } = await supabase.auth.getUser();
-      let resolvedUserId = userData?.user?.id || null;
-
-      if (!resolvedUserId) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        resolvedUserId = sessionData?.session?.user?.id || null;
-      }
-
-      if (active) setCurrentUserId(resolvedUserId);
-    }
-    void loadCurrentUser();
-    return () => { active = false; };
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.id) setCurrentUserId(data.user.id);
+    });
   }, []);
 
-  // Sync joinCode when routeParams change
-  useEffect(() => {
-    setJoinCode(
-      String(routeParams?.inviteCode || routeParams?.groupCode || "").toUpperCase()
-    );
-  }, [routeParams?.groupCode, routeParams?.inviteCode]);
-
-  useEffect(() => {
-    const normalizedCode = joinCode.trim().toUpperCase();
-    if (!normalizedCode) {
-      setInviteTarget(null);
-      return;
-    }
-    if (
-      inviteTarget &&
-      String(inviteTarget.code || "").trim().toUpperCase() !== normalizedCode
-    ) {
-      setInviteTarget(null);
-    }
-  }, [inviteTarget, joinCode]);
-
-  // Auto-resolve invite target from prefilled code
+  // Auto-detect invite target from prefilled code
   useEffect(() => {
     const prefilledCode = String(
       routeParams?.groupCode || routeParams?.inviteCode || ""
@@ -313,9 +263,6 @@ export default function OutsidersCreateCrew({
   const getFreshUserId = async () => {
     if (!isSupabaseConfigured) return currentUserId || profile.id || null;
     const { data } = await supabase.auth.getUser();
-    // Fall back to currentUserId / profile.id so a transient getUser() failure
-    // (token refresh race, brief network hiccup) doesn't falsely redirect the
-    // user to login when they are already authenticated.
     const id = data?.user?.id || currentUserId || profile.id || null;
     if (id) setCurrentUserId(id);
     return id;
@@ -356,12 +303,9 @@ export default function OutsidersCreateCrew({
     clearNotice();
 
     try {
-      // For the non-Supabase (local-only) path, fall back to known local state.
       let resolvedUserId = isSupabaseConfigured ? null : currentUserId || profile.id || null;
 
       if (isSupabaseConfigured) {
-        // Always fetch the freshest session directly from Supabase auth.
-        // Never rely on local state (currentUserId) for the redirect decision.
         const { data: userData } = await supabase.auth.getUser();
         resolvedUserId = userData?.user?.id ?? null;
 
@@ -370,7 +314,6 @@ export default function OutsidersCreateCrew({
           resolvedUserId = sessionData?.session?.user?.id ?? null;
         }
 
-        // Only redirect when Supabase genuinely returns no authenticated user.
         if (!resolvedUserId) {
           showNotice("Log in first so your crew is saved to your account.");
           onNavigate?.("login", { redirect: "create-crew" });
@@ -544,6 +487,35 @@ export default function OutsidersCreateCrew({
             showNotice(error.message || "We could not add you to that crew yet.");
             return;
           }
+
+          // ── Notify all existing crew members that someone joined ──────────
+          const crewRecipients = Array.from(
+            new Set(
+              (target.members || [])
+                .map((member) => String(member.userId || "").trim())
+                .filter(Boolean)
+            )
+          );
+
+          if (crewRecipients.length) {
+            const { error: notifError } = await supabase.from("notifications").insert(
+              crewRecipients.map((uid) => ({
+                user_id: uid,
+                group_id: target.id,
+                group_name: target.name,
+                recipient: target.name,
+                recipient_key: `user:${uid}`,
+                action_screen: "friend-groups",
+                action_params: { groupId: target.id, tab: "Members" },
+                type: "crew-member-joined",
+                message: `${currentName} joined ${target.name}.`,
+                read: false,
+              }))
+            );
+            if (notifError) {
+              console.warn("Could not send join notifications:", notifError.message);
+            }
+          }
         }
 
         setAppData?.((prev) => ({
@@ -564,7 +536,7 @@ export default function OutsidersCreateCrew({
         return;
       }
 
-      // declined path
+      // ── Decline path ─────────────────────────────────────────────────────
       const identity = buildPendingIdentity(profile, currentName, resolvedUserId);
       const existingDecline = (target.pending || []).find(
         (item) => item.type === "decline-note" && pendingMatchesIdentity(item, identity)
@@ -612,12 +584,12 @@ export default function OutsidersCreateCrew({
 
         if (crewRecipients.length) {
           await supabase.from("notifications").insert(
-            crewRecipients.map((userId) => ({
-              user_id: userId,
+            crewRecipients.map((uid) => ({
+              user_id: uid,
               group_id: target.id,
               group_name: target.name,
               recipient: target.name,
-              recipient_key: `user:${userId}`,
+              recipient_key: `user:${uid}`,
               action_screen: "friend-groups",
               action_params: { groupId: target.id, tab: "Invites" },
               type: "crew-invite-declined",
@@ -878,6 +850,20 @@ export default function OutsidersCreateCrew({
                     }
                   >
                     Decline invite
+                  </button>
+                ) : null}
+
+                {inviteTarget ? (
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    style={{ width: "100%", marginTop: 8 }}
+                    onClick={() => {
+                      setInviteTarget(null);
+                      setJoinCode("");
+                    }}
+                  >
+                    Try a different code
                   </button>
                 ) : null}
               </section>

@@ -360,7 +360,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     };
 
     const intervalId = window.setInterval(refreshSharedData, 20000);
-    
+
     const realtimeChannel = supabase
       .channel("app-realtime-shared")
       .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, triggerRefresh)
@@ -455,7 +455,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     };
   }, [currentSession?.user?.id, sessionReady]);
 
-  // ─── Supabase Realtime: group updates (new hangout proposals, votes, etc.) ──
+  // ─── Supabase Realtime: group updates (new members, hangout proposals, votes) ──
   useEffect(() => {
     if (!isSupabaseConfigured || !sessionReady || !currentSession?.user?.id) return undefined;
 
@@ -479,22 +479,51 @@ async function fetchSharedAppData(user, previousAppData = {}) {
             const groupIdx = existingGroups.findIndex(
               (g) => String(g.id) === String(updatedGroup.id)
             );
-            // Only update groups this user is already a member of
-            if (groupIdx === -1) return prev;
 
-            const existingGroup = existingGroups[groupIdx];
+            // Build the merged group whether or not we already tracked it locally.
+            // This ensures new members show up immediately for all crew members.
+            const existingGroup = groupIdx !== -1 ? existingGroups[groupIdx] : null;
             const mergedGroup = {
-              ...existingGroup,
-              members: updatedGroup.members ?? existingGroup.members,
+              ...(existingGroup || {}),
+              id: updatedGroup.id,
+              name: updatedGroup.name ?? existingGroup?.name ?? "",
+              emoji: updatedGroup.emoji ?? existingGroup?.emoji ?? "👥",
+              code: updatedGroup.code ?? existingGroup?.code ?? "",
+              owner_id: updatedGroup.owner_id ?? existingGroup?.owner_id ?? null,
+              ownerId: updatedGroup.owner_id ?? existingGroup?.ownerId ?? null,
+              owner_username: updatedGroup.owner_username ?? existingGroup?.owner_username ?? "",
+              ownerUsername: updatedGroup.owner_username ?? existingGroup?.ownerUsername ?? "",
+              members: updatedGroup.members ?? existingGroup?.members ?? [],
+              expenses: updatedGroup.expenses ?? existingGroup?.expenses ?? [],
+              pending: updatedGroup.pending ?? existingGroup?.pending ?? [],
+              cases: updatedGroup.cases ?? existingGroup?.cases ?? [],
               hangoutProposals:
                 updatedGroup.hangout_proposals ??
                 updatedGroup.hangoutProposals ??
-                existingGroup.hangoutProposals ??
+                existingGroup?.hangoutProposals ??
                 [],
+              billWatch:
+                updatedGroup.bill_watch ??
+                updatedGroup.billWatch ??
+                existingGroup?.billWatch ??
+                {},
+              peaceMaker:
+                updatedGroup.peace_maker ??
+                updatedGroup.peaceMaker ??
+                existingGroup?.peaceMaker ??
+                {},
             };
 
-            const nextGroups = [...existingGroups];
-            nextGroups[groupIdx] = mergedGroup;
+            // Only include this group if the current user is a member of it
+            const isUserMember = (mergedGroup.members || []).some(
+              (m) => String(m?.userId || "") === String(userId)
+            ) || String(mergedGroup.owner_id || "") === String(userId);
+
+            if (!isUserMember) return prev;
+
+            const nextGroups = groupIdx !== -1
+              ? existingGroups.map((g, i) => i === groupIdx ? mergedGroup : g)
+              : [...existingGroups, mergedGroup];
 
             // Merge updated hangout proposals into the flat hangouts list
             const updatedProposals = (mergedGroup.hangoutProposals || []).map((p) => ({
@@ -673,56 +702,61 @@ async function fetchSharedAppData(user, previousAppData = {}) {
         }
         .outsiders-toast {
           position: fixed;
+          bottom: 28px;
           left: 50%;
-          bottom: 24px;
           transform: translateX(-50%);
-          z-index: 900;
-          min-width: min(320px, calc(100vw - 32px));
-          max-width: 520px;
-          padding: 12px 18px;
-          border-radius: 18px;
-          border: 3px solid #1a1a2e;
-          box-shadow: 6px 6px 0 #1a1a2e;
-          background: #fff7de;
-          color: #1a1a2e;
-          font: 900 14px 'Nunito', sans-serif;
-          letter-spacing: 0.01em;
-          animation: toastPop 180ms ease;
+          z-index: 9999;
+          background: #1a1a2e;
+          color: #fff;
+          border: 3px solid #fff;
+          border-radius: 14px;
+          padding: 12px 24px;
+          font-family: 'Nunito', sans-serif;
+          font-weight: 800;
+          font-size: 15px;
+          box-shadow: 5px 5px 0 rgba(0,0,0,0.18);
+          animation: toastIn 240ms cubic-bezier(0.22, 1, 0.36, 1);
+          white-space: nowrap;
+          max-width: calc(100vw - 48px);
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
-        .outsiders-toast.success {
-          background: #fff0b8;
+        .outsiders-toast.warn { background: #ff9a3c; color: #1a1a2e; border-color: #1a1a2e; }
+        .outsiders-toast.error { background: #ff6b6b; color: #fff; border-color: #1a1a2e; }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
-        .outsiders-toast.error {
-          background: #ffd8d8;
-        }
-        @keyframes toastPop {
-          from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.98); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-        }
-      `}</style>
-      <Screen onNavigate={navigate} onLogout={logout} appData={appData} setAppData={setAppData} routeParams={route.params} />
-      <OutsidersAssistant route={route} appData={appData} />
-      {toast ? (
-        <div className={`outsiders-toast ${toast.tone || "success"}`}>
-          {toast.message}
-        </div>
-      ) : null}
-      {availabilityRequired ? (
-        <div className="availability-gate">
-          <div className="availability-gate-card">
-            <div style={{ display: "inline-flex", padding: "6px 12px", borderRadius: 10, background: "#ffd93d", border: "2px solid #1a1a2e", font: "400 15px 'Bangers', cursive", letterSpacing: "0.07em", boxShadow: "3px 3px 0 #1a1a2e", marginBottom: 14, transform: "rotate(-2deg)", position: "relative", zIndex: 1 }}>
-              Availability Required
+        `}</style>
+
+        {availabilityRequired && (
+          <div className="availability-gate">
+            <div className="availability-gate-card">
+              <div style={{ fontFamily: "'Bangers', cursive", fontSize: 13, letterSpacing: "0.12em", color: "#888", marginBottom: 10 }}>HOLD UP</div>
+              <h2 style={{ margin: "0 0 10px", fontFamily: "'Bangers', cursive", fontSize: 32, letterSpacing: "0.04em" }}>Set your availability first</h2>
+              <p style={{ margin: "0 0 20px", fontWeight: 700, color: "#555", lineHeight: 1.6 }}>
+                Your crew needs to know when you are free before you can start planning together. Head to your profile and fill in your weekly availability.
+              </p>
+              <button className="availability-gate-btn" onClick={() => navigate("profile")}>
+                Go to profile →
+              </button>
             </div>
-            <h2 style={{ margin: "0 0 10px", font: "400 36px 'Bangers', cursive", lineHeight: 1, letterSpacing: "0.04em", position: "relative", zIndex: 1 }}>Set your weekly sheet before planning.</h2>
-            <p style={{ margin: "0 0 18px", fontSize: 16, lineHeight: 1.5, color: "#475569" }}>
-              Outsiders now requires every member to fill out availability before using crews and hangout planning. Your profile has a polished weekly grid waiting for you.
-            </p>
-            <button type="button" className="availability-gate-btn" onClick={() => navigate("profile")}>
-              Open My Availability
-            </button>
           </div>
-        </div>
-      ) : null}
+        )}
+
+        <Screen
+          onNavigate={navigate}
+          appData={appData}
+          setAppData={setAppData}
+          routeParams={route.params}
+          onLogout={logout}
+        />
+
+        {toast && (
+          <div key={toast.id} className={`outsiders-toast${toast.tone !== "success" ? ` ${toast.tone}` : ""}`}>
+            {toast.message}
+          </div>
+        )}
       </>
     </ErrorBoundary>
   );
