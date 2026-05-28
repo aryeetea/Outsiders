@@ -23,7 +23,7 @@ Create a local `.env` file with your Supabase project credentials:
 ```bash
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_SITE_URL=https://outsiders-alpha.vercel.app
+VITE_SITE_URL=https://outsidersescape.website
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_MODEL=gpt-5.4-mini
 RESEND_API_KEY=your_resend_api_key

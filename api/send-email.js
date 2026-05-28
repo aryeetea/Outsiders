@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || "Outsiders <notifications@outsiderescapeclub.website>";
+  const fromEmail = process.env.NOTIFICATION_FROM_EMAIL || "Outsiders <notifications@outsidersescape.website>";
   const { recipients, subject, intro, ctaLabel, ctaUrl, details } = req.body || {};
 
   if (!Array.isArray(recipients) || !recipients.length || !subject) {
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
           <tr>
             <td style="background:#1a1a2e;border-radius:0 0 16px 16px;padding:16px 32px;text-align:center;">
               <p style="margin:0;font-size:12px;color:#667085;">
-                © ${new Date().getFullYear()} Outsiders · outsiderescapeclub.website
+                © ${new Date().getFullYear()} Outsiders · outsidersescape.website
               </p>
             </td>
           </tr>
