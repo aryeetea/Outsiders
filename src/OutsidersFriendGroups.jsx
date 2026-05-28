@@ -593,10 +593,6 @@ const STYLES = `
 const GROUP_COLORS = ["#ff8f7a", "#6ed7ff", "#73e2a7", "#ffcf6e", "#c6a6ff"];
 const EMPTY_PROFILE = {};
 
-function getInitials(name) {
-  return (name || "You").replace(/^@/, "").trim().slice(0, 2).toUpperCase() || "YO";
-}
-
 function formatDurationHours(value) {
   if (!Number.isFinite(value) || value <= 0) return "Flexible";
   return `${value} hour${value === 1 ? "" : "s"}`;
@@ -618,12 +614,6 @@ function memberRecipientKey(member = {}) {
   if (member.userId) return `user:${member.userId}`;
   if (member.username) return `username:${String(member.username).replace(/^@/, "").toLowerCase()}`;
   return `name:${String(member.name || "").trim().toLowerCase()}`;
-}
-
-function pendingIdentityKey(item = {}) {
-  if (item.userId) return `user:${item.userId}`;
-  if (item.username) return `username:${String(item.username).replace(/^@/, "").toLowerCase()}`;
-  return `name:${String(item.name || "").trim().toLowerCase()}`;
 }
 
 function getLeaderFromMemberVotes(members = [], votes = {}) {
@@ -657,7 +647,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   );
   const [selectedGroupId, setSelectedGroupId] = useState(routeParams?.groupId || groups[0]?.id || "");
   const [activeTab, setActiveTab] = useState(routeParams?.tab || "Hangouts");
-  const [billChecklistDraft, setBillChecklistDraft] = useState("");
   const [editingProposalId, setEditingProposalId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [editDraft, setEditDraft] = useState({
@@ -687,10 +676,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const isCurrentMemberAdmin = currentMember?.role === "Admin";
   const debriefCount = selectedGroup?.cases?.length || 0;
   const openDebriefCount = (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length;
-  const selectedBillWatch = selectedGroup?.billWatch || { electedMemberName: "", votes: {}, checklist: [] };
-  const myBillWatchVote = selectedBillWatch.votes?.[currentUserKey] || "";
   const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
-  const pendingJoinRequests = (selectedGroup?.pending || []).filter((item) => item?.type === "join-request");
   const pendingDeclines = (selectedGroup?.pending || []).filter((item) => item?.type === "decline-note");
 
   async function persistSharedGroup(nextGroup, options = {}) {
@@ -790,12 +776,15 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   }, []);
 
   useEffect(() => {
-    if (routeParams?.groupId) {
-      setSelectedGroupId(String(routeParams.groupId));
-    }
-    if (routeParams?.tab) {
-      setActiveTab(String(routeParams.tab));
-    }
+    const timeoutId = window.setTimeout(() => {
+      if (routeParams?.groupId) {
+        setSelectedGroupId(String(routeParams.groupId));
+      }
+      if (routeParams?.tab) {
+        setActiveTab(String(routeParams.tab));
+      }
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [routeParams?.groupId, routeParams?.tab]);
 
   useEffect(() => {
@@ -847,42 +836,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     } else {
       setNotice("We generated the crew link, but your browser blocked auto-copy.");
     }
-  };
-
-  const approveJoinRequest = async (request) => {
-    if (!selectedGroup || !request) return;
-    const alreadyMember = (selectedGroup.members || []).some((member) => pendingIdentityKey(member) === pendingIdentityKey(request));
-    const nextMembers = alreadyMember ? (selectedGroup.members || []) : [...(selectedGroup.members || []), {
-      name: request.name || request.username || "New member",
-      initials: getInitials(request.name || request.username || "NM"),
-      role: "Member",
-      userId: request.userId || null,
-      username: request.username || "",
-      bio: request.bio || "",
-      location: request.location || "",
-      email: request.email || "",
-      availability: request.availability,
-      avatar: request.avatar || "",
-    }];
-    const nextPending = (selectedGroup.pending || []).filter((item) => String(item.id) !== String(request.id));
-    const nextGroup = { ...selectedGroup, members: nextMembers, pending: nextPending };
-    const saved = await persistSharedGroup(nextGroup);
-    if (!saved) return;
-    await createCrewNotificationsForMembers(nextGroup.members, {
-      type: "crew-request-approved",
-      groupId: selectedGroup.id,
-      groupName: selectedGroup.name,
-      actionScreen: "friend-groups",
-      actionParams: { groupId: selectedGroup.id, tab: "Members" },
-      message: `${request.name || request.username || "A member"} joined ${selectedGroup.name}.`,
-    });
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: (prev.groups || []).map((group) => (
-        group.id === selectedGroup.id ? nextGroup : group
-      )),
-    }));
-    setNotice(`${request.name || request.username || "That person"} was added to the crew.`);
   };
 
   const clearPendingInviteNote = async (pendingId) => {
@@ -975,83 +928,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       )),
     }));
     setNotice(`${proposal.name} was finalized for the crew.`);
-  };
-
-  const castBillWatchVote = async (memberName) => {
-    if (!selectedGroup) return;
-    const currentVote = selectedGroup.billWatch?.votes?.[currentUserKey];
-    const nextVotes = { ...(selectedGroup.billWatch?.votes || {}) };
-    if (currentVote === memberName) {
-      delete nextVotes[currentUserKey];
-    } else {
-      nextVotes[currentUserKey] = memberName;
-    }
-    const leader = getLeaderFromMemberVotes(selectedGroup.members, nextVotes);
-    const nextGroup = {
-      ...selectedGroup,
-      billWatch: {
-        ...(selectedGroup.billWatch || {}),
-        electedMemberName: leader?.isTie ? "" : (leader?.name || ""),
-        votes: nextVotes,
-      },
-    };
-    const saved = await persistSharedGroup(nextGroup);
-    if (!saved) return;
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: (prev.groups || []).map((group) => (
-        group.id === selectedGroup.id ? nextGroup : group
-      )),
-    }));
-    setNotice(
-      myBillWatchVote === memberName
-        ? "You removed your Bill Watch vote."
-        : `You picked ${memberName} for Bill Watch.`
-    );
-  };
-
-  const addBillWatchChecklistItem = async () => {
-    if (!selectedGroup || !billChecklistDraft.trim()) return;
-    const item = billChecklistDraft.trim();
-    const nextGroup = {
-      ...selectedGroup,
-      billWatch: {
-        ...(selectedGroup.billWatch || {}),
-        checklist: (selectedGroup.billWatch?.checklist || []).includes(item)
-          ? (selectedGroup.billWatch?.checklist || [])
-          : [...(selectedGroup.billWatch?.checklist || []), item],
-      },
-    };
-    const saved = await persistSharedGroup(nextGroup);
-    if (!saved) return;
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: (prev.groups || []).map((group) => (
-        group.id === selectedGroup.id ? nextGroup : group
-      )),
-    }));
-    setBillChecklistDraft("");
-    setNotice("Bill Watch checklist updated.");
-  };
-
-  const removeBillWatchChecklistItem = async (item) => {
-    if (!selectedGroup) return;
-    const nextGroup = {
-      ...selectedGroup,
-      billWatch: {
-        ...(selectedGroup.billWatch || {}),
-        checklist: (selectedGroup.billWatch?.checklist || []).filter((entry) => entry !== item),
-      },
-    };
-    const saved = await persistSharedGroup(nextGroup);
-    if (!saved) return;
-    setAppData?.((prev) => ({
-      ...prev,
-      groups: (prev.groups || []).map((group) => (
-        group.id === selectedGroup.id ? nextGroup : group
-      )),
-    }));
-    setNotice("Removed that Bill Watch checklist item.");
   };
 
   const startEditingProposal = (proposal) => {
@@ -1395,8 +1271,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     setNotice(`${targetGroup.name} was deleted.`);
   };
 
-  const billLeader = getLeaderFromMemberVotes(selectedGroup?.members || [], selectedBillWatch.votes || {});
-
   return (
     <>
       <style>{STYLES}</style>
@@ -1710,7 +1584,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                                 <div>
                                   <strong>{item.name || item.username || "Unknown user"}</strong>
                                   <div style={{ color: "#667085", fontWeight: 800 }}>
-                                    {item.username || "No username"} · declined {new Date(item.createdAt || Date.now()).toLocaleString()}
+                                    {item.username || "No username"} · declined {item.createdAt ? new Date(item.createdAt).toLocaleString() : "recently"}
                                   </div>
                                 </div>
                                 <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => void clearPendingInviteNote(item.id)}>Clear</button>

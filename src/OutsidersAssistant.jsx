@@ -177,41 +177,42 @@ function isClearCommand(value = "") {
 
 export default function OutsidersAssistant({ route, appData }) {
   const stored = useMemo(() => readStoredAssistantState(), []);
+  const currentName = getDisplayName(appData?.profile || {});
+  const createGreeting = () => ({
+    role: "assistant",
+    content: `Hey ${currentName}. I'm Dash. I can help you plan hangouts, think through crew decisions, draft messages, and figure out the next best move in Outsiders.`,
+  });
   const [isOpen, setIsOpen] = useState(stored.isOpen);
   const [previousResponseId, setPreviousResponseId] = useState(stored.previousResponseId);
-  const [messages, setMessages] = useState(stored.messages);
+  const [messages, setMessages] = useState(stored.isOpen && !stored.messages.length ? [createGreeting()] : stored.messages);
   const [panelSize, setPanelSize] = useState(stored.size || "normal");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const context = useMemo(() => buildContext(route, appData), [appData, route]);
-  const currentName = getDisplayName(appData?.profile || {});
 
   useEffect(() => {
     persistAssistantState({ isOpen, previousResponseId, messages, size: panelSize });
   }, [isOpen, previousResponseId, messages, panelSize]);
 
-  useEffect(() => {
-    if (!isOpen || messages.length) return;
-    setMessages([
-      {
-        role: "assistant",
-        content: `Hey ${currentName}. I'm Dash. I can help you plan hangouts, think through crew decisions, draft messages, and figure out the next best move in Outsiders.`,
-      },
-    ]);
-  }, [currentName, isOpen, messages.length]);
-
   const resetConversation = () => {
     setPreviousResponseId(null);
-    setMessages([
-      {
-        role: "assistant",
-        content: `Hey ${currentName}. I'm Dash. I can help you plan hangouts, think through crew decisions, draft messages, and figure out the next best move in Outsiders.`,
-      },
-    ]);
+    setMessages([createGreeting()]);
     setInput("");
     setError("");
+  };
+
+  const toggleAssistant = () => {
+    setIsOpen((current) => {
+      const nextIsOpen = !current;
+      if (nextIsOpen) {
+        setMessages((currentMessages) => (
+          currentMessages.length ? currentMessages : [createGreeting()]
+        ));
+      }
+      return nextIsOpen;
+    });
   };
 
   const sendMessage = async (rawPrompt) => {
@@ -456,7 +457,7 @@ export default function OutsidersAssistant({ route, appData }) {
         <button
           type="button"
           className="oa-launcher"
-          onClick={() => setIsOpen((current) => !current)}
+          onClick={toggleAssistant}
           aria-label={isOpen ? "Close Dash" : "Open Dash"}
         >
           <LauncherIcon />

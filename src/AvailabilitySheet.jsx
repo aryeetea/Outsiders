@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TIME_BLOCKS, WEEK_DAYS, availabilityToText, blocksToAvailability, formatTimeLabel, getAvailabilityBlockSet, hasAvailability } from "./scheduling";
 
 const STYLES = `
@@ -459,32 +459,12 @@ export default function AvailabilitySheet({
     };
   }, [dragMode]);
 
-  useEffect(() => {
-    if (!dragMode) return undefined;
-    const continueTouchDrag = (event) => {
-      const touch = event.touches?.[0];
-      if (!touch) return;
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const slot = target?.closest?.("[data-availability-slot='true']");
-      const day = slot?.getAttribute("data-day");
-      const time = slot?.getAttribute("data-time");
-      if (!day || !time) return;
-      event.preventDefault();
-      continueDrag(day, time);
-    };
-
-    window.addEventListener("touchmove", continueTouchDrag, { passive: false });
-    return () => {
-      window.removeEventListener("touchmove", continueTouchDrag);
-    };
-  }, [dragMode, activeBlocks]);
-
-  const setAvailabilityFromBlocks = (blocks) => {
+  const setAvailabilityFromBlocks = useCallback((blocks) => {
     if (readOnly) return;
     onChange?.(blocksToAvailability(blocks));
-  };
+  }, [onChange, readOnly]);
 
-  const toggleBlock = (day, time, forcedMode = null) => {
+  const toggleBlock = useCallback((day, time, forcedMode = null) => {
     const key = `${day}-${time}`;
     const next = new Set(activeBlocks);
     const shouldAdd = forcedMode ? forcedMode === "add" : !next.has(key);
@@ -492,7 +472,7 @@ export default function AvailabilitySheet({
     else next.delete(key);
     setRecentlyToggledKey(key);
     setAvailabilityFromBlocks(next);
-  };
+  }, [activeBlocks, setAvailabilityFromBlocks]);
 
   useEffect(() => {
     if (!recentlyToggledKey) return undefined;
@@ -511,14 +491,34 @@ export default function AvailabilitySheet({
     toggleBlock(day, time, mode);
   };
 
-  const continueDrag = (day, time) => {
+  const continueDrag = useCallback((day, time) => {
     if (readOnly) return;
     if (!dragMode) return;
     const key = `${day}-${time}`;
     if (dragTouchedKeys.current.has(key)) return;
     dragTouchedKeys.current.add(key);
     toggleBlock(day, time, dragMode);
-  };
+  }, [dragMode, readOnly, toggleBlock]);
+
+  useEffect(() => {
+    if (!dragMode) return undefined;
+    const continueTouchDrag = (event) => {
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const slot = target?.closest?.("[data-availability-slot='true']");
+      const day = slot?.getAttribute("data-day");
+      const time = slot?.getAttribute("data-time");
+      if (!day || !time) return;
+      event.preventDefault();
+      continueDrag(day, time);
+    };
+
+    window.addEventListener("touchmove", continueTouchDrag, { passive: false });
+    return () => {
+      window.removeEventListener("touchmove", continueTouchDrag);
+    };
+  }, [dragMode, continueDrag]);
 
   const applyPresetToDay = (day, start, end, mode = "add") => {
     if (readOnly) return;

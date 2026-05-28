@@ -232,8 +232,8 @@ export default function OutsidersCreateCrew({
       .trim()
       .toUpperCase();
     if (!prefilledCode) {
-      setInviteTarget(null);
-      return undefined;
+      const timeoutId = window.setTimeout(() => setInviteTarget(null), 0);
+      return () => window.clearTimeout(timeoutId);
     }
     let active = true;
     async function loadInviteTarget() {
