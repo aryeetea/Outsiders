@@ -265,6 +265,12 @@ function mapSignupError(message = "") {
   ) {
     return "That username is already taken.";
   }
+  if (
+    lower.includes("database error saving new user")
+    || lower.includes("error saving new user")
+  ) {
+    return "We could not finish signup with that username. Try a slightly different username and submit again.";
+  }
   if (lower.includes("request body too large") || lower.includes("too large")) {
     return "That photo is too large to upload. Try a smaller image.";
   }

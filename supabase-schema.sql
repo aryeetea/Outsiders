@@ -65,6 +65,45 @@ create trigger set_profiles_updated_at
 before update on public.profiles
 for each row execute procedure public.set_updated_at();
 
+create or replace function public.reserve_profile_username(
+  desired_username text,
+  current_profile_id uuid default null
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  normalized_username text := lower(trim(coalesce(desired_username, '')));
+  candidate text;
+  suffix integer := 0;
+begin
+  normalized_username := regexp_replace(normalized_username, '^@+', '');
+  normalized_username := regexp_replace(normalized_username, '\s+', '', 'g');
+
+  if normalized_username = '' then
+    normalized_username := 'user';
+  end if;
+
+  candidate := normalized_username;
+
+  loop
+    exit when not exists (
+      select 1
+      from public.profiles
+      where lower(username) = candidate
+        and (current_profile_id is null or id <> current_profile_id)
+    );
+
+    suffix := suffix + 1;
+    candidate := normalized_username || suffix::text;
+  end loop;
+
+  return candidate;
+end;
+$$;
+
 -- =========================
 -- Auto-Create Profile On Signup
 -- =========================
@@ -75,17 +114,24 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  reserved_username text;
 begin
+  reserved_username := public.reserve_profile_username(
+    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
+    new.id
+  );
+
   insert into public.profiles (id, full_name, username, email)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
+    reserved_username,
     new.email
   )
   on conflict (id) do update set
     full_name = excluded.full_name,
-    username = excluded.username,
+    username = public.reserve_profile_username(excluded.username, new.id),
     email = excluded.email,
     updated_at = now();
 
@@ -723,7 +769,10 @@ set search_path = public
 as $$
 declare
   saved_profile public.profiles;
+  reserved_username text;
 begin
+  reserved_username := public.reserve_profile_username(next_username, next_profile_id);
+
   insert into public.profiles (
     id,
     full_name,
@@ -734,13 +783,13 @@ begin
   values (
     next_profile_id,
     next_full_name,
-    next_username,
+    reserved_username,
     next_email,
     next_avatar_url
   )
   on conflict (id) do update set
     full_name = excluded.full_name,
-    username = excluded.username,
+    username = public.reserve_profile_username(excluded.username, next_profile_id),
     email = excluded.email,
     avatar_url = excluded.avatar_url,
     updated_at = now()
