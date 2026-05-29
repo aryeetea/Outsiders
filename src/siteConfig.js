@@ -1,4 +1,4 @@
-const DEFAULT_SITE_URL = "https://outsidersescape.website";
+const DEFAULT_SITE_URL = "https://outsiderescapeclub.website";
 const DEFAULT_TRIP_COM_URL = "https://us.trip.com";
 
 export function getSiteUrl() {
