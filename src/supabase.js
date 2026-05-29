@@ -8,6 +8,17 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabaseConfigError =
   "Missing Supabase configuration. Create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server.";
 
+function normalizeProfileUsername(value = "", fallbackEmail = "", fallbackId = "") {
+  const cleaned = String(value || "").replace(/^@/, "").trim().toLowerCase();
+  if (cleaned) return cleaned;
+
+  const emailLocalPart = String(fallbackEmail || "").split("@")[0]?.trim().toLowerCase();
+  if (emailLocalPart) return emailLocalPart;
+
+  const idText = String(fallbackId || "").replace(/-/g, "").trim().toLowerCase();
+  return idText ? `user-${idText.slice(0, 8)}` : "user";
+}
+
 function getLegacySupabaseStorageKey() {
   if (!supabaseUrl) return null;
 
@@ -49,6 +60,55 @@ function normalizeLookupUsername(value = "") {
 
 function normalizeLookupEmail(value = "") {
   return String(value || "").trim().toLowerCase();
+}
+
+export async function ensureCurrentUserProfile(user) {
+  if (!isSupabaseConfigured || !user?.id) {
+    return { profile: null, repaired: false };
+  }
+
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id, full_name, username, email, avatar_url, availability")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const nextFullName = String(
+    existingProfile?.full_name
+    || user.user_metadata?.full_name
+    || user.email?.split("@")[0]
+    || "You"
+  ).trim();
+  const nextEmail = String(existingProfile?.email || user.email || "").trim();
+  const nextUsername = normalizeProfileUsername(
+    existingProfile?.username || user.user_metadata?.username,
+    nextEmail,
+    user.id
+  );
+  const nextAvatarUrl = existingProfile?.avatar_url || user.user_metadata?.avatar_url || null;
+
+  const needsRepair = !existingProfile
+    || !String(existingProfile.full_name || "").trim()
+    || !String(existingProfile.username || "").trim()
+    || !String(existingProfile.email || "").trim();
+
+  if (!needsRepair) {
+    return { profile: existingProfile, repaired: false };
+  }
+
+  const { data: repairedProfile, error } = await supabase.rpc("save_my_profile", {
+    next_profile_id: user.id,
+    next_full_name: nextFullName,
+    next_username: nextUsername,
+    next_email: nextEmail,
+    next_avatar_url: nextAvatarUrl,
+  });
+
+  if (error) {
+    return { profile: existingProfile, repaired: false, error };
+  }
+
+  return { profile: repairedProfile || existingProfile || null, repaired: true };
 }
 
 export async function hydrateMembersWithProfileLinks(members = []) {

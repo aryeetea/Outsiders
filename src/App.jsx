@@ -22,6 +22,7 @@ import OutsidersTripPlanning from "./OutsidersTripPlanning";
 import OutsidersVoting from "./OutsidersVoting";
 import {
   clearSupabaseAuthStorage,
+  ensureCurrentUserProfile,
   hydrateMembersWithProfileLinks,
   isSupabaseConfigured,
   supabase,
@@ -163,6 +164,11 @@ export default function App() {
   const latestAppDataRef = useRef(appData);
 
 async function fetchSharedAppData(user, previousAppData = {}) {
+    const ensuredProfile = await ensureCurrentUserProfile(user);
+    if (ensuredProfile?.error) {
+      console.warn("[Outsiders] Could not fully repair new-user profile:", ensuredProfile.error.message);
+    }
+
     const { data: profileRow } = await supabase
       .from("profiles")
       .select("full_name, username, email, availability, avatar_url")

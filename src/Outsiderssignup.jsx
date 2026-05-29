@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
+import { ensureCurrentUserProfile, isSupabaseConfigured, supabase, supabaseConfigError } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&family=Caveat:wght@600;700&display=swap');
@@ -390,12 +390,15 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
     }
 
     if (data.user && data.session) {
-      const { error: profileError } = await supabase.rpc("save_my_profile", {
-        next_profile_id: data.user.id,
-        next_full_name: form.name.trim(),
-        next_username: cleanUsername,
-        next_email: form.email.trim(),
-        next_avatar_url: avatar,
+      const { error: profileError } = await ensureCurrentUserProfile({
+        ...data.user,
+        email: form.email.trim(),
+        user_metadata: {
+          ...(data.user.user_metadata || {}),
+          full_name: form.name.trim(),
+          username: cleanUsername,
+          avatar_url: avatar,
+        },
       });
 
       if (profileError) {
