@@ -587,11 +587,17 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
       })),
     }));
 
-    if (isSupabaseConfigured) {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData.session?.user || null;
+    try {
+      if (isSupabaseConfigured) {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        const user = userData?.user || null;
 
-      if (user) {
+        if (userError || !user) {
+          setSaveError("Your session expired. Log in again, then save your profile.");
+          setSaving(false);
+          return;
+        }
+
         const { error: profileError } = await supabase.rpc("save_my_profile", {
           next_profile_id: user.id,
           next_full_name: nextProfile.name.trim() || user.user_metadata?.full_name || user.email?.split("@")[0] || "You",
@@ -657,19 +663,34 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
           }),
         }));
 
-        await Promise.all(
+        const groupSyncResults = await Promise.all(
           nextGroups.map((group) => supabase
             .from("groups")
             .update({ members: group.members })
             .eq("id", group.id))
         );
-      }
-    }
 
-    setDraft(nextProfile);
-    setSaved(true);
-    setSaving(false);
-    window.setTimeout(() => setSaved(false), 1800);
+        const groupSyncError = groupSyncResults.find((result) => result.error)?.error;
+        if (groupSyncError) {
+          setSaveError(groupSyncError.message);
+          setSaving(false);
+          return;
+        }
+      }
+
+      setDraft(nextProfile);
+      setSaved(true);
+      setSaving(false);
+      window.setTimeout(() => setSaved(false), 1800);
+    } catch (error) {
+      console.error("Profile save failed:", error);
+      setSaveError(
+        error?.message === "Failed to fetch"
+          ? "Could not reach Supabase. Check your connection, then log in again and retry."
+          : (error?.message || "We could not save your profile right now.")
+      );
+      setSaving(false);
+    }
   };
 
   return (
