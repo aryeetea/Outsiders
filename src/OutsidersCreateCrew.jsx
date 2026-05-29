@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createId, getDisplayName } from "./appState";
 import { copyTextWithAlert } from "./clipboard";
 import OutsidersSideNav from "./OutsidersSideNav";
+import { sendNotificationEmails } from "./notificationEmail";
 import { buildGroupInviteLink } from "./siteConfig";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
@@ -209,8 +210,10 @@ export default function OutsidersCreateCrew({
   const [notice, setNotice] = useState({ text: "", type: "warn" });
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [generatedInviteCode, setGeneratedInviteCode] = useState("");
+  const [generatedInviteEmail, setGeneratedInviteEmail] = useState("");
   const [inviteTarget, setInviteTarget] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingInviteEmail, setIsSendingInviteEmail] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
 
   const showNotice = (text, type = "warn") => setNotice({ text, type });
@@ -399,6 +402,45 @@ export default function OutsidersCreateCrew({
       setNewGroupName("");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const sendGeneratedCrewInviteEmail = async () => {
+    const email = generatedInviteEmail.trim();
+    if (!email || !email.includes("@")) {
+      showNotice("Enter a valid email address for the invite.");
+      return;
+    }
+    if (!generatedInviteLink || !generatedInviteCode) {
+      showNotice("Create a crew first so there is an invite link to send.");
+      return;
+    }
+
+    setIsSendingInviteEmail(true);
+    clearNotice();
+
+    try {
+      const result = await sendNotificationEmails({
+        recipients: [{ email, name: email.split("@")[0] }],
+        subject: `${currentName} invited you to join a crew on Outsiders`,
+        intro: `${currentName} invited you to join their crew on Outsiders.`,
+        ctaLabel: "Join crew",
+        ctaUrl: generatedInviteLink,
+        details: [
+          `Crew code: ${generatedInviteCode}`,
+          "Use the button or paste the code on the Create Crew page.",
+        ],
+      });
+
+      if (result.failed) {
+        showNotice("We tried to send the invite, but the email did not go through.");
+        return;
+      }
+
+      setGeneratedInviteEmail("");
+      showNotice(`Invite email sent to ${email}.`, "success");
+    } finally {
+      setIsSendingInviteEmail(false);
     }
   };
 
@@ -773,6 +815,24 @@ export default function OutsidersCreateCrew({
                     </div>
                     <strong>Invite link</strong>
                     <div className="invite-value">{generatedInviteLink}</div>
+                    <div className="field">
+                      <label>Email invite</label>
+                      <input
+                        type="email"
+                        value={generatedInviteEmail}
+                        onChange={(e) => setGeneratedInviteEmail(e.target.value)}
+                        placeholder="friend@example.com"
+                        onKeyDown={(e) => e.key === "Enter" && void sendGeneratedCrewInviteEmail()}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn primary"
+                      onClick={() => void sendGeneratedCrewInviteEmail()}
+                      disabled={isSendingInviteEmail}
+                    >
+                      {isSendingInviteEmail ? "Sending..." : "Send invite email"}
+                    </button>
                   </div>
                 ) : null}
               </section>

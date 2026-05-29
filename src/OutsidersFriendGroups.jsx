@@ -671,6 +671,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     newAgendaNotes: "",
   });
   const [notice, setNotice] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [isSendingInviteEmail, setIsSendingInviteEmail] = useState(false);
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
   const currentMember = selectedGroup?.members?.find((member) => member.name === currentName || member.username === `@${profile.username}`) || null;
   const isCurrentMemberAdmin = currentMember?.role === "Admin";
@@ -835,6 +837,47 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       setNotice(`Invite link copied for ${selectedGroup.name}.`);
     } else {
       setNotice("We generated the crew link, but your browser blocked auto-copy.");
+    }
+  };
+
+  const sendCrewInviteEmail = async () => {
+    if (!selectedGroup?.code) {
+      setNotice("Pick a crew before sending an invite email.");
+      return;
+    }
+
+    const email = inviteEmail.trim();
+    if (!email || !email.includes("@")) {
+      setNotice("Enter a valid email address for the invite.");
+      return;
+    }
+
+    setIsSendingInviteEmail(true);
+    setNotice("");
+
+    try {
+      const inviteLink = buildGroupInviteLink(selectedGroup.code);
+      const result = await sendNotificationEmails({
+        recipients: [{ email, name: email.split("@")[0] }],
+        subject: `${currentName} invited you to join ${selectedGroup.name} on Outsiders`,
+        intro: `${currentName} invited you to join ${selectedGroup.name} on Outsiders.`,
+        ctaLabel: "Join crew",
+        ctaUrl: inviteLink,
+        details: [
+          `Crew: ${selectedGroup.name}`,
+          `Crew code: ${selectedGroup.code}`,
+        ],
+      });
+
+      if (result.failed) {
+        setNotice("We tried to send the invite, but the email did not go through.");
+        return;
+      }
+
+      setInviteEmail("");
+      setNotice(`Invite email sent to ${email}.`);
+    } finally {
+      setIsSendingInviteEmail(false);
     }
   };
 
@@ -1574,6 +1617,32 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
                         <button type="button" className="btn primary" onClick={copyCrewInviteLink}>Copy crew invite link</button>
+                      </div>
+                      <div className="invite-link-box" style={{ marginTop: 16 }}>
+                        <strong>Email this invite</strong>
+                        <input
+                          type="email"
+                          value={inviteEmail}
+                          onChange={(event) => setInviteEmail(event.target.value)}
+                          onKeyDown={(event) => event.key === "Enter" && void sendCrewInviteEmail()}
+                          placeholder="friend@example.com"
+                          style={{
+                            width: "100%",
+                            border: "3px solid #1a1a2e",
+                            borderRadius: 10,
+                            padding: "10px 12px",
+                            font: "800 14px 'Nunito', sans-serif",
+                            background: "#fffdf7",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => void sendCrewInviteEmail()}
+                          disabled={isSendingInviteEmail}
+                        >
+                          {isSendingInviteEmail ? "Sending..." : "Send invite email"}
+                        </button>
                       </div>
                       <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
                         <div className="pending-row" style={{ display: "grid", gap: 10 }}>
