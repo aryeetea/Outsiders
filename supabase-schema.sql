@@ -743,8 +743,48 @@ security definer
 set search_path = public
 as $$
 declare
+  auth_user auth.users%rowtype;
   saved_profile public.profiles;
+  reserved_username text;
 begin
+  select *
+  into auth_user
+  from auth.users
+  where id = auth.uid();
+
+  if auth_user.id is null then
+    raise exception 'No authenticated user found for availability save.';
+  end if;
+
+  if not exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+  ) then
+    reserved_username := public.reserve_profile_username(
+      coalesce(auth_user.raw_user_meta_data->>'username', split_part(auth_user.email, '@', 1)),
+      auth.uid()
+    );
+
+    insert into public.profiles (
+      id,
+      full_name,
+      username,
+      email,
+      avatar_url,
+      availability
+    )
+    values (
+      auth.uid(),
+      coalesce(auth_user.raw_user_meta_data->>'full_name', split_part(auth_user.email, '@', 1), 'You'),
+      reserved_username,
+      coalesce(auth_user.email, 'missing-email-' || substring(replace(auth.uid()::text, '-', '') from 1 for 8) || '@example.com'),
+      auth_user.raw_user_meta_data->>'avatar_url',
+      next_availability
+    )
+    on conflict (id) do nothing;
+  end if;
+
   update public.profiles
   set availability = next_availability,
       updated_at = now()
@@ -754,6 +794,8 @@ begin
   return saved_profile;
 end;
 $$;
+
+grant execute on function public.save_my_availability(jsonb) to authenticated;
 
 create or replace function public.save_my_profile(
   next_profile_id uuid,
@@ -816,6 +858,8 @@ as $$
   from public.profiles p
   where p.id = any(participant_ids);
 $$;
+
+grant execute on function public.get_participant_availability(uuid[]) to authenticated;
 
 create or replace function public.create_group(
   next_owner_id uuid,
@@ -940,6 +984,18 @@ begin
   return saved_hangout;
 end;
 $$;
+
+grant execute on function public.create_hangout(
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  uuid,
+  jsonb,
+  jsonb
+) to authenticated;
 
 -- =========================
 -- Realtime Publication
