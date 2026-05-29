@@ -3,9 +3,8 @@ import { createId, getDisplayName } from "./appState";
 import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { sendNotificationEmails } from "./notificationEmail";
 import { buildGroupInviteLink } from "./siteConfig";
-import { isSupabaseConfigured, supabase } from "./supabase";
+import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -514,7 +513,8 @@ export default function OutsidersCreateCrew({
           resolvedUserId,
           appData?.avatar || ""
         );
-        const nextMembers = [...(target.members || []), acceptedMember];
+        const hydratedMembers = await hydrateMembersWithProfileLinks([...(target.members || []), acceptedMember]);
+        const nextMembers = hydratedMembers.members;
         const nextPending = matchedInvite
           ? (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id))
           : (target.pending || []);
@@ -534,7 +534,7 @@ export default function OutsidersCreateCrew({
           // ── Notify all existing crew members that someone joined ──────────
           const crewRecipients = Array.from(
             new Set(
-              (target.members || [])
+              nextMembers
                 .map((member) => String(member.userId || "").trim())
                 .filter(Boolean)
             )

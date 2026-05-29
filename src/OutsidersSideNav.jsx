@@ -433,6 +433,19 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           background: rgba(255, 248, 234, 0.96);
           box-shadow: 0 6px 18px rgba(26, 26, 46, 0.08);
         }
+        .os-reopen-stack {
+          position: fixed;
+          top: 24px;
+          left: 22px;
+          z-index: 75;
+          display: grid;
+          gap: 10px;
+        }
+        .os-reopen-stack .os-reopen-btn {
+          position: static;
+          left: auto;
+          top: auto;
+        }
         .os-mobile-title {
           font: 400 22px 'Bangers', cursive;
           letter-spacing: 0.04em;
@@ -579,9 +592,23 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
 
         {mobileOpen ? <div className="os-overlay" onClick={() => setMobileOpen(false)} /> : null}
         {collapsed ? (
-          <button type="button" className="os-reopen-btn" onClick={() => setCollapsed(false)} aria-label="Show sidebar">
-            <IconCollapse />
-          </button>
+          <div className="os-reopen-stack">
+            <button type="button" className="os-reopen-btn" onClick={() => setCollapsed(false)} aria-label="Show sidebar">
+              <IconCollapse />
+            </button>
+            <button
+              type="button"
+              className="os-reopen-btn"
+              onClick={() => setNotificationsOpen((open) => !open)}
+              aria-label="Open notifications"
+              title="Notifications"
+            >
+              <span style={{ position: "relative", display: "inline-flex" }}>
+                <IconBell />
+                {unreadCount > 0 ? <span className="os-notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+              </span>
+            </button>
+          </div>
         ) : null}
 
         <aside className={`os-sidebar ${mobileOpen ? "mobile-open" : ""} ${collapsed ? "collapsed" : ""}`}>

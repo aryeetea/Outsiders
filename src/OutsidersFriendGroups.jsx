@@ -14,6 +14,22 @@ function profileRouteParamsForMember(member, groupId) {
   };
 }
 
+function normalizeMemberEmail(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function memberIdentityKey(member = {}, index = 0) {
+  return [
+    member.userId,
+    member.username ? String(member.username).trim().toLowerCase() : "",
+    normalizeMemberEmail(member.email),
+    String(member.name || "").trim().toLowerCase(),
+    index,
+  ]
+    .filter((value) => value !== null && value !== undefined && value !== "")
+    .join("::");
+}
+
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
@@ -674,7 +690,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const [inviteEmail, setInviteEmail] = useState("");
   const [isSendingInviteEmail, setIsSendingInviteEmail] = useState(false);
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
-  const currentMember = selectedGroup?.members?.find((member) => member.name === currentName || member.username === `@${profile.username}`) || null;
+  const currentMember = selectedGroup?.members?.find((member) => (
+    (currentUserId && String(member.userId || "").trim() === String(currentUserId).trim())
+    || (profile.id && String(member.userId || "").trim() === String(profile.id).trim())
+    || (profile.username && String(member.username || "").trim().toLowerCase() === `@${String(profile.username).trim().toLowerCase()}`)
+    || (profile.email && normalizeMemberEmail(member.email) === normalizeMemberEmail(profile.email))
+    || String(member.name || "").trim() === currentName
+  )) || null;
   const isCurrentMemberAdmin = currentMember?.role === "Admin";
   const debriefCount = selectedGroup?.cases?.length || 0;
   const openDebriefCount = (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length;
@@ -1536,8 +1558,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         <p className="section-copy">See who is in the room, what role they have, and whether their availability is ready for planning.</p>
                       </div>
                       <div className="member-list">
-                        {selectedGroup.members.map((member) => (
-                          <div key={`${member.name}-${member.username || ""}`} className="member-row">
+                        {selectedGroup.members.map((member, memberIndex) => (
+                          <div key={memberIdentityKey(member, memberIndex)} className="member-row">
                             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                               <div>
                                 <strong style={{ display: "block" }}>{member.name}</strong>
