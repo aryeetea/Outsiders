@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getVisibleGroupsForProfile } from "./appState";
 import { sendNotificationEmails } from "./notificationEmail";
+import { buildAppUrl } from "./siteConfig";
 import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 import OutsidersSideNav from "./OutsidersSideNav";
 
@@ -458,12 +459,13 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
             ? `A new anonymous group-wide case was filed in ${targetGroup.name}.`
             : `A new anonymous personal case was filed for you in ${targetGroup.name}.`,
           ctaLabel: "Open Debrief Court",
-          ctaUrl: "",
+          ctaUrl: buildAppUrl("debrief", { groupId: String(targetGroup.id), caseId: nextCase.id }),
           details: [
             `Crew: ${targetGroup.name}`,
             `Case title: ${nextCase.title}`,
             newCaseForm.scope === "personal" ? "This case is visible only to the person named." : "This case is visible to the whole crew.",
           ],
+          excludeEmails: [fallbackProfile.email],
         });
       } catch (emailError) {
         console.warn("Debrief email notifications did not fully send:", emailError.message);

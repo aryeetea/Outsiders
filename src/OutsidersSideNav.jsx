@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { isSupabaseConfigured, supabase } from "./supabase";
+import NotificationCenter from "./NotificationCenter";
 
 const STORAGE_KEY = "outsiders-side-nav-collapsed";
 
@@ -92,39 +92,6 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
 
   const desktopWidth = collapsed ? 0 : 164;
 
-  const markNotificationRead = async (notificationId) => {
-    if (isSupabaseConfigured) {
-      await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("id", notificationId);
-    }
-
-    setAppData?.((prev) => ({
-      ...prev,
-      notifications: (prev.notifications || []).map((item) => (
-        item.id === notificationId ? { ...item, read: true } : item
-      )),
-    }));
-  };
-
-  const markAllNotificationsRead = async () => {
-    const unreadIds = notifications.filter((item) => !item.read).map((item) => item.id);
-    if (!unreadIds.length) return;
-
-    if (isSupabaseConfigured) {
-      await supabase
-        .from("notifications")
-        .update({ read: true })
-        .in("id", unreadIds);
-    }
-
-    setAppData?.((prev) => ({
-      ...prev,
-      notifications: (prev.notifications || []).map((item) => ({ ...item, read: true })),
-    }));
-  };
-
   return (
     <>
       <style>{`
@@ -173,8 +140,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         .os-mobile-btn,
         .os-rail-btn,
         .os-reopen-btn,
-        .os-bell-btn,
-        .os-note-action {
+        .os-bell-btn {
           border: 0;
           background: transparent;
           color: #1a1a2e;
@@ -185,8 +151,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         .os-mobile-btn:hover,
         .os-rail-btn:hover,
         .os-reopen-btn:hover,
-        .os-bell-btn:hover,
-        .os-note-action:hover {
+        .os-bell-btn:hover {
           transform: translateY(-1px);
         }
         .os-collapse-btn {
@@ -242,70 +207,6 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           background: #fffdf7;
           box-shadow: 10px 10px 0 #17151f;
           z-index: 85;
-          display: grid;
-          gap: 14px;
-        }
-        .os-bell-head {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          align-items: flex-start;
-        }
-        .os-bell-title {
-          font: 400 24px 'Bangers', cursive;
-          letter-spacing: 0.05em;
-          color: #17151f;
-          margin: 0;
-        }
-        .os-bell-copy {
-          margin: 4px 0 0;
-          color: #667085;
-          font: 800 13px 'Nunito', sans-serif;
-          line-height: 1.5;
-        }
-        .os-note-list {
-          display: grid;
-          gap: 10px;
-        }
-        .os-note-card {
-          border-radius: 14px;
-          border: 3px solid #17151f;
-          background: #fff8ea;
-          box-shadow: 4px 4px 0 #17151f;
-          padding: 14px;
-          display: grid;
-          gap: 8px;
-        }
-        .os-note-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .os-note-action {
-          border: 3px solid #17151f;
-          border-radius: 999px;
-          background: #fff;
-          color: #17151f;
-          padding: 8px 12px;
-          font: 400 12px 'Bangers', cursive;
-          letter-spacing: 0.06em;
-          box-shadow: 3px 3px 0 #17151f;
-        }
-        .os-note-action.primary {
-          background: #ff6b6b;
-          color: #fff;
-        }
-        .os-note-meta {
-          color: #667085;
-          font: 800 12px 'Nunito', sans-serif;
-        }
-        .os-note-empty {
-          border-radius: 14px;
-          border: 3px dashed rgba(26, 26, 46, 0.24);
-          padding: 16px;
-          text-align: center;
-          color: #667085;
-          font: 800 13px 'Nunito', sans-serif;
         }
         .os-rail-btn {
           width: 100%;
@@ -684,53 +585,21 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
 
         {notificationsOpen ? (
           <div className="os-bell-panel">
-            <div className="os-bell-head">
-              <div>
-                <p className="os-bell-title">Notifications</p>
-                <p className="os-bell-copy">Your crew alerts stay here across the whole site.</p>
-              </div>
-              {unreadCount > 0 ? (
-                <button type="button" className="os-note-action" onClick={markAllNotificationsRead}>
-                  Mark all read
-                </button>
-              ) : null}
-            </div>
-            <div className="os-note-list">
-              {notifications.length ? notifications.slice(0, 12).map((notification) => (
-                <div key={notification.id} className="os-note-card" style={{ opacity: notification.read ? 0.72 : 1 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                    <strong>{notification.message}</strong>
-                    {!notification.read ? <span className="os-note-action" style={{ cursor: "default" }}>New</span> : null}
-                  </div>
-                  <div className="os-note-meta">
-                    {notification.groupName ? `${notification.groupName} · ` : ""}{new Date(notification.createdAt).toLocaleString()}
-                  </div>
-                  <div className="os-note-actions">
-                    {notification.actionScreen ? (
-                      <button
-                        type="button"
-                        className="os-note-action primary"
-                        onClick={async () => {
-                          await markNotificationRead(notification.id);
-                          setNotificationsOpen(false);
-                          setMobileOpen(false);
-                          onNavigate?.(notification.actionScreen, notification.actionParams || {});
-                        }}
-                      >
-                        {notification.type === "hangout-invite" ? "Open hangout" : notification.type === "crew-invite" ? "Open crew" : "Open update"}
-                      </button>
-                    ) : null}
-                    {!notification.read ? (
-                      <button type="button" className="os-note-action" onClick={() => markNotificationRead(notification.id)}>
-                        Mark read
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              )) : (
-                <div className="os-note-empty">No notifications yet. Crew updates will show up here.</div>
-              )}
-            </div>
+            <NotificationCenter
+              notifications={notifications}
+              setAppData={setAppData}
+              onNavigate={onNavigate}
+              title="Notification center"
+              subtitle="Every crew, plan, trip, and debrief update stays connected here."
+              compact
+              limit={12}
+              emptyTitle="No notifications yet."
+              emptyCopy="Once your crew starts moving, every important update will land here."
+              onAfterOpen={() => {
+                setNotificationsOpen(false);
+                setMobileOpen(false);
+              }}
+            />
           </div>
         ) : null}
 

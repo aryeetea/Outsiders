@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE, getDisplayName } from "./appState";
+import NotificationCenter from "./NotificationCenter";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { availabilityToText, hasAvailability } from "./scheduling";
 import { isSupabaseConfigured, supabase } from "./supabase";
@@ -490,40 +491,6 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     : (draftAvatar === undefined ? appData?.avatar : draftAvatar);
   const avatarToSave = draftAvatar === undefined ? appData?.avatar : draftAvatar;
 
-  const markAllNotificationsRead = async () => {
-    if (isSupabaseConfigured) {
-      const { data } = await supabase.auth.getUser();
-      if (data.user?.id) {
-        await supabase
-          .from("notifications")
-          .update({ read: true })
-          .eq("user_id", data.user.id)
-          .eq("read", false);
-      }
-    }
-
-    setAppData?.((prev) => ({
-      ...prev,
-      notifications: (prev.notifications || []).map((notification) => ({ ...notification, read: true })),
-    }));
-  };
-
-  const markNotificationRead = async (notificationId) => {
-    if (isSupabaseConfigured) {
-      await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("id", notificationId);
-    }
-
-    setAppData?.((prev) => ({
-      ...prev,
-      notifications: (prev.notifications || []).map((item) => (
-        item.id === notificationId ? { ...item, read: true } : item
-      )),
-    }));
-  };
-
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
@@ -815,52 +782,15 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
 
           {!isViewingOtherProfile ? (
           <section className="panel">
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-              <div>
-                <h3 style={{ margin: "0 0 6px", font: "800 24px 'Sora', sans-serif" }}>Crew notifications</h3>
-                <p style={{ margin: 0, color: "#667085" }}>Proposal alerts and crew updates show up here.</p>
-              </div>
-              {unreadNotifications.length ? (
-                <button
-                  type="button"
-                  className="ghost-btn"
-                  onClick={markAllNotificationsRead}
-                >
-                  Mark all read
-                </button>
-              ) : null}
-            </div>
-            <div className="notif-list">
-              {notifications.length ? notifications.map((notification) => (
-                <div key={notification.id} className="notif-item" style={{ opacity: notification.read ? 0.68 : 1 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-                  <strong>{notification.message}</strong>
-                    {!notification.read ? <span className="slot-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>New</span> : null}
-                  </div>
-                  <p style={{ margin: "8px 0 0", color: "#667085", fontSize: 14 }}>
-                    {notification.groupName ? `${notification.groupName} · ` : ""}{new Date(notification.createdAt).toLocaleString()}
-                  </p>
-                  {notification.actionScreen ? (
-                    <button
-                      type="button"
-                      className="ghost-btn"
-                      style={{ marginTop: 10 }}
-                      onClick={async () => {
-                        await markNotificationRead(notification.id);
-                        onNavigate?.(notification.actionScreen, notification.actionParams || {});
-                      }}
-                    >
-                      {notification.type === "hangout-invite" ? "Join hangout" : notification.type === "crew-invite" ? "Join crew" : "Open update"}
-                    </button>
-                  ) : null}
-                </div>
-              )) : (
-                <div className="notif-item">
-                  <strong>No notifications yet.</strong>
-                  <p style={{ margin: "8px 0 0", color: "#667085" }}>When someone proposes a hangout in one of your crews, it will show up here.</p>
-                </div>
-              )}
-            </div>
+            <NotificationCenter
+              notifications={notifications}
+              setAppData={setAppData}
+              onNavigate={onNavigate}
+              title="Crew notifications"
+              subtitle="This is your personal feed for crew invites, hangouts, trips, and debrief activity."
+              emptyTitle="No notifications yet."
+              emptyCopy="When someone in one of your crews does something important, it will show up here."
+            />
           </section>
           ) : null}
           </section>

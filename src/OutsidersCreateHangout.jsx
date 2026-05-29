@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createId, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile } from "./appState";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { getSiteUrl } from "./siteConfig";
+import { buildAppUrl } from "./siteConfig";
 import { availabilityToText, formatTimeLabel, recommendHangoutTimes } from "./scheduling";
 import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
@@ -805,12 +805,13 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
             subject: `${getDisplayName(profile)} created a new hangout in ${selectedGroup.name}`,
             intro: `${getDisplayName(profile)} just created "${proposal.name}" in ${selectedGroup.name}.`,
             ctaLabel: "Open crew hangouts",
-            ctaUrl: `${getSiteUrl()}/#/friend-groups`,
+            ctaUrl: buildAppUrl("friend-groups", { groupId: selectedGroup.id, tab: "Hangouts" }),
             details: [
               `Crew: ${selectedGroup.name}`,
               `Time options: ${proposal.timeOptions.length}`,
               `Place options: ${proposal.locationOptions.length}`,
             ],
+            excludeEmails: [profile.email],
           });
         } catch (emailError) {
           console.warn("Hangout email notifications did not fully send:", emailError.message);

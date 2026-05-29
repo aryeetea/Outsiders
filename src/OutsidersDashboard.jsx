@@ -1,6 +1,6 @@
 import { getAllHangoutProposals, getCurrentUserKey, getDisplayName, getVisibleGroupsForProfile, isProfileMemberOfGroup } from "./appState";
+import NotificationCenter from "./NotificationCenter";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -382,20 +382,6 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
   const proposals = getAllHangoutProposals(groups, storedHangouts);
   const notifications = appData?.notifications || [];
   const unreadNotifications = notifications.filter((notification) => !notification.read);
-  const markNotificationRead = async (notificationId) => {
-    if (isSupabaseConfigured) {
-      await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("id", notificationId);
-    }
-    setAppData?.((prev) => ({
-      ...prev,
-      notifications: (prev.notifications || []).map((item) => (
-        item.id === notificationId ? { ...item, read: true } : item
-      )),
-    }));
-  };
   const profile = appData?.profile || {};
   const displayName = getDisplayName(profile);
   const profileName = displayName;
@@ -509,33 +495,16 @@ export default function OutsidersDashboard({ onNavigate, appData, setAppData }) 
               <div className="dashboard-main-divider" />
 
               <div className="dashboard-main-section">
-                <h2 className="section-title" style={{ marginBottom: 14 }}>Notifications</h2>
-                <div style={{ display: "grid", gap: 10 }}>
-                  {notifications.length ? notifications.slice(0, 5).map((notification) => (
-                    <div key={notification.id} className="note-card" style={{ opacity: notification.read ? 0.7 : 1 }}>
-                      <strong>{notification.message}</strong>
-                      <p style={{ margin: "8px 0 0", color: "#667085" }}>{notification.groupName ? `${notification.groupName} · ` : ""}{new Date(notification.createdAt).toLocaleString()}</p>
-                      {notification.actionScreen ? (
-                        <button
-                          type="button"
-                          className="chip-btn"
-                          style={{ marginTop: 10 }}
-                          onClick={async () => {
-                            await markNotificationRead(notification.id);
-                            onNavigate?.(notification.actionScreen, notification.actionParams || {});
-                          }}
-                        >
-                          {notification.type === "hangout-invite" ? "Join hangout" : notification.type === "crew-invite" ? "Join crew" : "Open update"}
-                        </button>
-                      ) : null}
-                    </div>
-                  )) : (
-                    <div className="note-card">
-                      <strong>No activity yet.</strong>
-                      <p style={{ margin: "8px 0 0", color: "#667085" }}>Hangout alerts will appear here.</p>
-                    </div>
-                  )}
-                </div>
+                <NotificationCenter
+                  notifications={notifications}
+                  setAppData={setAppData}
+                  onNavigate={onNavigate}
+                  title="Notification center"
+                  subtitle="Everything connected to your crews, plans, trips, and cases updates here."
+                  limit={5}
+                  emptyTitle="No activity yet."
+                  emptyCopy="Hangout alerts, crew changes, and trip updates will show up here."
+                />
               </div>
             </div>
           </section>

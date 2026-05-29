@@ -3,7 +3,7 @@ import { createId, getDisplayName } from "./appState";
 import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { buildGroupInviteLink } from "./siteConfig";
+import { buildAppUrl, buildGroupInviteLink } from "./siteConfig";
 import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
@@ -669,8 +669,9 @@ export default function OutsidersCreateCrew({
                   subject: `${currentName} just joined ${target.name}!`,
                   intro: `${currentName} accepted the invite and is now part of ${target.name}.`,
                   ctaLabel: "View crew",
-                  ctaUrl: `${import.meta.env.VITE_SITE_URL || ""}/friend-groups`,
+                  ctaUrl: buildAppUrl("friend-groups", { groupId: target.id, tab: "Members" }),
                   details: [`New member: ${currentName}`, `Crew: ${target.name}`],
+                  excludeEmails: [profile.email],
                 });
               }
             } catch (emailErr) {
@@ -765,6 +766,34 @@ export default function OutsidersCreateCrew({
               read: false,
             }))
           );
+
+          try {
+            const { data: memberProfiles } = await supabase
+              .from("profiles")
+              .select("id, email, full_name")
+              .in("id", crewRecipients);
+
+            const emailRecipients = (memberProfiles || [])
+              .filter((member) => member?.email)
+              .map((member) => ({ email: member.email, name: member.full_name || member.email }));
+
+            if (emailRecipients.length) {
+              await sendNotificationEmails({
+                recipients: emailRecipients,
+                subject: `${currentName} declined the invite to ${target.name}`,
+                intro: `${currentName} declined the invite to join ${target.name}.`,
+                ctaLabel: "Review invites",
+                ctaUrl: buildAppUrl("friend-groups", { groupId: target.id, tab: "Invites" }),
+                details: [
+                  `Crew: ${target.name}`,
+                  `Declined by: ${currentName}`,
+                ],
+                excludeEmails: [profile.email],
+              });
+            }
+          } catch (emailErr) {
+            console.warn("Could not send decline email notifications:", emailErr?.message);
+          }
         }
       }
 

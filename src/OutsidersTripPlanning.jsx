@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createId, getDisplayName, getVisibleGroupsForProfile } from "./appState";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { buildTripComFlightsLink, buildTripComHotelsLink, buildTripComPackagesLink, getSiteUrl } from "./siteConfig";
+import { buildAppUrl, buildTripComFlightsLink, buildTripComHotelsLink, buildTripComPackagesLink } from "./siteConfig";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
@@ -1241,11 +1241,12 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
             subject: `${getDisplayName(appData?.profile || {})} created a trip in ${selectedGroup.name}`,
             intro: `${getDisplayName(appData?.profile || {})} just planned "${savedTrip.name}" for ${selectedGroup.name}.`,
             ctaLabel: "Open trip",
-            ctaUrl: `${getSiteUrl()}/#/trip-planning`,
+            ctaUrl: buildAppUrl("trip-planning", { tripId: savedTrip.id }),
             details: [
               `Destination: ${savedTrip.destination}`,
               `Dates: ${savedTrip.startDate} to ${savedTrip.endDate}`,
             ],
+            excludeEmails: [appData?.profile?.email],
           });
         } catch (emailError) {
           console.warn("Trip email notifications did not fully send:", emailError.message);

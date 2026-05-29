@@ -10,6 +10,18 @@ export function getSiteUrl() {
   return DEFAULT_SITE_URL;
 }
 
+export function buildAppUrl(screen = "", params = {}) {
+  const normalizedScreen = String(screen || "").replace(/^#\/?/, "").trim();
+  const query = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") return;
+    query.set(key, String(value));
+  });
+
+  return `${getSiteUrl()}/#/${normalizedScreen}${query.size ? `?${query.toString()}` : ""}`;
+}
+
 export function buildTripComHotelsLink(destination) {
   const params = new URLSearchParams();
   if (destination) params.set("searchWord", String(destination).trim());
@@ -30,8 +42,7 @@ export function buildGroupInviteLink(codeOrParams) {
   const params = typeof codeOrParams === "object" && codeOrParams !== null
     ? codeOrParams
     : { groupCode: codeOrParams };
-  const query = new URLSearchParams();
-  if (params.groupCode) query.set("groupCode", String(params.groupCode).trim().toUpperCase());
-
-  return `${getSiteUrl()}/#/create-crew${query.size ? `?${query.toString()}` : ""}`;
+  return buildAppUrl("create-crew", {
+    groupCode: params.groupCode ? String(params.groupCode).trim().toUpperCase() : "",
+  });
 }

@@ -1,5 +1,9 @@
 const EMAIL_API_URL = "/api/send-email";
 
+function normalizeEmail(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
 /**
  * Send notification emails to a list of recipients.
  *
@@ -10,6 +14,7 @@ const EMAIL_API_URL = "/api/send-email";
  * @param {string} [options.ctaLabel]
  * @param {string} [options.ctaUrl]
  * @param {string[]} [options.details]
+ * @param {string[]} [options.excludeEmails]
  */
 export async function sendNotificationEmails({
   recipients = [],
@@ -18,10 +23,17 @@ export async function sendNotificationEmails({
   ctaLabel = "",
   ctaUrl = "",
   details = [],
+  excludeEmails = [],
 }) {
-  const cleanedRecipients = (recipients || []).filter(
-    (r) => r?.email && typeof r.email === "string" && r.email.includes("@")
-  );
+  const excluded = new Set((excludeEmails || []).map(normalizeEmail).filter(Boolean));
+  const seen = new Set();
+  const cleanedRecipients = (recipients || []).filter((recipient) => {
+    const normalizedEmail = normalizeEmail(recipient?.email);
+    if (!normalizedEmail || !normalizedEmail.includes("@")) return false;
+    if (excluded.has(normalizedEmail) || seen.has(normalizedEmail)) return false;
+    seen.add(normalizedEmail);
+    return true;
+  });
 
   if (!cleanedRecipients.length || !subject) {
     return { skipped: true, reason: "no-valid-recipients", recipients: 0 };

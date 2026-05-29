@@ -3,7 +3,7 @@ import { createId, getAllHangoutProposals, getCurrentUserKey, getDisplayName, ge
 import { copyTextWithAlert } from "./clipboard";
 import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
-import { buildGroupInviteLink } from "./siteConfig";
+import { buildAppUrl, buildGroupInviteLink } from "./siteConfig";
 import { availabilityToText, hasAvailability } from "./scheduling";
 import { hydrateMembersWithProfileLinks, isSupabaseConfigured, supabase } from "./supabase";
 
@@ -776,8 +776,9 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
         subject: payload.emailSubject || `${payload.groupName || "Your crew"} has an update`,
         intro: payload.emailIntro || (typeof payload.message === "string" ? payload.message : "There is a new crew update waiting for you."),
         ctaLabel: payload.emailCtaLabel || "Open update",
-        ctaUrl: "",
+        ctaUrl: payload.emailCtaUrl || buildAppUrl(payload.actionScreen || "friend-groups", payload.actionParams || {}),
         details: payload.emailDetails || [],
+        excludeEmails: [profile.email],
       });
     } catch (emailError) {
       console.warn("Notification email sync failed:", emailError.message);
