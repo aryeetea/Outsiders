@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createId, getDisplayName } from "./appState";
 import { copyTextWithAlert } from "./clipboard";
+import { sendNotificationEmails } from "./notificationEmail";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { sendNotificationEmails } from "./notificationEmail";
 import { buildGroupInviteLink } from "./siteConfig";
@@ -539,11 +540,14 @@ export default function OutsidersCreateCrew({
             )
           );
 
+          // Only pass group_id if it looks like a real DB UUID (not a local temp id)
+          const notifGroupId = target.id && !String(target.id).startsWith("group-") ? target.id : null;
+
           if (crewRecipients.length) {
             const { error: notifError } = await supabase.from("notifications").insert(
               crewRecipients.map((uid) => ({
                 user_id: uid,
-                group_id: target.id,
+                group_id: notifGroupId,
                 group_name: target.name,
                 recipient: target.name,
                 recipient_key: `user:${uid}`,
@@ -556,6 +560,31 @@ export default function OutsidersCreateCrew({
             );
             if (notifError) {
               console.warn("Could not send join notifications:", notifError.message);
+            }
+
+            // ── Send email notifications to crew members ──────────────────
+            try {
+              const { data: memberProfiles } = await supabase
+                .from("profiles")
+                .select("id, email, full_name")
+                .in("id", crewRecipients);
+
+              const emailRecipients = (memberProfiles || [])
+                .filter((p) => p?.email)
+                .map((p) => ({ email: p.email, name: p.full_name || p.email }));
+
+              if (emailRecipients.length) {
+                await sendNotificationEmails({
+                  recipients: emailRecipients,
+                  subject: `${currentName} just joined ${target.name}!`,
+                  intro: `${currentName} accepted the invite and is now part of ${target.name}.`,
+                  ctaLabel: "View crew",
+                  ctaUrl: `${import.meta.env.VITE_SITE_URL || ""}/friend-groups`,
+                  details: [`New member: ${currentName}`, `Crew: ${target.name}`],
+                });
+              }
+            } catch (emailErr) {
+              console.warn("Could not send join email notifications:", emailErr?.message);
             }
           }
         }
