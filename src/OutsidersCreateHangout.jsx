@@ -733,16 +733,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
         nextGroupMembers = hydrated.members;
       }
 
-      // Notify all crew members except the creator — they don't need a ping about their own hangout
+      // Notify every crew member so the live notification feed records the hangout for the whole crew.
       const memberNotifications = nextGroupMembers
-        .filter((member) => {
-          if (currentUserId && member.userId === currentUserId) return false;
-          return true;
-        })
         .map((member) => ({
           id: createId("note"),
           userId: member.userId || null,
-          type: "hangout-updated",
+          type: "hangout-created",
           message: `${getDisplayName(profile)} shared a new hangout in ${selectedGroup.name}: ${proposal.name}.`,
           groupId: selectedGroup.id,
           groupName: selectedGroup.name,

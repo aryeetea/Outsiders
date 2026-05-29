@@ -760,6 +760,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       console.warn("Notification sync failed:", error.message);
     }
 
+    if (payload.skipEmail) return;
+
     try {
       await sendNotificationEmails({
         recipients: resolvedMembers
@@ -895,6 +897,16 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
         setNotice("We tried to send the invite, but the email did not go through.");
         return;
       }
+
+      await createCrewNotificationsForMembers(selectedGroup.members, {
+        type: "crew-invite-sent",
+        groupId: selectedGroup.id,
+        groupName: selectedGroup.name,
+        actionScreen: "friend-groups",
+        actionParams: { groupId: selectedGroup.id, tab: "Invites" },
+        message: `${currentName} sent a crew invite for ${selectedGroup.name} to ${email}.`,
+        skipEmail: true,
+      });
 
       setInviteEmail("");
       setNotice(`Invite email sent to ${email}.`);
@@ -1135,21 +1147,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       };
     };
 
-    const updateNotifications = [
-      {
-        id: createId("note"),
-        type: "hangout-updated",
-        message: `${editingProposal.name} was updated for ${selectedGroup.name}.`,
-        groupId: selectedGroup.id,
-        groupName: selectedGroup.name,
-        proposalId: editingProposal.id,
-        actionScreen: "friend-groups",
-        actionParams: { groupId: selectedGroup.id, tab: "Hangouts" },
-        createdAt: new Date().toISOString(),
-        read: false,
-      },
-    ];
-
     const nextGroup = {
       ...selectedGroup,
       hangoutProposals: (selectedGroup.hangoutProposals || []).map(updateProposal),
@@ -1178,7 +1175,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
         group.id === selectedGroup.id ? nextGroup : group
       )),
       hangouts: (prev.hangouts || []).map(updateProposal),
-      notifications: [...(prev.notifications || []), ...updateNotifications],
+      notifications: prev.notifications || [],
     }));
     closeEditProposal();
     setNotice("Hangout updated.");

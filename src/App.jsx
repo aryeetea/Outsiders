@@ -433,7 +433,10 @@ async function fetchSharedAppData(user, previousAppData = {}) {
               notifications: [notification, ...(prev.notifications || [])],
             };
           });
-          if (row.type === "crew-member-joined") {
+          if (
+            String(row.type || "").startsWith("crew-")
+            || String(row.type || "").startsWith("hangout-")
+          ) {
             window.dispatchEvent(new Event(SHARED_DATA_REFRESH_EVENT));
           }
         }

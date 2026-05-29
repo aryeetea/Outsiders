@@ -192,6 +192,13 @@ function getDirectInviteByCode(group = {}, code = "") {
   )) || null;
 }
 
+function notificationRecipientKey(member = {}) {
+  if (member.userId) return `user:${member.userId}`;
+  if (member.username) return `username:${String(member.username).replace(/^@/, "").toLowerCase()}`;
+  if (member.email) return `email:${String(member.email).trim().toLowerCase()}`;
+  return `name:${String(member.name || "").trim().toLowerCase()}`;
+}
+
 export default function OutsidersCreateCrew({
   onNavigate,
   appData,
@@ -210,6 +217,9 @@ export default function OutsidersCreateCrew({
   const [notice, setNotice] = useState({ text: "", type: "warn" });
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [generatedInviteCode, setGeneratedInviteCode] = useState("");
+  const [generatedInviteGroupId, setGeneratedInviteGroupId] = useState("");
+  const [generatedInviteGroupName, setGeneratedInviteGroupName] = useState("");
+  const [generatedInviteMembers, setGeneratedInviteMembers] = useState([]);
   const [generatedInviteEmail, setGeneratedInviteEmail] = useState("");
   const [inviteTarget, setInviteTarget] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -218,6 +228,31 @@ export default function OutsidersCreateCrew({
 
   const showNotice = (text, type = "warn") => setNotice({ text, type });
   const clearNotice = () => setNotice({ text: "", type: "warn" });
+
+  async function createCrewLiveNotifications(members = [], payload = {}) {
+    if (!isSupabaseConfigured) return;
+    const { members: resolvedMembers } = await hydrateMembersWithProfileLinks(members);
+    const recipientRows = resolvedMembers
+      .filter((member) => member.userId)
+      .map((member) => ({
+        user_id: member.userId,
+        recipient: member.name,
+        recipient_key: notificationRecipientKey(member),
+        group_id: payload.groupId || null,
+        group_name: payload.groupName || "",
+        action_screen: payload.actionScreen || "friend-groups",
+        action_params: payload.actionParams || {},
+        type: payload.type || "general",
+        message: typeof payload.message === "function" ? payload.message(member) : payload.message,
+        read: false,
+      }));
+
+    if (!recipientRows.length) return;
+    const { error } = await supabase.from("notifications").insert(recipientRows);
+    if (error) {
+      console.warn("Crew live notification sync failed:", error.message);
+    }
+  }
 
   // Load current user ID on mount
   useEffect(() => {
@@ -384,6 +419,15 @@ export default function OutsidersCreateCrew({
         savedGroup = normalizeSupabaseGroup(data);
       }
 
+      await createCrewLiveNotifications(savedGroup.members, {
+        type: "crew-created",
+        groupId: savedGroup.id,
+        groupName: savedGroup.name,
+        actionScreen: "friend-groups",
+        actionParams: { groupId: savedGroup.id, tab: "Members" },
+        message: `${savedGroup.name} was created. Invite your crew when you are ready.`,
+      });
+
       setAppData?.((prev) => ({
         ...prev,
         profile: {
@@ -395,6 +439,9 @@ export default function OutsidersCreateCrew({
 
       setGeneratedInviteLink(buildGroupInviteLink(savedGroup.code));
       setGeneratedInviteCode(savedGroup.code);
+      setGeneratedInviteGroupId(savedGroup.id || "");
+      setGeneratedInviteGroupName(savedGroup.name || "");
+      setGeneratedInviteMembers(savedGroup.members || []);
       showNotice(
         `${savedGroup.emoji} ${savedGroup.name} is live! Share the code below with your crew.`,
         "success"
@@ -436,6 +483,26 @@ export default function OutsidersCreateCrew({
         showNotice("We tried to send the invite, but the email did not go through.");
         return;
       }
+
+      const inviteGroup = (appData?.groups || []).find((group) => (
+        String(group.id || "") === String(generatedInviteGroupId || "")
+        || String(group.code || "").trim().toUpperCase() === generatedInviteCode
+      )) || {
+        id: generatedInviteGroupId || null,
+        name: generatedInviteGroupName || "Your crew",
+        members: generatedInviteMembers.length
+          ? generatedInviteMembers
+          : [buildMember(profile, currentName, "Admin", currentUserId || profile.id || null, appData?.avatar)],
+      };
+
+      await createCrewLiveNotifications(inviteGroup.members, {
+        type: "crew-invite-sent",
+        groupId: inviteGroup.id || null,
+        groupName: inviteGroup.name || generatedInviteGroupName || "Your crew",
+        actionScreen: "friend-groups",
+        actionParams: { groupId: inviteGroup.id || generatedInviteGroupId, tab: "Invites" },
+        message: `${currentName} sent a crew invite to ${email}.`,
+      });
 
       setGeneratedInviteEmail("");
       showNotice(`Invite email sent to ${email}.`, "success");
