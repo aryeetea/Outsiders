@@ -297,9 +297,33 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     let isActive = true;
 
     async function loadSession() {
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
+      const session = data?.session || null;
+
+      if (error) {
+        console.warn("[Outsiders] Could not load auth session:", error.message);
+      }
+
+      if (!session?.access_token) {
+        if (!isActive) return;
+        setCurrentSession(null);
+        setSessionReady(true);
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
       if (!isActive) return;
-      setCurrentSession(data.session || null);
+
+      if (userError || !userData?.user?.id) {
+        console.warn("[Outsiders] Clearing invalid cached session.");
+        await supabase.auth.signOut({ scope: "local" });
+        if (!isActive) return;
+        setCurrentSession(null);
+        setSessionReady(true);
+        return;
+      }
+
+      setCurrentSession({ ...session, user: userData.user });
       setSessionReady(true);
     }
 
@@ -653,8 +677,12 @@ async function fetchSharedAppData(user, previousAppData = {}) {
     setRoute({ screen: normalized, params });
   };
 
+  const isAuthenticated = isSupabaseConfigured
+    ? !!currentSession?.user?.id
+    : !!(appData.profile?.name?.trim() || appData.profile?.username?.trim());
+  const isProtectedScreen = !PUBLIC_SCREENS.has(route.screen);
   const Screen = SCREEN_COMPONENTS[route.screen];
-  const availabilityRequired = !PUBLIC_SCREENS.has(route.screen)
+  const availabilityRequired = isProtectedScreen
     && !AVAILABILITY_FRIENDLY_SCREENS.has(route.screen)
     && profileNeedsAvailability(appData.profile);
 
@@ -763,13 +791,15 @@ async function fetchSharedAppData(user, previousAppData = {}) {
           </div>
         )}
 
-        <Screen
-          onNavigate={navigate}
-          appData={appData}
-          setAppData={setAppData}
-          routeParams={route.params}
-          onLogout={logout}
-        />
+        {sessionReady && (!isProtectedScreen || isAuthenticated) && (
+          <Screen
+            onNavigate={navigate}
+            appData={appData}
+            setAppData={setAppData}
+            routeParams={route.params}
+            onLogout={logout}
+          />
+        )}
 
         {toast && (
           <div key={toast.id} className={`outsiders-toast${toast.tone !== "success" ? ` ${toast.tone}` : ""}`}>
