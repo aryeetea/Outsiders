@@ -85,6 +85,7 @@ class ErrorBoundary extends Component {
 
 const APP_DATA_STORAGE_KEY = "outsiders-app-data";
 const LAST_APP_ROUTE_STORAGE_KEY = "outsiders-last-app-route";
+const SHARED_DATA_REFRESH_EVENT = "outsiders:shared-data-refresh";
 const PUBLIC_SCREENS = new Set(["landing", "login", "signup"]);
 const AVAILABILITY_FRIENDLY_SCREENS = new Set(["profile"]);
 
@@ -358,7 +359,14 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       refreshTimeoutId = window.setTimeout(refreshSharedData, 500);
     };
 
+    const triggerRefreshWhenVisible = () => {
+      if (document.visibilityState === "visible") triggerRefresh();
+    };
+
     const intervalId = window.setInterval(refreshSharedData, 20000);
+    window.addEventListener("focus", triggerRefresh);
+    window.addEventListener("visibilitychange", triggerRefreshWhenVisible);
+    window.addEventListener(SHARED_DATA_REFRESH_EVENT, triggerRefresh);
 
     const realtimeChannel = supabase
       .channel("app-realtime-shared")
@@ -372,6 +380,9 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       active = false;
       window.clearInterval(intervalId);
       if (refreshTimeoutId) window.clearTimeout(refreshTimeoutId);
+      window.removeEventListener("focus", triggerRefresh);
+      window.removeEventListener("visibilitychange", triggerRefreshWhenVisible);
+      window.removeEventListener(SHARED_DATA_REFRESH_EVENT, triggerRefresh);
       supabase.removeChannel(realtimeChannel);
     };
   }, [currentSession, sessionReady]);
@@ -422,6 +433,9 @@ async function fetchSharedAppData(user, previousAppData = {}) {
               notifications: [notification, ...(prev.notifications || [])],
             };
           });
+          if (row.type === "crew-member-joined") {
+            window.dispatchEvent(new Event(SHARED_DATA_REFRESH_EVENT));
+          }
         }
       )
       .on(
