@@ -309,10 +309,10 @@ async function fetchSharedAppData(user, previousAppData = {}) {
         return;
       }
 
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await supabase.auth.getUser(session.access_token);
       if (!isActive) return;
 
-      if (userError || !userData?.user?.id) {
+      if ((userError || !userData?.user?.id) && !session?.user?.id) {
         console.warn("[Outsiders] Clearing invalid cached session.");
         clearSupabaseAuthStorage();
         setCurrentSession(null);
@@ -320,7 +320,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
         return;
       }
 
-      setCurrentSession({ ...session, user: userData.user });
+      setCurrentSession({ ...session, user: userData?.user || session.user });
       setSessionReady(true);
     }
 
