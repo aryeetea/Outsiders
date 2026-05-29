@@ -580,22 +580,44 @@ export default function OutsidersCreateCrew({
           resolvedUserId,
           appData?.avatar || ""
         );
-        const hydratedMembers = await hydrateMembersWithProfileLinks([...(target.members || []), acceptedMember]);
-        const nextMembers = hydratedMembers.members;
-        const nextPending = matchedInvite
-          ? (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id))
-          : (target.pending || []);
-        const nextGroup = { ...target, members: nextMembers, pending: nextPending };
+        let nextGroup = null;
+        let nextMembers = [];
+        let nextPending = [];
 
         if (isSupabaseConfigured && target.id) {
-          const { error } = await supabase
-            .from("groups")
-            .update({ members: nextMembers, pending: nextPending })
-            .eq("id", target.id);
+          const { data: acceptedGroup, error: acceptError } = await supabase.rpc("accept_group_invite", {
+            join_code: code,
+            joining_member: acceptedMember,
+          });
 
-          if (error) {
-            showNotice(error.message || "We could not add you to that crew yet.");
-            return;
+          if (acceptError) {
+            const missingRpc = /accept_group_invite|function.*not.*exist|schema cache/i.test(acceptError.message || "");
+            if (!missingRpc) {
+              showNotice(acceptError.message || "We could not add you to that crew yet.");
+              return;
+            }
+
+            const hydratedMembers = await hydrateMembersWithProfileLinks([...(target.members || []), acceptedMember]);
+            nextMembers = hydratedMembers.members;
+            nextPending = matchedInvite
+              ? (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id))
+              : (target.pending || []);
+
+            const { error } = await supabase
+              .from("groups")
+              .update({ members: nextMembers, pending: nextPending })
+              .eq("id", target.id);
+
+            if (error) {
+              showNotice(error.message || "We could not add you to that crew yet.");
+              return;
+            }
+
+            nextGroup = { ...target, members: nextMembers, pending: nextPending };
+          } else {
+            nextGroup = normalizeSupabaseGroup(acceptedGroup);
+            nextMembers = nextGroup.members || [];
+            nextPending = nextGroup.pending || [];
           }
 
           // ── Notify all existing crew members that someone joined ──────────
@@ -654,6 +676,13 @@ export default function OutsidersCreateCrew({
               console.warn("Could not send join email notifications:", emailErr?.message);
             }
           }
+        } else {
+          const hydratedMembers = await hydrateMembersWithProfileLinks([...(target.members || []), acceptedMember]);
+          nextMembers = hydratedMembers.members;
+          nextPending = matchedInvite
+            ? (target.pending || []).filter((item) => String(item.id) !== String(matchedInvite.id))
+            : (target.pending || []);
+          nextGroup = { ...target, members: nextMembers, pending: nextPending };
         }
 
         setAppData?.((prev) => ({

@@ -222,6 +222,77 @@ $$;
 
 grant execute on function public.find_group_by_join_code(text) to authenticated;
 
+-- Accept a crew invite using the freshest database row so members are appended
+-- atomically instead of replacing the crew from a stale client copy.
+create or replace function public.accept_group_invite(
+  join_code text,
+  joining_member jsonb
+)
+returns public.groups
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_group public.groups;
+  normalized_code text := upper(trim(coalesce(join_code, '')));
+  member_user_id text := trim(coalesce(joining_member->>'userId', ''));
+  member_username text := lower(trim(coalesce(joining_member->>'username', '')));
+  member_email text := lower(trim(coalesce(joining_member->>'email', '')));
+  member_name text := lower(trim(coalesce(joining_member->>'name', '')));
+  next_members jsonb;
+  next_pending jsonb;
+begin
+  select g.*
+  into target_group
+  from public.groups g
+  where upper(g.code) = normalized_code
+    or exists (
+      select 1
+      from jsonb_array_elements(coalesce(g.pending, '[]'::jsonb)) invite
+      where upper(coalesce(invite->>'inviteCode', '')) = normalized_code
+    )
+  order by case when upper(g.code) = normalized_code then 0 else 1 end, g.created_at asc
+  limit 1
+  for update;
+
+  if not found then
+    raise exception 'No crew was found with that code.';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(coalesce(target_group.members, '[]'::jsonb)) member
+    where (member_user_id <> '' and coalesce(member->>'userId', '') = member_user_id)
+      or (member_username <> '' and lower(coalesce(member->>'username', '')) = member_username)
+      or (member_email <> '' and lower(coalesce(member->>'email', '')) = member_email)
+      or (member_name <> '' and lower(coalesce(member->>'name', '')) = member_name)
+  ) then
+    return target_group;
+  end if;
+
+  next_members := coalesce(target_group.members, '[]'::jsonb) || jsonb_build_array(joining_member);
+  next_pending := coalesce(
+    (
+      select jsonb_agg(invite)
+      from jsonb_array_elements(coalesce(target_group.pending, '[]'::jsonb)) invite
+      where upper(coalesce(invite->>'inviteCode', '')) <> normalized_code
+    ),
+    '[]'::jsonb
+  );
+
+  update public.groups
+  set members = next_members,
+      pending = next_pending
+  where id = target_group.id
+  returning * into target_group;
+
+  return target_group;
+end;
+$$;
+
+grant execute on function public.accept_group_invite(text, jsonb) to authenticated;
+
 -- =========================
 -- Notifications Table
 -- =========================
