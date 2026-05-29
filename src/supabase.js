@@ -2,10 +2,23 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const SUPABASE_AUTH_STORAGE_KEY = "outsiders-supabase-auth";
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabaseConfigError =
   "Missing Supabase configuration. Create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server.";
+
+function getLegacySupabaseStorageKey() {
+  if (!supabaseUrl) return null;
+
+  try {
+    const { hostname } = new URL(supabaseUrl);
+    const projectRef = hostname.split(".")[0];
+    return projectRef ? `sb-${projectRef}-auth-token` : null;
+  } catch {
+    return null;
+  }
+}
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
@@ -13,10 +26,22 @@ export const supabase = isSupabaseConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: window.localStorage,
+        storageKey: SUPABASE_AUTH_STORAGE_KEY,
+        storage: typeof window !== "undefined" ? window.localStorage : undefined,
       },
     })
   : null;
+
+export function clearSupabaseAuthStorage() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY);
+
+  const legacyStorageKey = getLegacySupabaseStorageKey();
+  if (legacyStorageKey) {
+    window.localStorage.removeItem(legacyStorageKey);
+  }
+}
 
 function normalizeLookupUsername(value = "") {
   return String(value || "").replace(/^@/, "").trim().toLowerCase();
