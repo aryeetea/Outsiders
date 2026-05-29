@@ -210,7 +210,6 @@ export default function OutsidersCreateCrew({
   const currentName = getDisplayName(profile);
 
   const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupEmoji, setNewGroupEmoji] = useState("👥");
   const [joinCode, setJoinCode] = useState(
     String(routeParams?.inviteCode || routeParams?.groupCode || "").toUpperCase()
   );
@@ -373,7 +372,7 @@ export default function OutsidersCreateCrew({
       const nextGroup = {
         id: `group-${Date.now()}`,
         name: newGroupName.trim(),
-        emoji: newGroupEmoji,
+        emoji: "",
         code: newCode,
         owner_id: resolvedUserId,
         ownerId: resolvedUserId,
@@ -443,7 +442,7 @@ export default function OutsidersCreateCrew({
       setGeneratedInviteGroupName(savedGroup.name || "");
       setGeneratedInviteMembers(savedGroup.members || []);
       showNotice(
-        `${savedGroup.emoji} ${savedGroup.name} is live! Share the code below with your crew.`,
+        `${savedGroup.name} is live! Share the code below with your crew.`,
         "success"
       );
       setNewGroupName("");
@@ -623,8 +622,10 @@ export default function OutsidersCreateCrew({
           // ── Notify all existing crew members that someone joined ──────────
           const crewRecipients = Array.from(
             new Set(
-              nextMembers
-                .map((member) => String(member.userId || "").trim())
+              [
+                ...nextMembers.map((member) => String(member.userId || "").trim()),
+                String(target.owner_id || target.ownerId || "").trim(),
+              ]
                 .filter(Boolean)
             )
           );
@@ -876,21 +877,6 @@ export default function OutsidersCreateCrew({
                     onKeyDown={(e) => e.key === "Enter" && void createCrew()}
                   />
                 </div>
-                <div className="field" style={{ marginTop: 14 }}>
-                  <label>Emoji</label>
-                  <select
-                    value={newGroupEmoji}
-                    onChange={(e) => setNewGroupEmoji(e.target.value)}
-                  >
-                    {["👥", "🎉", "🍕", "🏝", "🎮", "🌆", "🛼", "🎬", "🏀", "🎵", "🌮", "✈️"].map(
-                      (emoji) => (
-                        <option key={emoji} value={emoji}>
-                          {emoji}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
                 <button
                   type="button"
                   className="btn primary"
@@ -974,7 +960,7 @@ export default function OutsidersCreateCrew({
                 {inviteTarget ? (
                   <div className="invite-box" style={{ marginBottom: 16 }}>
                     <strong>
-                      {inviteTarget.emoji} {inviteTarget.name}
+                      {inviteTarget.name}
                     </strong>
                     <div style={{ color: "#667085", fontWeight: 800 }}>
                       {inviteTarget.members?.length || 0} crew member

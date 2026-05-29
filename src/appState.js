@@ -72,21 +72,18 @@ export function isProfileMemberOfGroup(group = {}, profile = {}) {
 
   if (isInMembers) return true;
 
-  // Owner fallback: trust owner_id / owner_username ONLY if the members array
-  // is still empty (e.g. a freshly created group that hasn't populated members
-  // yet). If members is non-empty and the owner isn't in it, they have left the
-  // group and should no longer see it — this makes leave/delete permanent.
-  if (!members.length) {
-    const ownerIds = getPossibleUserIds({
-      id: group?.owner_id || group?.ownerId,
-      userId: group?.ownerUserId || group?.owner_user_id,
-    });
-    if (currentUserIds.length && ownerIds.some((id) => currentUserIds.includes(id))) {
-      return true;
-    }
-    if (username && normalizeUsername(group?.owner_username || group?.ownerUsername || "") === username) {
-      return true;
-    }
+  // Owner fallback: treat the recorded owner as a member of the crew even if
+  // their member JSON is temporarily out of sync. Leave flows transfer
+  // ownership, so this stays accurate after someone intentionally leaves.
+  const ownerIds = getPossibleUserIds({
+    id: group?.owner_id || group?.ownerId,
+    userId: group?.ownerUserId || group?.owner_user_id,
+  });
+  if (currentUserIds.length && ownerIds.some((id) => currentUserIds.includes(id))) {
+    return true;
+  }
+  if (username && normalizeUsername(group?.owner_username || group?.ownerUsername || "") === username) {
+    return true;
   }
 
   return false;

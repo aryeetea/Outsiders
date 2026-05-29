@@ -647,6 +647,10 @@ function getLeaderFromMemberVotes(members = [], votes = {}) {
   return { name: top.name, count: top.count, isTie: false };
 }
 
+function normalizeOwnerUsername(value = "") {
+  return String(value || "").replace(/^@/, "").trim().toLowerCase();
+}
+
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams = {} }) {
   const profile = useMemo(() => appData?.profile || EMPTY_PROFILE, [appData?.profile]);
   const profileName = profile.name || profile.username || "You";
@@ -717,6 +721,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     const { error } = await supabase
       .from("groups")
       .update({
+        owner_id: nextGroup.owner_id || nextGroup.ownerId || null,
+        owner_username: nextGroup.owner_username || nextGroup.ownerUsername || "",
         members: nextGroup.members || [],
         expenses: nextGroup.expenses || [],
         pending: nextGroup.pending || [],
@@ -1220,6 +1226,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     if (memberIndex === -1) return;
     const member = targetGroup.members[memberIndex];
     const remainingMembers = targetGroup.members.filter((_, idx) => idx !== memberIndex);
+    const isLeavingOwner = (
+      (currentUserId && String(targetGroup.ownerId || targetGroup.owner_id || "") === String(currentUserId))
+      || (profile.username && normalizeOwnerUsername(targetGroup.ownerUsername || targetGroup.owner_username || "") === normalizeOwnerUsername(profile.username))
+    );
 
     if (!remainingMembers.length) {
       const saved = await persistSharedGroup(targetGroup, { remove: true });
@@ -1241,9 +1251,20 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     const nextMembers = remainingMembers.some((m) => m.role === "Admin")
       ? remainingMembers
       : remainingMembers.map((m, index) => ({ ...m, role: index === 0 ? "Admin" : (m.role || "Member") }));
+    const nextOwnerMember = isLeavingOwner
+      ? nextMembers.find((m) => m.role === "Admin") || nextMembers[0] || null
+      : null;
 
     const nextGroup = {
       ...targetGroup,
+      owner_id: isLeavingOwner ? (nextOwnerMember?.userId || null) : (targetGroup.owner_id || targetGroup.ownerId || null),
+      ownerId: isLeavingOwner ? (nextOwnerMember?.userId || null) : (targetGroup.ownerId || targetGroup.owner_id || null),
+      owner_username: isLeavingOwner
+        ? normalizeOwnerUsername(nextOwnerMember?.username || "")
+        : (targetGroup.owner_username || targetGroup.ownerUsername || ""),
+      ownerUsername: isLeavingOwner
+        ? normalizeOwnerUsername(nextOwnerMember?.username || "")
+        : (targetGroup.ownerUsername || targetGroup.owner_username || ""),
       members: nextMembers,
       hangoutProposals: (targetGroup.hangoutProposals || []).map((proposal) => ({
         ...proposal,
@@ -1371,7 +1392,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                     >
                       <div className="crew-card-top">
                         <div className="crew-card-meta">
-                          <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.emoji} {group.name}</strong>
+                          <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.name}</strong>
                           <span className="crew-card-summary">
                             {group.members.length} member{group.members.length === 1 ? "" : "s"} · {group.hangoutProposals?.length || 0} hangout{(group.hangoutProposals?.length || 0) === 1 ? "" : "s"}
                           </span>
@@ -1393,7 +1414,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                     <div className="crew-header">
                       <div className="crew-header-top">
                         <div className="crew-header-meta">
-                        <h2 className="bangers" style={{ margin: "0 0 8px", fontSize: 30 }}>{selectedGroup.emoji} {selectedGroup.name}</h2>
+                        <h2 className="bangers" style={{ margin: "0 0 8px", fontSize: 30 }}>{selectedGroup.name}</h2>
                         <p style={{ margin: 0, color: "#667085" }}>{selectedGroup.members.length} members · crew code {selectedGroup.code}</p>
                         </div>
                         <div className="crew-header-actions">
