@@ -299,8 +299,10 @@ export function getHangoutProposalByCode(groups = [], hangouts = [], code = "") 
   ) || null;
 }
 
-export function normalizeAppData(appData = {}) {
-  const storedProfile = readStoredProfile();
+export function normalizeAppData(appData = {}, options = {}) {
+  const storedProfile = options.useStoredProfile === false
+    ? { profile: DEFAULT_PROFILE, avatar: null }
+    : readStoredProfile();
   const nextProfile = {
     ...DEFAULT_PROFILE,
     ...storedProfile.profile,

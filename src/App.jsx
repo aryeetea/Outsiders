@@ -1,9 +1,9 @@
 import { Component, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_PROFILE,
+  PROFILE_STORAGE_KEY,
   isProfileMemberOfGroup,
   normalizeAppData,
-  persistStoredProfile,
 } from "./appState";
 import OutsidersBillSplit from "./OutsidersBillSplit";
 import OutsidersCreateHangout from "./OutsidersCreateHangout";
@@ -138,14 +138,7 @@ function getRouteFromLocation() {
 }
 
 function getInitialAppData() {
-  if (typeof window === "undefined") return normalizeAppData({ profile: DEFAULT_PROFILE });
-
-  try {
-    const saved = window.localStorage.getItem(APP_DATA_STORAGE_KEY);
-    return normalizeAppData(saved ? JSON.parse(saved) : {});
-  } catch {
-    return normalizeAppData({});
-  }
+  return normalizeAppData({ profile: DEFAULT_PROFILE }, { useStoredProfile: false });
 }
 
 function mergeGroupsByIdentity(primaryGroups = [], secondaryGroups = []) {
@@ -271,7 +264,7 @@ export default function App() {
       notifications: !notificationRowsError && Array.isArray(notificationRows)
         ? notificationRows
         : previousAppData.notifications,
-    });
+    }, { useStoredProfile: false });
   }
 
   useEffect(() => {
@@ -308,9 +301,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData));
-    persistStoredProfile(appData.profile, appData.avatar);
-  }, [appData]);
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(APP_DATA_STORAGE_KEY);
+    window.localStorage.removeItem(PROFILE_STORAGE_KEY);
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -420,9 +414,7 @@ export default function App() {
   useEffect(() => {
     if (PUBLIC_SCREENS.has(route.screen)) return;
 
-    const hasProfile = isSupabaseConfigured
-      ? Boolean(currentSession?.user?.id)
-      : Boolean(appData.profile?.name?.trim() || appData.profile?.username?.trim());
+    const hasProfile = Boolean(isSupabaseConfigured && currentSession?.user?.id);
     if (!hasProfile) {
       setRoute({ screen: DEFAULT_SCREEN, params: {} });
       if (window.location.hash) window.location.hash = "";
@@ -433,7 +425,7 @@ export default function App() {
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     }
-    setAppData(normalizeAppData({ profile: DEFAULT_PROFILE }));
+    setAppData(normalizeAppData({ profile: DEFAULT_PROFILE }, { useStoredProfile: false }));
     if (window.location.hash) {
       window.location.hash = "";
       return;
@@ -460,7 +452,7 @@ export default function App() {
 
   const Screen = SCREEN_COMPONENTS[route.screen] || SCREEN_COMPONENTS[DEFAULT_SCREEN];
   const canRenderScreen = PUBLIC_SCREENS.has(route.screen)
-    || (isSupabaseConfigured ? Boolean(currentSession?.user?.id) : Boolean(appData.profile?.name?.trim() || appData.profile?.username?.trim()));
+    || Boolean(isSupabaseConfigured && currentSession?.user?.id);
 
   return (
     <ErrorBoundary>
