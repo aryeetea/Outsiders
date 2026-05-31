@@ -205,6 +205,14 @@ const IconEye = ({ show }) => show ? (
 
 function mapLoginError(message = "") {
   const lower = String(message || "").toLowerCase();
+  if (
+    lower.includes("load failed")
+    || lower.includes("failed to fetch")
+    || lower.includes("networkerror")
+    || lower.includes("network request failed")
+  ) {
+    return "Could not reach Supabase. Check your internet connection, Supabase project URL/key, browser blockers, then restart the dev server.";
+  }
   if (lower.includes("invalid login credentials")) {
     return "That email or password does not match an account.";
   }
@@ -254,14 +262,19 @@ export default function OutsidersLogIn({ onNavigate, setAppData, routeParams }) 
     setLoading(true);
     setErrors({});
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: form.email.trim(),
-      password: form.password,
-    });
+    let error = null;
+    try {
+      ({ error } = await supabase.auth.signInWithPassword({
+        email: form.email.trim(),
+        password: form.password,
+      }));
+    } catch (caughtError) {
+      error = caughtError;
+    }
 
     setLoading(false);
     if (error) {
-      setErrors({ submit: mapLoginError(error.message) });
+      setErrors({ submit: mapLoginError(error?.message || String(error)) });
       return;
     }
 

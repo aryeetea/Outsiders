@@ -250,6 +250,14 @@ function getPasswordStrength(pw) {
 function mapSignupError(message = "") {
   const lower = String(message || "").toLowerCase();
   if (
+    lower.includes("load failed")
+    || lower.includes("failed to fetch")
+    || lower.includes("networkerror")
+    || lower.includes("network request failed")
+  ) {
+    return "Could not reach Supabase. Check your internet connection, Supabase project URL/key, browser blockers, then restart the dev server.";
+  }
+  if (
     lower.includes("user already registered")
     || lower.includes("already been registered")
     || lower.includes("email address is already registered")
@@ -369,47 +377,53 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
     const cleanUsername = form.username.trim().replace(/^@/, "").toLowerCase();
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase.auth.signUp({
-        email: form.email.trim(),
-        password: form.password,
-        options: {
-          data: {
-            full_name: form.name.trim(),
-            username: cleanUsername,
-            avatar_url: avatar,
-          },
-        },
-      });
-
-      if (error) {
-        setErrors({ submit: mapSignupError(error.message) });
-        setLoading(false);
-        return;
-      }
-
-      if (data.user && data.session) {
-        const { error: profileError } = await ensureCurrentUserProfile({
-          ...data.user,
+      try {
+        const { data, error } = await supabase.auth.signUp({
           email: form.email.trim(),
-          user_metadata: {
-            ...(data.user.user_metadata || {}),
-            full_name: form.name.trim(),
-            username: cleanUsername,
-            avatar_url: avatar,
+          password: form.password,
+          options: {
+            data: {
+              full_name: form.name.trim(),
+              username: cleanUsername,
+              avatar_url: avatar,
+            },
           },
         });
 
-        if (profileError) {
-          setErrors({ submit: mapSignupError(profileError.message) });
+        if (error) {
+          setErrors({ submit: mapSignupError(error.message) });
           setLoading(false);
           return;
         }
-      }
 
-      if (!data.session) {
+        if (data.user && data.session) {
+          const { error: profileError } = await ensureCurrentUserProfile({
+            ...data.user,
+            email: form.email.trim(),
+            user_metadata: {
+              ...(data.user.user_metadata || {}),
+              full_name: form.name.trim(),
+              username: cleanUsername,
+              avatar_url: avatar,
+            },
+          });
+
+          if (profileError) {
+            setErrors({ submit: mapSignupError(profileError.message) });
+            setLoading(false);
+            return;
+          }
+        }
+
+        if (!data.session) {
+          setLoading(false);
+          window.alert("Account created. Check your email to confirm it, then log in.");
+          onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams });
+          return;
+        }
+      } catch (error) {
+        setErrors({ submit: mapSignupError(error?.message || String(error)) });
         setLoading(false);
-        window.alert("Account created. Check your email to confirm it, then log in.");
-        onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams });
         return;
       }
     } else {
