@@ -871,6 +871,8 @@ $$;
 revoke execute on function public.save_my_profile(uuid, text, text, text, text) from public;
 grant execute on function public.save_my_profile(uuid, text, text, text, text) to authenticated;
 
+drop function if exists public.delete_my_account();
+
 create or replace function public.delete_my_account()
 returns boolean
 language plpgsql
@@ -879,37 +881,14 @@ set search_path = public
 as $$
 declare
   current_user_id uuid := auth.uid();
-  deleted_user_id uuid;
 begin
   if current_user_id is null then
     raise exception 'No authenticated user found for account deletion.';
   end if;
 
-  -- Remove this member from any crews they do not own so group JSON remains clean.
-  update public.groups g
-  set members = coalesce(
-    (
-      select jsonb_agg(member)
-      from jsonb_array_elements(coalesce(g.members, '[]'::jsonb)) as member
-      where coalesce(member->>'userId', '') <> current_user_id::text
-    ),
-    '[]'::jsonb
-  )
-  where g.owner_id <> current_user_id
-    and exists (
-      select 1
-      from jsonb_array_elements(coalesce(g.members, '[]'::jsonb)) as member
-      where coalesce(member->>'userId', '') = current_user_id::text
-    );
-
   -- Delete auth user. Cascades remove profile, owned groups, trips, notifications, etc.
   delete from auth.users
-  where id = current_user_id
-  returning id into deleted_user_id;
-
-  if deleted_user_id is null then
-    raise exception 'Account deletion failed: auth user row was not removed.';
-  end if;
+  where id = current_user_id;
 
   return true;
 end;

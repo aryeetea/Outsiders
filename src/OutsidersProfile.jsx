@@ -703,7 +703,11 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     const { ok, error } = await deleteCurrentUserAccount();
 
     if (!ok || error) {
-      const message = error.message || "We could not delete your account right now.";
+      console.error("Account deletion failed:", error);
+      let message = error.message || "We could not delete your account right now.";
+      if (message.toLowerCase() === "bad request" || message.includes("400")) {
+        message = "Account deletion failed (Bad Request). Please ensure your Supabase database schema is fully updated with the latest delete_my_account RPC.";
+      }
       setSaveError(message);
       if (
         message.toLowerCase().includes("session expired")
