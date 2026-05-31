@@ -204,7 +204,7 @@ export async function deleteCurrentUserAccount() {
     return { error: new Error("Your session expired. Log in again, then delete your account.") };
   }
 
-  const { data, error } = await supabase.rpc("delete_my_account");
+  const { data, error } = await supabase.rpc("delete_my_account", {});
   if (error) {
     return { ok: false, error };
   }
