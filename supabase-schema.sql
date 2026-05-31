@@ -874,10 +874,10 @@ grant execute on function public.save_my_profile(uuid, text, text, text, text) t
 drop function if exists public.delete_my_account();
 
 create or replace function public.delete_my_account()
-returns boolean
+returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, auth
 as $$
 declare
   current_user_id uuid := auth.uid();
@@ -890,7 +890,6 @@ begin
   delete from auth.users
   where id = current_user_id;
 
-  return true;
 end;
 $$;
 
