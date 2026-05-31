@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE, getDisplayName } from "./appState";
 import NotificationCenter from "./NotificationCenter";
@@ -491,6 +491,11 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     : (draftAvatar === undefined ? appData?.avatar : draftAvatar);
   const avatarToSave = draftAvatar === undefined ? appData?.avatar : draftAvatar;
 
+  useEffect(() => {
+    setDraft(sourceProfile);
+    setDraftAvatar(undefined);
+  }, [routeParams.memberKey, routeParams.groupId, profile]);
+
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
@@ -518,41 +523,11 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     setSaving(true);
 
     const previousProfile = appData?.profile || {};
-    const cleanUsername = draft.username.trim().replace(/^@/, "").toLowerCase();
+    const cleanUsername = (draft.username || "").trim().replace(/^@/, "").toLowerCase();
     const nextProfile = {
       ...draft,
       username: cleanUsername,
     };
-
-    setAppData?.((prev) => ({
-      ...prev,
-      profile: {
-        ...prev.profile,
-        ...nextProfile,
-      },
-      avatar: avatarToSave || null,
-      groups: (prev.groups || []).map((group) => ({
-        ...group,
-        members: (group.members || []).map((member) => {
-          const prevDisplayName = getDisplayName(prev.profile);
-          const isMe = member.name === prevDisplayName
-            || (prev.profile?.username && member.username === `@${prev.profile.username}`);
-          return isMe
-            ? {
-                ...member,
-                name: nextProfile.name?.trim() || prevDisplayName,
-                username: cleanUsername ? `@${cleanUsername}` : member.username,
-                bio: nextProfile.bio,
-                location: nextProfile.location,
-                email: nextProfile.email,
-                initials: initialsFor(nextProfile),
-                availability: nextProfile.availability,
-                avatar: avatarToSave || "",
-              }
-            : member;
-        }),
-      })),
-    }));
 
     try {
       if (isSupabaseConfigured) {
@@ -567,9 +542,9 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
 
         const { error: profileError } = await supabase.rpc("save_my_profile", {
           next_profile_id: user.id,
-          next_full_name: nextProfile.name.trim() || user.user_metadata?.full_name || user.email?.split("@")[0] || "You",
+          next_full_name: (nextProfile.name || "").trim() || user.user_metadata?.full_name || user.email?.split("@")[0] || "You",
           next_username: cleanUsername || user.user_metadata?.username || user.email?.split("@")[0] || `user-${user.id.slice(0, 8)}`,
-          next_email: nextProfile.email.trim() || user.email || "",
+          next_email: (nextProfile.email || "").trim() || user.email || "",
           next_avatar_url: avatarToSave || null,
         });
 
@@ -591,10 +566,10 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
 
         const { error: authError } = await supabase.auth.updateUser({
           data: {
-            full_name: nextProfile.name.trim(),
+            full_name: (nextProfile.name || "").trim(),
             username: cleanUsername,
-            bio: nextProfile.bio.trim(),
-            location: nextProfile.location.trim(),
+            bio: (nextProfile.bio || "").trim(),
+            location: (nextProfile.location || "").trim(),
             availability: nextProfile.availability,
             avatar_url: avatarToSave || null,
           },
@@ -644,6 +619,36 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
           return;
         }
       }
+
+      setAppData?.((prev) => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          ...nextProfile,
+        },
+        avatar: avatarToSave || null,
+        groups: (prev.groups || []).map((group) => ({
+          ...group,
+          members: (group.members || []).map((member) => {
+            const prevDisplayName = getDisplayName(prev.profile);
+            const isMe = member.name === prevDisplayName
+              || (prev.profile?.username && member.username === `@${prev.profile.username}`);
+            return isMe
+              ? {
+                  ...member,
+                  name: (nextProfile.name || "").trim() || prevDisplayName,
+                  username: cleanUsername ? `@${cleanUsername}` : member.username,
+                  bio: nextProfile.bio,
+                  location: nextProfile.location,
+                  email: nextProfile.email,
+                  initials: initialsFor(nextProfile),
+                  availability: nextProfile.availability,
+                  avatar: avatarToSave || "",
+                }
+              : member;
+          }),
+        })),
+      }));
 
       setDraft(nextProfile);
       setSaved(true);
@@ -734,23 +739,23 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
               <div className="details-grid">
                 <div className="field">
                   <label>Full Name</label>
-                  <input value={draft.name} readOnly={isViewingOtherProfile} onChange={(event) => updateField("name", event.target.value)} placeholder="Your name" />
+                  <input value={draft.name || ""} readOnly={isViewingOtherProfile} onChange={(event) => updateField("name", event.target.value)} placeholder="Your name" />
                 </div>
                 <div className="field">
                   <label>Username</label>
-                  <input value={draft.username} readOnly={isViewingOtherProfile} onChange={(event) => updateField("username", event.target.value.replace(/^@/, ""))} placeholder="yourhandle" />
+                  <input value={draft.username || ""} readOnly={isViewingOtherProfile} onChange={(event) => updateField("username", event.target.value.replace(/^@/, ""))} placeholder="yourhandle" />
                 </div>
                 <div className="field">
                   <label>Email</label>
-                  <input value={draft.email} readOnly={isViewingOtherProfile} onChange={(event) => updateField("email", event.target.value)} placeholder="you@example.com" />
+                  <input value={draft.email || ""} readOnly={isViewingOtherProfile} onChange={(event) => updateField("email", event.target.value)} placeholder="you@example.com" />
                 </div>
                 <div className="field">
                   <label>Location</label>
-                  <input value={draft.location} readOnly={isViewingOtherProfile} onChange={(event) => updateField("location", event.target.value)} placeholder="Brooklyn, NY" />
+                  <input value={draft.location || ""} readOnly={isViewingOtherProfile} onChange={(event) => updateField("location", event.target.value)} placeholder="Brooklyn, NY" />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <label>Bio</label>
-                  <textarea value={draft.bio} readOnly={isViewingOtherProfile} onChange={(event) => updateField("bio", event.target.value)} placeholder="What kind of hangouts are you into?" />
+                  <textarea value={draft.bio || ""} readOnly={isViewingOtherProfile} onChange={(event) => updateField("bio", event.target.value)} placeholder="What kind of hangouts are you into?" />
                 </div>
               </div>
 

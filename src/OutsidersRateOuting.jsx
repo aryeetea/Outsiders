@@ -327,19 +327,23 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
   const profileName = appData?.profile?.name || appData?.profile?.username || "You";
 
   const updateSelectedFromAppData = async (updatedItem) => {
-    setSelectedOuting(updatedItem);
     if (updatedItem.itemType === "trip") {
       if (isSupabaseConfigured && updatedItem.id && !String(updatedItem.id).startsWith("trip-")) {
-        await supabase
+        const { error } = await supabase
           .from("trips")
           .update({ ratings: updatedItem.ratings })
           .eq("id", updatedItem.id);
+        if (error) {
+          window.alert(error.message || "We could not save your rating yet.");
+          return false;
+        }
       }
+      setSelectedOuting(updatedItem);
       setAppData?.((prev) => ({
         ...prev,
         trips: prev.trips.map((trip) => trip.id === updatedItem.id ? { ...trip, ratings: updatedItem.ratings } : trip),
       }));
-      return;
+      return true;
     }
 
     if (isSupabaseConfigured && updatedItem.groupId) {
@@ -353,12 +357,17 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
           }
         : null;
       if (nextGroup) {
-        await supabase
+        const { error } = await supabase
           .from("groups")
           .update({ hangout_proposals: nextGroup.hangoutProposals })
           .eq("id", nextGroup.id);
+        if (error) {
+          window.alert(error.message || "We could not save your rating yet.");
+          return false;
+        }
       }
     }
+    setSelectedOuting(updatedItem);
     setAppData?.((prev) => ({
       ...prev,
       groups: (prev.groups || []).map((group) => (
@@ -373,14 +382,17 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
       )),
       hangouts: (prev.hangouts || []).map((hangout) => hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout),
     }));
+    return true;
   };
 
   const handleSubmit = async () => {
     if (rating.overall === 0) return;
     const newRating = { member: 0, overall: rating.overall, categories: rating.categories, comment: rating.comment };
     const updatedOuting = { ...selectedOuting, ratings: [...selectedOuting.ratings.filter(r => r.member !== 0), newRating] };
-    await updateSelectedFromAppData(updatedOuting);
-    setSubmitted(true);
+    const success = await updateSelectedFromAppData(updatedOuting);
+    if (success) {
+      setSubmitted(true);
+    }
   };
 
   return (

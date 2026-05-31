@@ -335,8 +335,6 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
       String(group.id) === String(groupId) ? { ...group, ...uiPatch } : group
     ));
 
-    setAppData?.((prev) => ({ ...prev, groups: nextGroups }));
-
     if (isSupabaseConfigured && currentUser?.id) {
       const { error } = await supabase
         .from("groups")
@@ -349,6 +347,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
       }
     }
 
+    setAppData?.((prev) => ({ ...prev, groups: nextGroups }));
     return true;
   }
 
