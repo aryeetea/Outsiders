@@ -51,6 +51,13 @@ const SCREEN_COMPONENTS = {
   profile: OutsidersProfile,
 };
 
+function showToast(message, tone = "success", duration = 1300) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("outsiders:toast", {
+    detail: { message, tone, duration },
+  }));
+}
+
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -427,6 +434,7 @@ export default function App() {
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     }
+    showToast("Logged out successfully.");
     setAppData(normalizeAppData({ profile: DEFAULT_PROFILE }, { useStoredProfile: false }));
     if (window.location.hash) {
       window.location.hash = "";

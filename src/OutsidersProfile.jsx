@@ -414,6 +414,13 @@ function weekSummary(availability) {
   return text === "No availability saved" ? "No availability saved yet." : text;
 }
 
+function showToast(message, tone = "success", duration = 1500) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("outsiders:toast", {
+    detail: { message, tone, duration },
+  }));
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -710,6 +717,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
 
     try {
       await supabase.auth.signOut();
+      showToast("Account deleted successfully.");
       onNavigate?.("account-deleted");
     } finally {
       setDeletingAccount(false);

@@ -285,6 +285,13 @@ function mapSignupError(message = "") {
   return message || "We could not create that account right now.";
 }
 
+function showToast(message, tone = "success", duration = 1500) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("outsiders:toast", {
+    detail: { message, tone, duration },
+  }));
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -415,7 +422,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
 
         if (!data.session) {
           setLoading(false);
-          window.alert("Account created. Check your email to confirm it, then log in.");
+          showToast("Account created. Check your email to confirm, then log in.", "warn", 2200);
           onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams });
           return;
         }
@@ -444,6 +451,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
     }));
 
     setLoading(false);
+    showToast("Sign up successful. Welcome to Outsiders.");
     onNavigate?.("profile", { onboarding: "availability", next: postAuthScreen, ...inviteParams });
   };
 

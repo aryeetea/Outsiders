@@ -225,6 +225,13 @@ function mapLoginError(message = "") {
   return message || "We could not log you in right now.";
 }
 
+function showToast(message, tone = "success", duration = 1300) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("outsiders:toast", {
+    detail: { message, tone, duration },
+  }));
+}
+
 export default function OutsidersLogIn({ onNavigate, setAppData, routeParams }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -278,6 +285,7 @@ export default function OutsidersLogIn({ onNavigate, setAppData, routeParams }) 
       return;
     }
 
+    showToast("Logged in successfully.");
     onNavigate?.(postAuthScreen, inviteParams);
   };
 
