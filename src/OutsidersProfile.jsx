@@ -700,9 +700,9 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     }
 
     setDeletingAccount(true);
-    const { error } = await deleteCurrentUserAccount();
+    const { ok, error } = await deleteCurrentUserAccount();
 
-    if (error) {
+    if (!ok || error) {
       const message = error.message || "We could not delete your account right now.";
       setSaveError(message);
       if (
@@ -717,9 +717,11 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
 
     try {
       await supabase.auth.signOut();
+    } catch (signOutError) {
+      console.warn("Sign-out after account deletion failed:", signOutError?.message || signOutError);
+    } finally {
       showToast("Account deleted successfully.");
       onNavigate?.("account-deleted");
-    } finally {
       setDeletingAccount(false);
     }
   };

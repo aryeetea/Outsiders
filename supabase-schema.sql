@@ -872,13 +872,14 @@ revoke execute on function public.save_my_profile(uuid, text, text, text, text) 
 grant execute on function public.save_my_profile(uuid, text, text, text, text) to authenticated;
 
 create or replace function public.delete_my_account()
-returns void
+returns boolean
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
   current_user_id uuid := auth.uid();
+  deleted_user_id uuid;
 begin
   if current_user_id is null then
     raise exception 'No authenticated user found for account deletion.';
@@ -903,7 +904,14 @@ begin
 
   -- Delete auth user. Cascades remove profile, owned groups, trips, notifications, etc.
   delete from auth.users
-  where id = current_user_id;
+  where id = current_user_id
+  returning id into deleted_user_id;
+
+  if deleted_user_id is null then
+    raise exception 'Account deletion failed: auth user row was not removed.';
+  end if;
+
+  return true;
 end;
 $$;
 
