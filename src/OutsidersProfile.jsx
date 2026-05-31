@@ -622,9 +622,8 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
 
         const groupSyncError = groupSyncResults.find((result) => result.error)?.error;
         if (groupSyncError) {
-          setSaveError(groupSyncError.message);
-          setSaving(false);
-          return;
+          console.warn("Profile was saved but crew member sync failed:", groupSyncError.message);
+          setSaveError(`Profile saved, but some crew cards could not sync yet: ${groupSyncError.message}`);
         }
       }
 
