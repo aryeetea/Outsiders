@@ -104,6 +104,8 @@ begin
 end;
 $$;
 
+revoke execute on function public.reserve_profile_username(text, uuid) from public;
+
 -- =========================
 -- Auto-Create Profile On Signup
 -- =========================
@@ -138,6 +140,8 @@ begin
   return new;
 end;
 $$;
+
+revoke execute on function public.handle_new_user() from public;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -266,6 +270,7 @@ as $$
   limit 1;
 $$;
 
+revoke execute on function public.find_group_by_join_code(text) from public;
 grant execute on function public.find_group_by_join_code(text) to authenticated;
 
 -- Accept a crew invite using the freshest database row so members are appended
@@ -337,6 +342,7 @@ begin
 end;
 $$;
 
+revoke execute on function public.accept_group_invite(text, jsonb) from public;
 grant execute on function public.accept_group_invite(text, jsonb) to authenticated;
 
 -- =========================
@@ -424,11 +430,19 @@ for each row execute procedure public.set_updated_at();
 alter table public.groups enable row level security;
 
 drop policy if exists "Groups are readable by authenticated users" on public.groups;
-create policy "Groups are readable by authenticated users"
+drop policy if exists "Users can read crews they belong to" on public.groups;
+create policy "Users can read crews they belong to"
 on public.groups
 for select
 to authenticated
-using (true);
+using (
+  auth.uid() = owner_id
+  or exists (
+    select 1
+    from jsonb_array_elements(coalesce(members, '[]'::jsonb)) as member
+    where coalesce(member->>'userId', '') = auth.uid()::text
+  )
+);
 
 drop policy if exists "Users can create groups they own" on public.groups;
 create policy "Users can create groups they own"
@@ -438,11 +452,19 @@ to authenticated
 with check (auth.uid() = owner_id);
 
 drop policy if exists "Authenticated users can update groups" on public.groups;
-create policy "Authenticated users can update groups"
+drop policy if exists "Crew members can update their crews" on public.groups;
+create policy "Crew members can update their crews"
 on public.groups
 for update
 to authenticated
-using (true)
+using (
+  auth.uid() = owner_id
+  or exists (
+    select 1
+    from jsonb_array_elements(coalesce(members, '[]'::jsonb)) as member
+    where coalesce(member->>'userId', '') = auth.uid()::text
+  )
+)
 with check (true);
 
 drop policy if exists "Only owners can delete groups" on public.groups;
@@ -795,6 +817,7 @@ begin
 end;
 $$;
 
+revoke execute on function public.save_my_availability(jsonb) from public;
 grant execute on function public.save_my_availability(jsonb) to authenticated;
 
 create or replace function public.save_my_profile(
@@ -813,6 +836,10 @@ declare
   saved_profile public.profiles;
   reserved_username text;
 begin
+  if auth.uid() is null or auth.uid() <> next_profile_id then
+    raise exception 'You can only save your own profile.';
+  end if;
+
   reserved_username := public.reserve_profile_username(next_username, next_profile_id);
 
   insert into public.profiles (
@@ -841,6 +868,7 @@ begin
 end;
 $$;
 
+revoke execute on function public.save_my_profile(uuid, text, text, text, text) from public;
 grant execute on function public.save_my_profile(uuid, text, text, text, text) to authenticated;
 
 create or replace function public.get_participant_availability(participant_ids uuid[])
@@ -859,6 +887,7 @@ as $$
   where p.id = any(participant_ids);
 $$;
 
+revoke execute on function public.get_participant_availability(uuid[]) from public;
 grant execute on function public.get_participant_availability(uuid[]) to authenticated;
 
 create or replace function public.create_group(
@@ -884,6 +913,10 @@ as $$
 declare
   saved_group public.groups;
 begin
+  if auth.uid() is null or auth.uid() <> next_owner_id then
+    raise exception 'You can only create a crew for your own account.';
+  end if;
+
   insert into public.groups (
     name,
     emoji,
@@ -920,6 +953,21 @@ begin
 end;
 $$;
 
+revoke execute on function public.create_group(
+  uuid,
+  text,
+  text,
+  text,
+  text,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  integer
+) from public;
 grant execute on function public.create_group(
   uuid,
   text,
@@ -985,6 +1033,17 @@ begin
 end;
 $$;
 
+revoke execute on function public.create_hangout(
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  uuid,
+  jsonb,
+  jsonb
+) from public;
 grant execute on function public.create_hangout(
   text,
   text,

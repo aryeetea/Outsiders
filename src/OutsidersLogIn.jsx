@@ -217,7 +217,7 @@ function mapLoginError(message = "") {
   return message || "We could not log you in right now.";
 }
 
-export default function OutsidersLogIn({ onNavigate, routeParams }) {
+export default function OutsidersLogIn({ onNavigate, setAppData, routeParams }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -245,6 +245,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
   const handleSubmit = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
     if (!isSupabaseConfigured) {
       setErrors({ submit: supabaseConfigError });
       return;

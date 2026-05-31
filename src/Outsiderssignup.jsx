@@ -362,56 +362,59 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
   const handleSubmit = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    if (!isSupabaseConfigured) {
-      setErrors({ submit: supabaseConfigError });
-      return;
-    }
 
     setLoading(true);
     setErrors({});
 
     const cleanUsername = form.username.trim().replace(/^@/, "").toLowerCase();
-    const { data, error } = await supabase.auth.signUp({
-      email: form.email.trim(),
-      password: form.password,
-      options: {
-        data: {
-          full_name: form.name.trim(),
-          username: cleanUsername,
-          avatar_url: avatar,
-        },
-      },
-    });
 
-    if (error) {
-      setErrors({ submit: mapSignupError(error.message) });
-      setLoading(false);
-      return;
-    }
-
-    if (data.user && data.session) {
-      const { error: profileError } = await ensureCurrentUserProfile({
-        ...data.user,
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.auth.signUp({
         email: form.email.trim(),
-        user_metadata: {
-          ...(data.user.user_metadata || {}),
-          full_name: form.name.trim(),
-          username: cleanUsername,
-          avatar_url: avatar,
+        password: form.password,
+        options: {
+          data: {
+            full_name: form.name.trim(),
+            username: cleanUsername,
+            avatar_url: avatar,
+          },
         },
       });
 
-      if (profileError) {
-        setErrors({ submit: mapSignupError(profileError.message) });
+      if (error) {
+        setErrors({ submit: mapSignupError(error.message) });
         setLoading(false);
         return;
       }
-    }
 
-    setLoading(false);
-    if (!data.session) {
-      window.alert("Account created. Check your email to confirm it, then log in.");
-      onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams });
+      if (data.user && data.session) {
+        const { error: profileError } = await ensureCurrentUserProfile({
+          ...data.user,
+          email: form.email.trim(),
+          user_metadata: {
+            ...(data.user.user_metadata || {}),
+            full_name: form.name.trim(),
+            username: cleanUsername,
+            avatar_url: avatar,
+          },
+        });
+
+        if (profileError) {
+          setErrors({ submit: mapSignupError(profileError.message) });
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (!data.session) {
+        setLoading(false);
+        window.alert("Account created. Check your email to confirm it, then log in.");
+        onNavigate?.("login", { redirect: postAuthScreen, ...inviteParams });
+        return;
+      }
+    } else {
+      setErrors({ submit: supabaseConfigError });
+      setLoading(false);
       return;
     }
 
@@ -426,6 +429,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
       avatar: avatar || prev.avatar || null,
     }));
 
+    setLoading(false);
     onNavigate?.("profile", { onboarding: "availability", next: postAuthScreen, ...inviteParams });
   };
 
