@@ -199,6 +199,11 @@ export async function deleteCurrentUserAccount() {
     return { error: new Error("Supabase is not configured.") };
   }
 
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user?.id) {
+    return { error: new Error("Your session expired. Log in again, then delete your account.") };
+  }
+
   const { error } = await supabase.rpc("delete_my_account");
   return { error: error || null };
 }

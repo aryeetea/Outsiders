@@ -697,7 +697,14 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     const { error } = await deleteCurrentUserAccount();
 
     if (error) {
-      setSaveError(error.message || "We could not delete your account right now.");
+      const message = error.message || "We could not delete your account right now.";
+      setSaveError(message);
+      if (
+        message.toLowerCase().includes("session expired")
+        || message.toLowerCase().includes("no authenticated user found")
+      ) {
+        window.setTimeout(() => onNavigate?.("login"), 800);
+      }
       setDeletingAccount(false);
       return;
     }
