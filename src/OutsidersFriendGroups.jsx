@@ -888,21 +888,30 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
 
     try {
       const inviteLink = buildGroupInviteLink(selectedGroup.code);
-      const result = await sendNotificationEmails({
-        recipients: [{ email, name: email.split("@")[0] }],
-        subject: `${currentName} invited you to join ${selectedGroup.name} on Outsiders`,
-        intro: `${currentName} invited you to join ${selectedGroup.name} on Outsiders.`,
-        ctaLabel: "Join crew",
-        ctaUrl: inviteLink,
-        details: [
-          `Crew: ${selectedGroup.name}`,
-          `Crew code: ${selectedGroup.code}`,
-        ],
-      });
+      let result;
+      try {
+        result = await sendNotificationEmails({
+          recipients: [{ email, name: email.split("@")[0] }],
+          subject: `${currentName} invited you to join ${selectedGroup.name} on Outsiders`,
+          intro: `${currentName} invited you to join ${selectedGroup.name} on Outsiders.`,
+          ctaLabel: "Join crew",
+          ctaUrl: inviteLink,
+          details: [
+            `Crew: ${selectedGroup.name}`,
+            `Crew code: ${selectedGroup.code}`,
+          ],
+        });
+      } catch (err) {
+        result = { failed: true };
+      }
 
-      if (result.failed) {
-        setNotice("We tried to send the invite, but the email did not go through.");
-        return;
+      if (result?.failed) {
+        const subject = encodeURIComponent(`${currentName} invited you to join ${selectedGroup.name} on Outsiders`);
+        const body = encodeURIComponent(`Hey!\n\n${currentName} invited you to join the crew "${selectedGroup.name}" on Outsiders.\n\nClick the link below to accept or decline the crew invitation:\n${inviteLink}\n\nCrew Code: ${selectedGroup.code}\n\nSee you there!`);
+        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        setNotice(`Opened email draft for ${email} as a fallback.`);
+      } else {
+        setNotice(`Invite email sent to ${email}.`);
       }
 
       await createCrewNotificationsForMembers(selectedGroup.members, {
@@ -916,7 +925,6 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       });
 
       setInviteEmail("");
-      setNotice(`Invite email sent to ${email}.`);
     } finally {
       setIsSendingInviteEmail(false);
     }
