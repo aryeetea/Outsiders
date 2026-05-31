@@ -263,7 +263,7 @@ function mapSignupError(message = "") {
     || lower.includes("email address is already registered")
     || lower.includes("email already")
   ) {
-    return "An account with that email already exists.";
+    return "An account with that email already exists. Log in instead, or reset your password.";
   }
   if (
     lower.includes("profiles_username_key")
@@ -409,9 +409,7 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
           });
 
           if (profileError) {
-            setErrors({ submit: mapSignupError(profileError.message) });
-            setLoading(false);
-            return;
+            console.warn("[Outsiders] Signup profile sync warning:", profileError.message);
           }
         }
 
@@ -422,7 +420,9 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
           return;
         }
       } catch (error) {
-        setErrors({ submit: mapSignupError(error?.message || String(error)) });
+        setErrors({
+          submit: `${mapSignupError(error?.message || String(error))} If this was your first signup attempt and retry says the account exists, log in with that email.`,
+        });
         setLoading(false);
         return;
       }
