@@ -193,3 +193,12 @@ export async function hydrateMembersWithProfileLinks(members = []) {
 
   return { members: nextMembers, changed };
 }
+
+export async function deleteCurrentUserAccount() {
+  if (!isSupabaseConfigured || !supabase) {
+    return { error: new Error("Supabase is not configured.") };
+  }
+
+  const { error } = await supabase.rpc("delete_my_account");
+  return { error: error || null };
+}

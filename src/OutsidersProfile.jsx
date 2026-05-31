@@ -4,7 +4,7 @@ import { DEFAULT_PROFILE, getDisplayName } from "./appState";
 import NotificationCenter from "./NotificationCenter";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { availabilityToText, hasAvailability } from "./scheduling";
-import { isSupabaseConfigured, supabase } from "./supabase";
+import { deleteCurrentUserAccount, isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -304,6 +304,13 @@ const STYLES = `
     box-shadow: 4px 4px 0 #1a1a2e;
   }
 
+  .danger-btn {
+    border: 3px solid #7a1f1f;
+    background: #fff3f3;
+    color: #7a1f1f;
+    box-shadow: 4px 4px 0 #7a1f1f;
+  }
+
   .action-btn:hover, .ghost-btn:hover, .slot-chip:hover {
     transform: translateY(-2px);
   }
@@ -459,7 +466,7 @@ function findViewableMember(groups, memberKey, groupId) {
   return null;
 }
 
-export default function OutsidersProfile({ onNavigate, appData, setAppData, routeParams = {} }) {
+export default function OutsidersProfile({ onNavigate, appData, setAppData, routeParams = {}, onLogout }) {
   const profile = appData?.profile || DEFAULT_PROFILE;
   const groups = appData?.groups || [];
   const fileRef = useRef(null);
@@ -483,6 +490,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const availabilitySummary = weekSummary(draft.availability);
   const unreadNotifications = notifications.filter((notification) => !notification.read);
   const availabilityReady = hasAvailability(draft.availability);
@@ -665,6 +673,43 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     }
   };
 
+  const deleteAccount = async () => {
+    if (isViewingOtherProfile || deletingAccount) return;
+
+    setSaveError("");
+    if (!isSupabaseConfigured) {
+      setSaveError("Account deletion is unavailable because Supabase is not configured.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete your account permanently? This removes your profile and you will lose access to your crews and planning data."
+    );
+    if (!confirmed) return;
+
+    const typed = window.prompt("Type DELETE to confirm account deletion.");
+    if (typed !== "DELETE") {
+      setSaveError("Account deletion canceled. Type DELETE exactly when prompted.");
+      return;
+    }
+
+    setDeletingAccount(true);
+    const { error } = await deleteCurrentUserAccount();
+
+    if (error) {
+      setSaveError(error.message || "We could not delete your account right now.");
+      setDeletingAccount(false);
+      return;
+    }
+
+    try {
+      await supabase.auth.signOut();
+      onNavigate?.("account-deleted");
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   return (
     <>
       <style>{STYLES}</style>
@@ -730,6 +775,16 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
                 {!isViewingOtherProfile ? <button type="button" className="action-btn" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</button> : null}
                 <button type="button" className="ghost-btn" onClick={() => onNavigate?.("friend-groups")}>{isViewingOtherProfile ? "Back To Crew" : "Back To My Crew"}</button>
+                {!isViewingOtherProfile ? (
+                  <button
+                    type="button"
+                    className="ghost-btn danger-btn"
+                    onClick={deleteAccount}
+                    disabled={deletingAccount || saving}
+                  >
+                    {deletingAccount ? "Deleting Account..." : "Delete Account"}
+                  </button>
+                ) : null}
               </div>
               {saved && !isViewingOtherProfile ? <p style={{ margin: "14px 0 0", color: "#0f766e", fontWeight: 700 }}>Profile saved and availability updated.</p> : null}
               {saveError ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{saveError}</p> : null}

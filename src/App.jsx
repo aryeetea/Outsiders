@@ -6,6 +6,7 @@ import {
   normalizeAppData,
 } from "./appState";
 import OutsidersBillSplit from "./OutsidersBillSplit";
+import OutsidersAccountDeleted from "./OutsidersAccountDeleted";
 import OutsidersCreateHangout from "./OutsidersCreateHangout";
 import OutsidersCreateCrew from "./OutsidersCreateCrew";
 import OutsidersDashboard from "./OutsidersDashboard";
@@ -30,12 +31,13 @@ import {
 const DEFAULT_SCREEN = "landing";
 const APP_DATA_STORAGE_KEY = "outsiders-app-data";
 const SHARED_DATA_REFRESH_EVENT = "outsiders:shared-data-refresh";
-const PUBLIC_SCREENS = new Set(["landing", "login", "signup"]);
+const PUBLIC_SCREENS = new Set(["landing", "login", "signup", "account-deleted"]);
 
 const SCREEN_COMPONENTS = {
   landing: OutsidersLanding,
   login: OutsidersLogIn,
   signup: OutsidersSignUp,
+  "account-deleted": OutsidersAccountDeleted,
   dashboard: OutsidersDashboard,
   hangouts: OutsidersHangouts,
   "create-hangout": OutsidersCreateHangout,
