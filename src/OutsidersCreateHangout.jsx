@@ -724,6 +724,9 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
           followUpNotes: form.followUpNotes.trim(),
         },
         finalizedChoice: null,
+        completedAt: "",
+        completedBy: "",
+        completedByKey: "",
         ratings: [],
       };
 

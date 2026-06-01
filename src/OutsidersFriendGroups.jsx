@@ -675,6 +675,10 @@ function normalizeOwnerUsername(value = "") {
   return String(value || "").replace(/^@/, "").trim().toLowerCase();
 }
 
+function countActiveHangouts(proposals = []) {
+  return (Array.isArray(proposals) ? proposals : []).filter((proposal) => proposal.status !== "completed").length;
+}
+
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams = {} }) {
   const profile = useMemo(() => appData?.profile || EMPTY_PROFILE, [appData?.profile]);
   const profileName = profile.name || profile.username || "You";
@@ -1045,6 +1049,67 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
       )),
     }));
     setNotice(`${proposal.name} was finalized for the crew.`);
+  };
+
+  const completeProposal = async (proposal) => {
+    if (!selectedGroup || !proposal) return;
+    const isHost = proposal.proposerKey === currentUserKey || proposal.proposerName === currentName;
+    if (!isHost || proposal.status !== "finalized") return;
+
+    const confirmed = window.confirm(`Mark ${proposal.name} as completed? This ends the active hangout for the crew.`);
+    if (!confirmed) return;
+
+    const completedAt = new Date().toISOString();
+    const nextGroup = {
+      ...selectedGroup,
+      hangoutProposals: (selectedGroup.hangoutProposals || []).map((item) => (
+        item.id === proposal.id
+          ? {
+              ...item,
+              status: "completed",
+              completedAt,
+              completedBy: currentName,
+              completedByKey: currentUserKey,
+            }
+          : item
+      )),
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return;
+    await createCrewNotificationsForMembers(nextGroup.members, {
+      type: "hangout-completed",
+      groupId: nextGroup.id,
+      groupName: nextGroup.name,
+      proposalId: proposal.id,
+      actionScreen: "friend-groups",
+      actionParams: { groupId: nextGroup.id, tab: "Hangouts" },
+      message: `${proposal.name} was marked completed in ${nextGroup.name}.`,
+      emailSubject: `${proposal.name} was completed in ${nextGroup.name}`,
+      emailIntro: `${proposal.name} has been marked completed in ${nextGroup.name}.`,
+      emailCtaLabel: "Open hangout",
+      emailDetails: [
+        `Crew: ${nextGroup.name}`,
+        `Hangout: ${proposal.name}`,
+      ],
+    });
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: (prev.groups || []).map((group) => (
+        group.id === selectedGroup.id ? nextGroup : group
+      )),
+      hangouts: (prev.hangouts || []).map((item) => (
+        item.id === proposal.id
+          ? {
+              ...item,
+              status: "completed",
+              completedAt,
+              completedBy: currentName,
+              completedByKey: currentUserKey,
+            }
+          : item
+      )),
+    }));
+    setNotice(`${proposal.name} was marked completed.`);
   };
 
   const startEditingProposal = (proposal) => {
@@ -1468,7 +1533,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         <div className="crew-card-meta">
                           <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.name}</strong>
                           <span className="crew-card-summary">
-                            {group.members.length} member{group.members.length === 1 ? "" : "s"} · {group.hangoutProposals?.length || 0} hangout{(group.hangoutProposals?.length || 0) === 1 ? "" : "s"}
+                            {group.members.length} member{group.members.length === 1 ? "" : "s"} · {countActiveHangouts(group.hangoutProposals)} active hangout{countActiveHangouts(group.hangoutProposals) === 1 ? "" : "s"}
                           </span>
                         </div>
                         <span className="crew-card-badge" style={{ background: GROUP_COLORS[index % GROUP_COLORS.length] }}>
@@ -1493,7 +1558,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         </div>
                         <div className="crew-header-actions">
                           <div className="crew-header-stats">
-                          <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} active hangouts</span>
+                          <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{countActiveHangouts(selectedGroup.hangoutProposals)} active hangouts</span>
                           <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.members.length} crew members</span>
                           </div>
                           <div className="crew-header-buttons">
@@ -1535,6 +1600,13 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         {selectedGroup.hangoutProposals?.length ? selectedGroup.hangoutProposals.map((proposal) => {
                           const topTime = pickWinner(proposal.timeOptions, proposal.votes?.time);
                           const topLocation = pickWinner(proposal.locationOptions, proposal.votes?.location);
+                          const isProposalHost = proposal.proposerKey === currentUserKey || proposal.proposerName === currentName;
+                          const isCompleted = proposal.status === "completed";
+                          const statusStyle = isCompleted
+                            ? { background: "#f2f4f7", color: "#475467" }
+                            : proposal.status === "finalized"
+                            ? { background: "#eefdf5", color: "#0f766e" }
+                            : { background: "#fff5e6", color: "#9a6700" };
                           return (
                             <div key={proposal.id} className="proposal-card">
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginBottom: 12 }}>
@@ -1545,7 +1617,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                                   </span>
                                 </div>
                                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                                  <span className="stat-chip" style={{ padding: "8px 12px", background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>{proposal.status}</span>
+                                  <span className="stat-chip" style={{ padding: "8px 12px", ...statusStyle }}>{proposal.status}</span>
                                   <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => startEditingProposal(proposal)}>
                                     Plan together
                                   </button>
@@ -1563,6 +1635,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                                   ) : null}
                                 </div>
                               </div>
+                              {isCompleted ? (
+                                <div style={{ margin: "0 0 12px", padding: 14, borderRadius: 14, background: "#f2f4f7", border: "2px solid rgba(23,21,31,0.12)", color: "#475467", fontWeight: 800 }}>
+                                  Completed by {proposal.completedBy || proposal.proposerName || "the host"}{proposal.completedAt ? ` · ${new Date(proposal.completedAt).toLocaleDateString()}` : ""}
+                                </div>
+                              ) : null}
                               <p style={{ margin: "0 0 12px", color: "#475467" }}>{proposal.description || "No extra description added."}</p>
                               <div className="proposal-meta">
                                 <span className="stat-chip" style={{ padding: "8px 12px", background: "#eef8ff", color: "#155e75" }}>
@@ -1593,34 +1670,36 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                                   ) : null}
                                 </div>
                               ) : null}
-                              <div className="proposal-columns" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                                <div>
-                                  <strong className="bangers" style={{ display: "block", marginBottom: 8, fontSize: 16 }}>Vote The Best Time</strong>
-                                  <div className="vote-grid">
-                                    {proposal.timeOptions.map((option) => (
-                                      <button key={option.id} type="button" className={`vote-btn ${proposal.votes?.time?.[currentUserKey] === option.id ? "active" : ""}`} onClick={() => castProposalVote(proposal.id, "time", option.id)}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                                          <span>{option.label}</span>
-                                          <strong>{countVotes(proposal.votes?.time, option.id)}</strong>
-                                        </div>
-                                      </button>
-                                    ))}
+                              {!isCompleted ? (
+                                <div className="proposal-columns" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                                  <div>
+                                    <strong className="bangers" style={{ display: "block", marginBottom: 8, fontSize: 16 }}>Vote The Best Time</strong>
+                                    <div className="vote-grid">
+                                      {proposal.timeOptions.map((option) => (
+                                        <button key={option.id} type="button" className={`vote-btn ${proposal.votes?.time?.[currentUserKey] === option.id ? "active" : ""}`} onClick={() => castProposalVote(proposal.id, "time", option.id)}>
+                                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                            <span>{option.label}</span>
+                                            <strong>{countVotes(proposal.votes?.time, option.id)}</strong>
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <strong className="bangers" style={{ display: "block", marginBottom: 8, fontSize: 16 }}>Vote The Best Place</strong>
+                                    <div className="vote-grid">
+                                      {proposal.locationOptions.map((option) => (
+                                        <button key={option.id} type="button" className={`vote-btn ${proposal.votes?.location?.[currentUserKey] === option.id ? "active" : ""}`} onClick={() => castProposalVote(proposal.id, "location", option.id)}>
+                                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                            <span>{option.label}</span>
+                                            <strong>{countVotes(proposal.votes?.location, option.id)}</strong>
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
-                                <div>
-                                  <strong className="bangers" style={{ display: "block", marginBottom: 8, fontSize: 16 }}>Vote The Best Place</strong>
-                                  <div className="vote-grid">
-                                    {proposal.locationOptions.map((option) => (
-                                      <button key={option.id} type="button" className={`vote-btn ${proposal.votes?.location?.[currentUserKey] === option.id ? "active" : ""}`} onClick={() => castProposalVote(proposal.id, "location", option.id)}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                                          <span>{option.label}</span>
-                                          <strong>{countVotes(proposal.votes?.location, option.id)}</strong>
-                                        </div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
+                              ) : null}
                               <div className="proposal-footer">
                                 <div style={{ color: "#667085", fontWeight: 700 }}>
                                   Top time: {topTime?.label || "No votes yet"}<br />
@@ -1628,7 +1707,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                                 </div>
                                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                                   <span className="stat-chip" style={{ background: "#eef8ff", color: "#155e75" }}>{proposal.participants?.length || 0} crew member{(proposal.participants?.length || 0) === 1 ? "" : "s"}</span>
-                                  {proposal.status !== "finalized" ? <button type="button" className="btn secondary" onClick={() => finalizeProposal(proposal)}>Finalize leading pick</button> : null}
+                                  {proposal.status !== "finalized" && !isCompleted ? <button type="button" className="btn secondary" onClick={() => finalizeProposal(proposal)}>Finalize leading pick</button> : null}
+                                  {isProposalHost && proposal.status === "finalized" ? <button type="button" className="btn secondary" onClick={() => completeProposal(proposal)}>Complete hangout</button> : null}
                                 </div>
                               </div>
                             </div>

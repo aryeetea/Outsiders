@@ -206,15 +206,17 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
   const votingProposals = useMemo(
     () => proposals.filter((proposal) => (
       proposal.status !== "finalized"
+      && proposal.status !== "completed"
       && (!proposal.votes?.time?.[currentUserKey] || !proposal.votes?.location?.[currentUserKey])
     )),
     [proposals, currentUserKey]
   );
   const liveProposals = useMemo(
-    () => proposals.filter((proposal) => proposal.status !== "finalized"),
+    () => proposals.filter((proposal) => proposal.status !== "completed"),
     [proposals]
   );
   const finalizedCount = proposals.filter((proposal) => proposal.status === "finalized").length;
+  const completedCount = proposals.filter((proposal) => proposal.status === "completed").length;
 
   const castProposalVote = async (proposal, category, optionId) => {
     if (!proposal?.groupId || !category || !optionId) return;
@@ -316,13 +318,77 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
     }));
   };
 
+  const completeProposal = async (proposal) => {
+    if (!proposal?.groupId) return;
+    const isMine = proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName;
+    if (!isMine || proposal.status !== "finalized") return;
+
+    const confirmed = window.confirm(`Mark ${proposal.name} as completed? This ends the active hangout for the crew.`);
+    if (!confirmed) return;
+
+    const completedAt = new Date().toISOString();
+    const nextGroups = groups.map((group) => (
+      String(group.id) === String(proposal.groupId)
+        ? {
+            ...group,
+            hangoutProposals: (group.hangoutProposals || []).map((item) => (
+              item.id === proposal.id
+                ? {
+                    ...item,
+                    status: "completed",
+                    completedAt,
+                    completedBy: currentDisplayName,
+                    completedByKey: currentUserKey,
+                  }
+                : item
+            )),
+          }
+        : group
+    ));
+    const nextGroup = nextGroups.find((group) => String(group.id) === String(proposal.groupId));
+
+    if (isSupabaseConfigured && nextGroup && !String(nextGroup.id).startsWith("group-")) {
+      const { error } = await supabase
+        .from("groups")
+        .update({ hangout_proposals: nextGroup.hangoutProposals || [] })
+        .eq("id", nextGroup.id);
+
+      if (error) {
+        window.alert(error.message || "We could not complete that hangout yet.");
+        return;
+      }
+    }
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: nextGroups,
+      hangouts: (prev.hangouts || []).map((item) => (
+        item.id === proposal.id
+          ? {
+              ...item,
+              status: "completed",
+              completedAt,
+              completedBy: currentDisplayName,
+              completedByKey: currentUserKey,
+            }
+          : item
+      )),
+    }));
+  };
+
   const renderProposalCard = (proposal) => {
     const topTime = leadingChoice(proposal.timeOptions, proposal.votes?.time);
     const topLocation = leadingChoice(proposal.locationOptions, proposal.votes?.location);
     const isMine = proposal.proposerKey === currentUserKey || proposal.proposerName === currentDisplayName;
     const myTimeVote = proposal.votes?.time?.[currentUserKey];
     const myLocationVote = proposal.votes?.location?.[currentUserKey];
-    const voteStillNeeded = proposal.status !== "finalized" && (!myTimeVote || !myLocationVote);
+    const isCompleted = proposal.status === "completed";
+    const voteStillNeeded = proposal.status !== "finalized" && !isCompleted && (!myTimeVote || !myLocationVote);
+    const statusStyle = isCompleted
+      ? { background: "#f2f4f7", color: "#475467" }
+      : proposal.status === "finalized"
+      ? { background: "#eefdf5", color: "#0f766e" }
+      : { background: "#fff5e6", color: "#9a6700" };
 
     return (
       <div key={proposal.id} className="proposal">
@@ -331,10 +397,15 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
             <strong className="bangers" style={{ display: "block", fontSize: 22 }}>{proposal.name}</strong>
             <span style={{ color: "#667085", fontWeight: 700 }}>{proposal.groupEmoji} {proposal.groupName} · started by {proposal.proposerName}</span>
           </div>
-          <span className="chip" style={{ background: proposal.status === "finalized" ? "#eefdf5" : "#fff5e6", color: proposal.status === "finalized" ? "#0f766e" : "#9a6700" }}>
+          <span className="chip" style={statusStyle}>
             {proposal.status}
           </span>
         </div>
+        {isCompleted ? (
+          <div style={{ padding: 14, borderRadius: 14, background: "#f2f4f7", border: "2px solid rgba(23,21,31,0.12)", color: "#475467", fontWeight: 800 }}>
+            Completed by {proposal.completedBy || proposal.proposerName || "the host"}{proposal.completedAt ? ` · ${new Date(proposal.completedAt).toLocaleDateString()}` : ""}
+          </div>
+        ) : null}
         <p style={{ margin: 0, color: "#475467" }}>{proposal.description || "No description added yet."}</p>
         <div className="meta-row">
           <span className="chip" style={{ background: "#eef8ff", color: "#155e75" }}>Top time: {topTime?.label || "No votes yet"}</span>
@@ -400,6 +471,9 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
           <button type="button" className={voteStillNeeded ? "btn primary" : "btn secondary"} onClick={() => onNavigate?.("friend-groups")}>
             {voteStillNeeded ? "Open full crew voting" : "Open in crew"}
           </button>
+          {isMine && proposal.status === "finalized" ? (
+            <button type="button" className="btn secondary" onClick={() => void completeProposal(proposal)}>Complete hangout</button>
+          ) : null}
           {isMine ? (
             <button type="button" className="btn ghost" onClick={() => void deleteProposal(proposal)}>Delete hangout</button>
           ) : null}
@@ -444,6 +518,10 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
                 <div className="stat" style={{ background: "#eef8ff" }}>
                   <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Finalized</p>
                   <p style={{ margin: 0, fontSize: 32, fontWeight: 900, color: "#0f766e" }}>{finalizedCount}</p>
+                </div>
+                <div className="stat" style={{ background: "#f2f4f7" }}>
+                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Completed</p>
+                  <p style={{ margin: 0, fontSize: 32, fontWeight: 900, color: "#475467" }}>{completedCount}</p>
                 </div>
               </div>
 
