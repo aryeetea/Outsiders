@@ -15,6 +15,7 @@ import OutsidersFriendGroups from "./OutsidersFriendGroups";
 import OutsidersHangouts from "./OutsidersHangouts";
 import OutsidersLanding from "./OutsidersLanding";
 import OutsidersLogIn from "./OutsidersLogIn";
+import OutsidersAccountDeleted from "./OutsidersAccountDeleted";
 import OutsidersProfile from "./OutsidersProfile";
 import OutsidersRateOuting from "./OutsidersRateOuting";
 import OutsidersSignUp from "./Outsiderssignup";
@@ -92,13 +93,14 @@ class ErrorBoundary extends Component {
 const APP_DATA_STORAGE_KEY = "outsiders-app-data";
 const LAST_APP_ROUTE_STORAGE_KEY = "outsiders-last-app-route";
 const SHARED_DATA_REFRESH_EVENT = "outsiders:shared-data-refresh";
-const PUBLIC_SCREENS = new Set(["landing", "login", "signup"]);
+const PUBLIC_SCREENS = new Set(["landing", "login", "signup", "account-deleted"]);
 const AVAILABILITY_FRIENDLY_SCREENS = new Set(["profile"]);
 
 const SCREEN_COMPONENTS = {
   "landing": OutsidersLanding,
   "login": OutsidersLogIn,
   "signup": OutsidersSignUp,
+  "account-deleted": OutsidersAccountDeleted,
   "dashboard": OutsidersDashboard,
   "hangouts": OutsidersHangouts,
   "create-hangout": OutsidersCreateHangout,

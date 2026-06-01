@@ -195,11 +195,10 @@ export async function hydrateMembersWithProfileLinks(members = []) {
 }
 
 export async function deleteCurrentUserAccount() {
-  if (!isSupabaseConfigured || !supabase || !supabaseUrl) {
-    return { error: new Error("Supabase is not configured or missing URL.") };
+  if (!isSupabaseConfigured || !supabase) {
+    return { error: new Error("Supabase is not configured.") };
   }
 
-  // Get access token from the current session
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) {
     return { error: new Error("Your session expired. Log in again, then delete your account.") };
@@ -210,27 +209,15 @@ export async function deleteCurrentUserAccount() {
     return { error: new Error("Your session expired. Log in again, then delete your account.") };
   }
 
-  // Call Edge Function
-  const res = await fetch(`${supabaseUrl}/functions/v1/delete-user`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  let payload = {};
-  try {
-    payload = await res.json();
-  } catch {
-    // ignore non-JSON responses
+  const { error } = await supabase.rpc("delete_my_account");
+  if (error) {
+    return { ok: false, error };
   }
 
-  if (!res.ok) {
-    const message = payload?.error ?? payload?.message ?? `HTTP ${res.status}`;
-    return { ok: false, error: new Error(message) };
+  const { error: signOutError } = await supabase.auth.signOut();
+  if (signOutError) {
+    console.warn("[Outsiders] Account deleted, but sign-out cleanup failed:", signOutError.message);
   }
-
   clearSupabaseAuthStorage();
   return { ok: true, error: null };
 }

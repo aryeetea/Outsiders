@@ -901,14 +901,15 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
             `Crew code: ${selectedGroup.code}`,
           ],
         });
-      } catch (err) {
+      } catch (error) {
+        console.warn("[Outsiders] Crew invite email send failed, opening mail client fallback:", error?.message || error);
         result = { failed: true };
       }
 
       if (result?.failed) {
         const subject = encodeURIComponent(`${currentName} invited you to join ${selectedGroup.name} on Outsiders`);
         const body = encodeURIComponent(`Hey!\n\n${currentName} invited you to join the crew "${selectedGroup.name}" on Outsiders.\n\nClick the link below to accept or decline the crew invitation:\n${inviteLink}\n\nCrew Code: ${selectedGroup.code}\n\nSee you there!`);
-        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        window.location.assign(`mailto:${email}?subject=${subject}&body=${body}`);
         setNotice(`Opened email draft for ${email} as a fallback.`);
       } else {
         setNotice(`Invite email sent to ${email}.`);

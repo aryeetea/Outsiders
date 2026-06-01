@@ -232,7 +232,7 @@ function showToast(message, tone = "success", duration = 1300) {
   }));
 }
 
-export default function OutsidersLogIn({ onNavigate, setAppData, routeParams }) {
+export default function OutsidersLogIn({ onNavigate, routeParams }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -269,7 +269,7 @@ export default function OutsidersLogIn({ onNavigate, setAppData, routeParams }) 
     setLoading(true);
     setErrors({});
 
-    let error = null;
+    let error;
     try {
       ({ error } = await supabase.auth.signInWithPassword({
         email: form.email.trim(),

@@ -1,10 +1,10 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
 import { DEFAULT_PROFILE, getDisplayName } from "./appState";
 import NotificationCenter from "./NotificationCenter";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { availabilityToText, hasAvailability } from "./scheduling";
-import { deleteCurrentUserAccount, isSupabaseConfigured, supabase } from "./supabase";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -414,13 +414,6 @@ function weekSummary(availability) {
   return text === "No availability saved" ? "No availability saved yet." : text;
 }
 
-function showToast(message, tone = "success", duration = 1500) {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("outsiders:toast", {
-    detail: { message, tone, duration },
-  }));
-}
-
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -473,10 +466,26 @@ function findViewableMember(groups, memberKey, groupId) {
   return null;
 }
 
-export default function OutsidersProfile({ onNavigate, appData, setAppData, routeParams = {}, onLogout }) {
+function buildProfileSourceKey({ isViewingOtherProfile, routeParams, sourceProfile, avatar }) {
+  return JSON.stringify([
+    isViewingOtherProfile ? "member" : "self",
+    routeParams?.memberKey || "",
+    routeParams?.groupId || "",
+    sourceProfile?.id || "",
+    sourceProfile?.name || "",
+    sourceProfile?.username || "",
+    sourceProfile?.email || "",
+    sourceProfile?.bio || "",
+    sourceProfile?.location || "",
+    sourceProfile?.availability || null,
+    avatar || "",
+  ]);
+}
+
+export default function OutsidersProfile(props) {
+  const { appData, routeParams = {} } = props;
   const profile = appData?.profile || DEFAULT_PROFILE;
   const groups = appData?.groups || [];
-  const fileRef = useRef(null);
   const viewedMember = findViewableMember(groups, routeParams.memberKey, routeParams.groupId);
   const isViewingOtherProfile = Boolean(viewedMember);
   const sourceProfile = isViewingOtherProfile
@@ -490,6 +499,35 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
         availability: viewedMember.availability || DEFAULT_PROFILE.availability,
       }
     : profile;
+  const profileSourceKey = buildProfileSourceKey({
+    isViewingOtherProfile,
+    routeParams,
+    sourceProfile,
+    avatar: isViewingOtherProfile ? viewedMember?.avatar : appData?.avatar,
+  });
+
+  return (
+    <OutsidersProfileContent
+      key={profileSourceKey}
+      {...props}
+      profile={profile}
+      viewedMember={viewedMember}
+      isViewingOtherProfile={isViewingOtherProfile}
+      sourceProfile={sourceProfile}
+    />
+  );
+}
+
+function OutsidersProfileContent({
+  onNavigate,
+  appData,
+  setAppData,
+  profile = DEFAULT_PROFILE,
+  viewedMember,
+  isViewingOtherProfile,
+  sourceProfile = DEFAULT_PROFILE,
+}) {
+  const fileRef = useRef(null);
   const profileName = profile.name || profile.username || "You";
   const notifications = appData?.notifications || [];
   const [draft, setDraft] = useState(() => sourceProfile);
@@ -505,11 +543,6 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     ? viewedMember?.avatar
     : (draftAvatar === undefined ? appData?.avatar : draftAvatar);
   const avatarToSave = draftAvatar === undefined ? appData?.avatar : draftAvatar;
-
-  useEffect(() => {
-    setDraft(sourceProfile);
-    setDraftAvatar(undefined);
-  }, [routeParams.memberKey, routeParams.groupId, profile]);
 
   const updateField = (key, value) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -680,26 +713,31 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
   };
 
   async function handleDeleteAccount(navigate) {
-    if (!window.confirm('Permanently delete your account? This cannot be undone.')) return;
+    if (!isSupabaseConfigured || !supabase) {
+      window.alert("Account deletion requires Supabase to be configured.");
+      return;
+    }
+
+    if (!window.confirm("Permanently delete your account? This cannot be undone.")) return;
     try {
       setDeletingAccount(true);
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        window.alert('No active session found. Please log in again to delete your account.');
+        window.alert("No active session found. Please log in again to delete your account.");
         setDeletingAccount(false);
-        navigate?.('login');
+        navigate?.("login");
         return;
       }
 
       const { error } = await supabase.rpc("delete_my_account");
       if (error) throw error;
 
-      await supabase.auth.signOut();            // clear local session
-      navigate?.('account-deleted');             // show confirmation screen
+      await supabase.auth.signOut();
+      navigate?.("account-deleted");
     } catch (e) {
       console.error(e);
-      window.alert(e?.message ?? 'Account deletion failed.');
+      window.alert(e?.message ?? "Account deletion failed.");
       setDeletingAccount(false);
     }
   }

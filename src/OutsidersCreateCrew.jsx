@@ -466,30 +466,31 @@ export default function OutsidersCreateCrew({
     clearNotice();
 
     try {
-        let result;
-        try {
-          result = await sendNotificationEmails({
-            recipients: [{ email, name: email.split("@")[0] }],
-            subject: `${currentName} invited you to join a crew on Outsiders`,
-            intro: `${currentName} invited you to join their crew on Outsiders.`,
-            ctaLabel: "Join crew",
-            ctaUrl: generatedInviteLink,
-            details: [
-              `Crew code: ${generatedInviteCode}`,
-              "Use the button or paste the code on the Create Crew page.",
-            ],
-          });
-        } catch (err) {
-          result = { failed: true };
-        }
+      let result;
+      try {
+        result = await sendNotificationEmails({
+          recipients: [{ email, name: email.split("@")[0] }],
+          subject: `${currentName} invited you to join a crew on Outsiders`,
+          intro: `${currentName} invited you to join their crew on Outsiders.`,
+          ctaLabel: "Join crew",
+          ctaUrl: generatedInviteLink,
+          details: [
+            `Crew code: ${generatedInviteCode}`,
+            "Use the button or paste the code on the Create Crew page.",
+          ],
+        });
+      } catch (error) {
+        console.warn("[Outsiders] Crew invite email send failed, opening mail client fallback:", error?.message || error);
+        result = { failed: true };
+      }
 
-        if (result?.failed) {
-          const subject = encodeURIComponent(`${currentName} invited you to join a crew on Outsiders`);
-          const body = encodeURIComponent(`Hey!\n\n${currentName} invited you to join their crew on Outsiders.\n\nClick the link below to accept or decline the crew invitation:\n${generatedInviteLink}\n\nCrew Code: ${generatedInviteCode}\n\nSee you there!`);
-          window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-          showNotice(`Opened email draft for ${email} as a fallback.`, "success");
-        } else {
-          showNotice(`Invite email sent to ${email}.`, "success");
+      if (result?.failed) {
+        const subject = encodeURIComponent(`${currentName} invited you to join a crew on Outsiders`);
+        const body = encodeURIComponent(`Hey!\n\n${currentName} invited you to join their crew on Outsiders.\n\nClick the link below to accept or decline the crew invitation:\n${generatedInviteLink}\n\nCrew Code: ${generatedInviteCode}\n\nSee you there!`);
+        window.location.assign(`mailto:${email}?subject=${subject}&body=${body}`);
+        showNotice(`Opened email draft for ${email} as a fallback.`, "success");
+      } else {
+        showNotice(`Invite email sent to ${email}.`, "success");
       }
 
       const inviteGroup = (appData?.groups || []).find((group) => (
@@ -513,8 +514,9 @@ export default function OutsidersCreateCrew({
       });
 
       setGeneratedInviteEmail("");
-      } catch (err) {
-        showNotice("Something went wrong while sending the invite.");
+    } catch (error) {
+      console.warn("[Outsiders] Could not finish crew invite flow:", error?.message || error);
+      showNotice("Something went wrong while sending the invite.");
     } finally {
       setIsSendingInviteEmail(false);
     }
