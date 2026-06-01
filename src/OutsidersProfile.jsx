@@ -683,10 +683,20 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     if (!window.confirm('Permanently delete your account? This cannot be undone.')) return;
     try {
       setDeletingAccount(true);
-      const { error } = await supabase.rpc('delete_my_account');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.alert('No active session found. Please log in again to delete your account.');
+        setDeletingAccount(false);
+        navigate?.('login');
+        return;
+      }
+
+      const { error } = await supabase.rpc('delete_my_account'); // call with zero args explicitly
       if (error) throw error;
+
       await supabase.auth.signOut();            // clear local session
-      navigate('account-deleted');             // show confirmation screen
+      navigate?.('account-deleted');             // show confirmation screen
     } catch (e) {
       console.error(e);
       window.alert(e?.message ?? 'Account deletion failed.');
