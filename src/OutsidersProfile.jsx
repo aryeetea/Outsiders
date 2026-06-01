@@ -692,7 +692,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
         return;
       }
 
-      const { error } = await supabase.rpc('delete_my_account'); // call with zero args explicitly
+      const { error } = await supabase.rpc("delete_my_account");
       if (error) throw error;
 
       await supabase.auth.signOut();            // clear local session
