@@ -647,7 +647,6 @@ function OutsidersProfileContent({
             bio: (nextProfile.bio || "").trim(),
             location: (nextProfile.location || "").trim(),
             availability: nextProfile.availability,
-            avatar_url: avatarToSave || null,
           },
         });
 

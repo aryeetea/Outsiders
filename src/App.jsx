@@ -262,7 +262,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
         location: hydratedProfile.location || previousAppData.profile?.location || "",
         availability: hydratedProfile.availability || previousAppData.profile?.availability,
       },
-      avatar: profileRow?.avatar_url || user.user_metadata?.avatar_url || previousAppData.avatar || null,
+      avatar: profileRow?.avatar_url || previousAppData.avatar || null,
       hangouts: sharedHangouts,
       trips: sharedTrips,
       notifications: !notificationRowsError && Array.isArray(notificationRows)

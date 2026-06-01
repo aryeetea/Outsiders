@@ -89,7 +89,7 @@ export async function ensureCurrentUserProfile(user) {
     nextEmail,
     user.id
   );
-  const nextAvatarUrl = existingProfile?.avatar_url || user.user_metadata?.avatar_url || null;
+  const nextAvatarUrl = existingProfile?.avatar_url || null;
 
   const needsRepair = !existingProfile
     || !String(existingProfile.full_name || "").trim()

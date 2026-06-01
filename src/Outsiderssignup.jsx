@@ -392,7 +392,6 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
             data: {
               full_name: form.name.trim(),
               username: cleanUsername,
-              avatar_url: avatar,
             },
           },
         });
@@ -411,12 +410,25 @@ export default function OutsidersSignUp({ onNavigate, setAppData, routeParams })
               ...(data.user.user_metadata || {}),
               full_name: form.name.trim(),
               username: cleanUsername,
-              avatar_url: avatar,
             },
           });
 
           if (profileError) {
             console.warn("[Outsiders] Signup profile sync warning:", profileError.message);
+          }
+
+          if (avatar) {
+            const { error: avatarError } = await supabase.rpc("save_my_profile", {
+              next_profile_id: data.user.id,
+              next_full_name: form.name.trim(),
+              next_username: cleanUsername,
+              next_email: form.email.trim(),
+              next_avatar_url: avatar,
+            });
+
+            if (avatarError) {
+              console.warn("[Outsiders] Signup avatar sync warning:", avatarError.message);
+            }
           }
         }
 
