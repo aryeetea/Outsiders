@@ -345,6 +345,116 @@ $$;
 revoke execute on function public.accept_group_invite(text, jsonb) from public;
 grant execute on function public.accept_group_invite(text, jsonb) to authenticated;
 
+-- Leave a crew using the freshest database row and a trusted server-side update.
+-- This avoids RLS check failures when the leaving user is also transferring
+-- owner_id to another crew member.
+create or replace function public.leave_group(
+  next_group_id uuid,
+  leaving_member jsonb,
+  updated_group jsonb
+)
+returns public.groups
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_group public.groups;
+  caller_profile public.profiles;
+  caller_username text := '';
+  caller_email text := '';
+  leaving_username text := lower(trim(coalesce(leaving_member->>'username', '')));
+  leaving_email text := lower(trim(coalesce(leaving_member->>'email', '')));
+  leaving_name text := lower(trim(coalesce(leaving_member->>'name', '')));
+  submitted_members jsonb := coalesce(updated_group->'members', '[]'::jsonb);
+  submitted_owner_id_text text := nullif(coalesce(updated_group->>'owner_id', updated_group->>'ownerId', ''), '');
+  submitted_owner_id uuid := null;
+  saved_group public.groups;
+begin
+  if auth.uid() is null then
+    raise exception 'Log in first so we can remove you from this crew.';
+  end if;
+
+  select *
+  into target_group
+  from public.groups
+  where id = next_group_id
+  for update;
+
+  if not found then
+    raise exception 'That crew could not be found.';
+  end if;
+
+  select *
+  into caller_profile
+  from public.profiles
+  where id = auth.uid();
+
+  caller_username := lower(trim(coalesce(caller_profile.username, '')));
+  caller_email := lower(trim(coalesce(caller_profile.email, '')));
+
+  if jsonb_typeof(submitted_members) <> 'array' then
+    raise exception 'Crew members could not be updated.';
+  end if;
+
+  if not (
+    target_group.owner_id = auth.uid()
+    or exists (
+      select 1
+      from jsonb_array_elements(coalesce(target_group.members, '[]'::jsonb)) as member
+      where coalesce(member->>'userId', '') = auth.uid()::text
+        or (caller_username <> '' and lower(trim(both '@' from coalesce(member->>'username', ''))) = trim(both '@' from caller_username))
+        or (caller_email <> '' and lower(coalesce(member->>'email', '')) = caller_email)
+        or (leaving_username <> '' and lower(coalesce(member->>'username', '')) = leaving_username)
+        or (leaving_email <> '' and lower(coalesce(member->>'email', '')) = leaving_email)
+        or (leaving_name <> '' and lower(coalesce(member->>'name', '')) = leaving_name)
+    )
+  ) then
+    raise exception 'You are not a member of this crew.';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(submitted_members) as member
+    where coalesce(member->>'userId', '') = auth.uid()::text
+      or (caller_username <> '' and lower(trim(both '@' from coalesce(member->>'username', ''))) = trim(both '@' from caller_username))
+      or (caller_email <> '' and lower(coalesce(member->>'email', '')) = caller_email)
+  ) then
+    raise exception 'You are still listed as a crew member.';
+  end if;
+
+  if jsonb_array_length(submitted_members) = 0 then
+    delete from public.groups
+    where id = target_group.id;
+    return null;
+  end if;
+
+  if submitted_owner_id_text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+    submitted_owner_id := submitted_owner_id_text::uuid;
+  else
+    submitted_owner_id := target_group.owner_id;
+  end if;
+
+  update public.groups
+  set owner_id = submitted_owner_id,
+      owner_username = coalesce(updated_group->>'owner_username', updated_group->>'ownerUsername', target_group.owner_username, ''),
+      members = submitted_members,
+      expenses = coalesce(updated_group->'expenses', target_group.expenses),
+      pending = coalesce(updated_group->'pending', target_group.pending),
+      cases = coalesce(updated_group->'cases', target_group.cases),
+      hangout_proposals = coalesce(updated_group->'hangoutProposals', updated_group->'hangout_proposals', target_group.hangout_proposals),
+      bill_watch = coalesce(updated_group->'billWatch', updated_group->'bill_watch', target_group.bill_watch),
+      peace_maker = coalesce(updated_group->'peaceMaker', updated_group->'peace_maker', target_group.peace_maker)
+  where id = target_group.id
+  returning * into saved_group;
+
+  return saved_group;
+end;
+$$;
+
+revoke execute on function public.leave_group(uuid, jsonb, jsonb) from public;
+grant execute on function public.leave_group(uuid, jsonb, jsonb) to authenticated;
+
 -- =========================
 -- Notifications Table
 -- =========================

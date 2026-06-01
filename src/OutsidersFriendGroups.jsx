@@ -30,6 +30,30 @@ function memberIdentityKey(member = {}, index = 0) {
     .join("::");
 }
 
+function normalizeSupabaseGroup(group = {}) {
+  return {
+    id: group.id,
+    name: group.name || "Untitled Crew",
+    emoji: group.emoji || "👥",
+    code: group.code || "",
+    owner_id: group.owner_id || group.ownerId || null,
+    ownerId: group.ownerId || group.owner_id || null,
+    owner_username: group.owner_username || group.ownerUsername || "",
+    ownerUsername: group.ownerUsername || group.owner_username || "",
+    members: Array.isArray(group.members) ? group.members : [],
+    expenses: Array.isArray(group.expenses) ? group.expenses : [],
+    pending: Array.isArray(group.pending) ? group.pending : [],
+    cases: Array.isArray(group.cases) ? group.cases : [],
+    hangoutProposals: Array.isArray(group.hangoutProposals)
+      ? group.hangoutProposals
+      : Array.isArray(group.hangout_proposals)
+      ? group.hangout_proposals
+      : [],
+    billWatch: group.billWatch || group.bill_watch || { electedMemberName: "", votes: {}, checklist: [] },
+    peaceMaker: group.peaceMaker || group.peace_maker || { electedMemberName: "", votes: {}, oath: "" },
+  };
+}
+
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
@@ -1242,7 +1266,26 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     );
 
     if (!remainingMembers.length) {
-      const saved = await persistSharedGroup(targetGroup, { remove: true });
+      let saved = false;
+      if (isSupabaseConfigured && targetGroup?.id && !String(targetGroup.id).startsWith("group-")) {
+        const { error } = await supabase.rpc("leave_group", {
+          next_group_id: targetGroup.id,
+          leaving_member: member,
+          updated_group: { ...targetGroup, members: [] },
+        });
+        if (error) {
+          const missingRpc = /leave_group|function.*not.*exist|schema cache/i.test(error.message || "");
+          if (!missingRpc) {
+            setNotice(error.message || "We could not leave that crew yet.");
+            return;
+          }
+          saved = await persistSharedGroup(targetGroup, { remove: true });
+        } else {
+          saved = true;
+        }
+      } else {
+        saved = await persistSharedGroup(targetGroup, { remove: true });
+      }
       if (!saved) return;
       setAppData?.((prev) => ({
         ...prev,
@@ -1299,13 +1342,34 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
         };
       })(),
     };
-    const saved = await persistSharedGroup(nextGroup);
+    let saved = false;
+    let savedGroup = nextGroup;
+    if (isSupabaseConfigured && nextGroup?.id && !String(nextGroup.id).startsWith("group-")) {
+      const { data, error } = await supabase.rpc("leave_group", {
+        next_group_id: nextGroup.id,
+        leaving_member: member,
+        updated_group: nextGroup,
+      });
+      if (error) {
+        const missingRpc = /leave_group|function.*not.*exist|schema cache/i.test(error.message || "");
+        if (!missingRpc) {
+          setNotice(error.message || "We could not leave that crew yet.");
+          return;
+        }
+        saved = await persistSharedGroup(nextGroup);
+      } else {
+        saved = true;
+        if (data) savedGroup = normalizeSupabaseGroup(data);
+      }
+    } else {
+      saved = await persistSharedGroup(nextGroup);
+    }
     if (!saved) return;
     setAppData?.((prev) => ({
       ...prev,
       groups: (prev.groups || []).map((group) => {
         if (String(group.id) !== String(targetGroup.id)) return group;
-        return nextGroup;
+        return savedGroup;
       }),
       notifications: (prev.notifications || []).filter((notification) => String(notification.groupId) !== String(targetGroup.id)),
     }));
