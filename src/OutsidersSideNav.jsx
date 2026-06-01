@@ -103,7 +103,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     }
   }, [activeLabel]);
 
-  const desktopWidth = collapsed ? 0 : 164;
+  const desktopWidth = collapsed ? 0 : 206;
 
   return (
     <>
@@ -121,7 +121,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           top: 0;
           left: 0;
           bottom: 0;
-          width: 164px;
+          width: 206px;
           background:
             radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76) 55%, rgba(255, 255, 255, 0.94)),
             #fff8ea;
@@ -132,6 +132,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           flex-direction: column;
           align-items: stretch;
           gap: 18px;
+          overflow-x: hidden;
           overflow-y: auto;
           z-index: 70;
           transition: transform 180ms ease, opacity 180ms ease;
@@ -350,8 +351,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         .os-rail-btn-wrap {
           position: relative;
           width: 100%;
-          display: flex;
+          display: grid;
           justify-content: stretch;
+          gap: 8px;
         }
         .os-rail-btn-wrap .os-notif-badge {
           top: 2px;
