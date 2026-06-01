@@ -101,7 +101,7 @@ svg {
   display: block;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.24;
+  opacity: 0.38;
 }
 
 .root,

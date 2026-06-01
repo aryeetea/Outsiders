@@ -105,8 +105,8 @@ export default function Outsiders3DBackground() {
         const height = window.innerHeight;
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        camera.position.z = width < 640 ? 15.5 : width < 1024 ? 13.8 : 12.2;
-        textGroup.scale.setScalar(width < 640 ? 0.54 : width < 1024 ? 0.78 : 1);
+        camera.position.z = width < 640 ? 14.6 : width < 1024 ? 12.9 : 11.35;
+        textGroup.scale.setScalar(width < 640 ? 0.68 : width < 1024 ? 0.94 : 1.18);
         textGroup.position.set(0, width < 640 ? 0.15 : 0, 0);
         renderer.setSize(width, height);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
