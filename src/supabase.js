@@ -34,6 +34,9 @@ function getLegacySupabaseStorageKey() {
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
+      db: {
+        schema: "public",
+      },
       auth: {
         persistSession: true,
         autoRefreshToken: true,
