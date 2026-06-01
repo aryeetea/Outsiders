@@ -47,9 +47,15 @@ const NAV_ITEMS = [
   { icon: <IconDashboard />, label: "Dashboard", target: "dashboard" },
   { icon: <IconProfile />, label: "Profile", target: "profile" },
   { icon: <IconCrew />, label: "My Crew", target: "friend-groups" },
-  { icon: <IconCreateCrew />, label: "Create Crew", target: "create-crew" },
+  {
+    icon: <IconCreateCrew />,
+    label: "Create",
+    children: [
+      { icon: <IconCreateCrew />, label: "Create Crew", target: "create-crew" },
+      { icon: <IconCreateHangout />, label: "Create Hangout", target: "create-hangout" },
+    ],
+  },
   { icon: <IconHangouts />, label: "Hangouts", target: "hangouts" },
-  { icon: <IconCreateHangout />, label: "Create Hangout", target: "create-hangout" },
   { icon: <IconTrips />, label: "Trips", target: "trip-planning" },
   { icon: <IconBillSplit />, label: "Bill Split", target: "bill-split" },
   { icon: <IconRatings />, label: "Ratings", target: "rate-outing" },
@@ -65,6 +71,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(() => activeLabel === "Create Crew" || activeLabel === "Create Hangout");
   const notifications = useMemo(
     () => [...(appData?.notifications || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)),
     [appData?.notifications]
@@ -89,6 +96,12 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     window.addEventListener("hashchange", close);
     return () => window.removeEventListener("hashchange", close);
   }, []);
+
+  useEffect(() => {
+    if (activeLabel === "Create Crew" || activeLabel === "Create Hangout") {
+      setCreateOpen(true);
+    }
+  }, [activeLabel]);
 
   const desktopWidth = collapsed ? 0 : 164;
 
@@ -224,6 +237,46 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           box-shadow:
             inset 0 0 0 2px rgba(26, 26, 46, 0.08),
             0 8px 18px rgba(26, 26, 46, 0.08);
+        }
+        .os-create-caret {
+          margin-left: auto;
+          font: 900 13px 'Nunito', sans-serif;
+          transition: transform 150ms ease;
+        }
+        .os-create-caret.open {
+          transform: rotate(90deg);
+        }
+        .os-subnav {
+          display: grid;
+          gap: 8px;
+          padding: 2px 0 0 16px;
+        }
+        .os-subnav-btn {
+          width: 100%;
+          min-height: 44px;
+          border: 0;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.6);
+          color: rgba(26, 26, 46, 0.88);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 10px;
+          padding: 10px 12px;
+          transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
+        }
+        .os-subnav-btn:hover {
+          transform: translateY(-1px);
+          background: rgba(255, 255, 255, 0.86);
+        }
+        .os-subnav-btn.active {
+          background: rgba(255, 217, 61, 0.26);
+          box-shadow: inset 0 0 0 2px rgba(26, 26, 46, 0.08);
+        }
+        .os-subnav-btn svg {
+          width: 18px;
+          height: 18px;
         }
         .os-rail-btn span {
           display: inline-flex;
@@ -539,20 +592,58 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             <div className="os-nav-group">
               {NAV_ITEMS.map((item) => (
                 <div key={item.label} className="os-rail-btn-wrap">
-                  <button
-                    type="button"
-                    className={`os-rail-btn ${activeLabel === item.label ? "active" : ""}`}
-                    onClick={() => {
-                      setMobileOpen(false);
-                      onNavigate?.(item.target);
-                    }}
-                    aria-label={item.label}
-                    title={item.label}
-                    style={{ width: "100%" }}
-                  >
-                    <span>{item.icon}</span>
-                    <span className="os-label">{item.label}</span>
-                  </button>
+                  {item.children ? (
+                    <>
+                      <button
+                        type="button"
+                        className={`os-rail-btn ${item.children.some((child) => activeLabel === child.label) ? "active" : ""}`}
+                        onClick={() => setCreateOpen((open) => !open)}
+                        aria-label={item.label}
+                        aria-expanded={createOpen}
+                        title={item.label}
+                        style={{ width: "100%" }}
+                      >
+                        <span>{item.icon}</span>
+                        <span className="os-label">{item.label}</span>
+                        <span className={`os-create-caret ${createOpen ? "open" : ""}`}>›</span>
+                      </button>
+                      {createOpen ? (
+                        <div className="os-subnav">
+                          {item.children.map((child) => (
+                            <button
+                              key={child.label}
+                              type="button"
+                              className={`os-subnav-btn ${activeLabel === child.label ? "active" : ""}`}
+                              onClick={() => {
+                                setMobileOpen(false);
+                                onNavigate?.(child.target);
+                              }}
+                              aria-label={child.label}
+                              title={child.label}
+                            >
+                              <span>{child.icon}</span>
+                              <span className="os-label">{child.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`os-rail-btn ${activeLabel === item.label ? "active" : ""}`}
+                      onClick={() => {
+                        setMobileOpen(false);
+                        onNavigate?.(item.target);
+                      }}
+                      aria-label={item.label}
+                      title={item.label}
+                      style={{ width: "100%" }}
+                    >
+                      <span>{item.icon}</span>
+                      <span className="os-label">{item.label}</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
