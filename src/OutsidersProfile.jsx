@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import AvailabilitySheet from "./AvailabilitySheet";
-import { DEFAULT_PROFILE, getDisplayName } from "./appState";
+import { DEFAULT_PROFILE, getDisplayName, normalizeAppData, persistStoredProfile } from "./appState";
 import NotificationCenter from "./NotificationCenter";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { availabilityToText, hasAvailability } from "./scheduling";
@@ -311,6 +311,33 @@ const STYLES = `
     box-shadow: 4px 4px 0 #7a1f1f;
   }
 
+  .danger-zone {
+    border-color: #7a1f1f;
+    box-shadow: 5px 5px 0 #7a1f1f;
+  }
+
+  .danger-zone h2 {
+    margin: 8px 0 8px;
+    font: 400 30px 'Bangers', cursive;
+    letter-spacing: 0.04em;
+    color: #7a1f1f;
+  }
+
+  .danger-zone p {
+    margin: 0;
+    color: #7a1f1f;
+    font-weight: 800;
+    line-height: 1.55;
+  }
+
+  .danger-zone .danger-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 16px;
+  }
+
   .action-btn:hover, .ghost-btn:hover, .slot-chip:hover {
     transform: translateY(-2px);
   }
@@ -534,6 +561,7 @@ function OutsidersProfileContent({
   const [draftAvatar, setDraftAvatar] = useState(undefined);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const availabilitySummary = weekSummary(draft.availability);
@@ -713,31 +741,40 @@ function OutsidersProfileContent({
   };
 
   async function handleDeleteAccount(navigate) {
+    setDeleteError("");
+
     if (!isSupabaseConfigured || !supabase) {
-      window.alert("Account deletion requires Supabase to be configured.");
+      setDeleteError("Account deletion requires Supabase to be configured.");
       return;
     }
 
-    if (!window.confirm("Permanently delete your account? This cannot be undone.")) return;
+    if (!window.confirm("Permanently delete your account and profile? This cannot be undone.")) return;
     try {
       setDeletingAccount(true);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.alert("No active session found. Please log in again to delete your account.");
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !data?.session) {
+        setDeleteError("No active session found. Please log in again to delete your account.");
         setDeletingAccount(false);
-        navigate?.("login");
+        navigate?.("login", { redirect: "profile" });
         return;
       }
 
       const { error } = await supabase.rpc("delete_my_account");
       if (error) throw error;
 
-      await supabase.auth.signOut();
+      persistStoredProfile(DEFAULT_PROFILE, null);
+      setAppData?.(normalizeAppData({}, { useStoredProfile: false }));
+
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        console.warn("[Outsiders] Account deleted, but sign-out cleanup failed:", signOutError.message);
+      }
+
       navigate?.("account-deleted");
-    } catch (e) {
-      console.error(e);
-      window.alert(e?.message ?? "Account deletion failed.");
+    } catch (error) {
+      console.error(error);
+      setDeleteError(error?.message ?? "Account deletion failed.");
       setDeletingAccount(false);
     }
   }
@@ -807,16 +844,6 @@ function OutsidersProfileContent({
               <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
                 {!isViewingOtherProfile ? <button type="button" className="action-btn" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</button> : null}
                 <button type="button" className="ghost-btn" onClick={() => onNavigate?.("friend-groups")}>{isViewingOtherProfile ? "Back To Crew" : "Back To My Crew"}</button>
-                {!isViewingOtherProfile ? (
-                  <button
-                    type="button"
-                    className="ghost-btn danger-btn"
-                    onClick={() => handleDeleteAccount(onNavigate)}
-                    disabled={deletingAccount || saving}
-                  >
-                    {deletingAccount ? "Deleting Account..." : "Delete Account"}
-                  </button>
-                ) : null}
               </div>
               {saved && !isViewingOtherProfile ? <p style={{ margin: "14px 0 0", color: "#0f766e", fontWeight: 700 }}>Profile saved and availability updated.</p> : null}
               {saveError ? <p style={{ margin: "14px 0 0", color: "#b42318", fontWeight: 700 }}>{saveError}</p> : null}
@@ -860,6 +887,27 @@ function OutsidersProfileContent({
               ) : null}
             </section>
           </div>
+
+          {!isViewingOtherProfile ? (
+            <section className="panel danger-zone">
+              <span className="eyebrow">Account settings</span>
+              <h2>Delete Account</h2>
+              <p>
+                This permanently deletes your account, profile, and saved app session for Outsiders.
+              </p>
+              <div className="danger-actions">
+                <button
+                  type="button"
+                  className="ghost-btn danger-btn"
+                  onClick={() => handleDeleteAccount(onNavigate)}
+                  disabled={deletingAccount || saving}
+                >
+                  {deletingAccount ? "Deleting Account..." : "Delete Account"}
+                </button>
+                {deleteError ? <p>{deleteError}</p> : null}
+              </div>
+            </section>
+          ) : null}
 
           <AvailabilitySheet
             value={draft.availability}

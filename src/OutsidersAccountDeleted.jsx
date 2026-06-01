@@ -110,11 +110,11 @@ export default function OutsidersAccountDeleted({ onNavigate }) {
           <div className="deleted-badge">BYE</div>
           <h1 className="deleted-title">Account Deleted</h1>
           <p className="deleted-copy">
-            Your account was removed successfully. You can create a new account anytime, including with the same email address.
+            Your account and profile were removed successfully. Your local app session has been cleared too.
           </p>
           <div className="deleted-actions">
             <button type="button" className="deleted-btn primary" onClick={() => onNavigate?.("signup")}>Create New Account</button>
-            <button type="button" className="deleted-btn secondary" onClick={() => onNavigate?.("login")}>Log In</button>
+            <button type="button" className="deleted-btn secondary" onClick={() => onNavigate?.("landing")}>Back To Home</button>
           </div>
         </section>
       </main>

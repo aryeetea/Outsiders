@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { DEFAULT_PROFILE, persistStoredProfile } from "./appState";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -218,6 +219,7 @@ export async function deleteCurrentUserAccount() {
   if (signOutError) {
     console.warn("[Outsiders] Account deleted, but sign-out cleanup failed:", signOutError.message);
   }
+  persistStoredProfile(DEFAULT_PROFILE, null);
   clearSupabaseAuthStorage();
   return { ok: true, error: null };
 }
