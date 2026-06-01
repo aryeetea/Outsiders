@@ -679,56 +679,20 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
     }
   };
 
-  const deleteAccount = async () => {
-    if (isViewingOtherProfile || deletingAccount) return;
-
-    setSaveError("");
-    if (!isSupabaseConfigured) {
-      setSaveError("Account deletion is unavailable because Supabase is not configured.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Delete your account permanently? This removes your profile and you will lose access to your crews and planning data."
-    );
-    if (!confirmed) return;
-
-    const typed = window.prompt("Type DELETE to confirm account deletion.");
-    if (typed !== "DELETE") {
-      setSaveError("Account deletion canceled. Type DELETE exactly when prompted.");
-      return;
-    }
-
-    setDeletingAccount(true);
-    const { ok, error } = await deleteCurrentUserAccount();
-
-    if (!ok || error) {
-      console.error("Account deletion failed:", error);
-      let message = error.message || "We could not delete your account right now.";
-      if (message.toLowerCase() === "bad request" || message.includes("400")) {
-        message = "Account deletion failed (Bad Request). Please ensure your Supabase database schema is fully updated with the latest delete_my_account RPC.";
-      }
-      setSaveError(message);
-      if (
-        message.toLowerCase().includes("session expired")
-        || message.toLowerCase().includes("no authenticated user found")
-      ) {
-        window.setTimeout(() => onNavigate?.("login"), 800);
-      }
-      setDeletingAccount(false);
-      return;
-    }
-
+  async function handleDeleteAccount(navigate) {
+    if (!window.confirm('Permanently delete your account? This cannot be undone.')) return;
     try {
-      await supabase.auth.signOut();
-    } catch (signOutError) {
-      console.warn("Sign-out after account deletion failed:", signOutError?.message || signOutError);
-    } finally {
-      showToast("Account deleted successfully.");
-      onNavigate?.("account-deleted");
+      setDeletingAccount(true);
+      const { error } = await supabase.rpc('delete_my_account');
+      if (error) throw error;
+      await supabase.auth.signOut();            // clear local session
+      navigate('account-deleted');             // show confirmation screen
+    } catch (e) {
+      console.error(e);
+      window.alert(e?.message ?? 'Account deletion failed.');
       setDeletingAccount(false);
     }
-  };
+  }
 
   return (
     <>
@@ -799,7 +763,7 @@ export default function OutsidersProfile({ onNavigate, appData, setAppData, rout
                   <button
                     type="button"
                     className="ghost-btn danger-btn"
-                    onClick={deleteAccount}
+                    onClick={() => handleDeleteAccount(onNavigate)}
                     disabled={deletingAccount || saving}
                   >
                     {deletingAccount ? "Deleting Account..." : "Delete Account"}
