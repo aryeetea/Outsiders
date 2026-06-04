@@ -5,12 +5,12 @@ import OutsidersSideNav from "./OutsidersSideNav";
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; }
-  body { margin: 0; background: #f7f1dd; }
+  body { margin: 0; background: transparent; }
   .dash-root {
     min-height: 100vh;
     font-family: 'Nunito', sans-serif;
     color: #17151f;
-    background: #fff6d8;
+    background: transparent;
     position: relative;
   }
   .dash-root::before {
@@ -32,15 +32,16 @@ const STYLES = `
   }
   .dashboard-board {
     background:
-      radial-gradient(circle, rgba(201, 179, 104, 0.45) 1.4px, transparent 1.5px),
-      linear-gradient(180deg, #fff9ea 0%, #fff4d6 100%);
+      radial-gradient(circle, rgba(23, 21, 31, 0.18) 1.4px, transparent 1.5px),
+      linear-gradient(180deg, rgba(255, 249, 234, 0.22) 0%, rgba(255, 244, 214, 0.1) 100%);
     background-size: 36px 36px, 100% 100%;
     border: 5px solid #17151f;
     border-radius: 28px;
-    box-shadow: 0 0 0 4px rgba(255,255,255,0.45) inset;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.26) inset;
     padding: 36px 34px 42px;
     position: relative;
     overflow: hidden;
+    backdrop-filter: saturate(1.08);
   }
   .dashboard-board::before {
     content: '';
@@ -87,7 +88,7 @@ const STYLES = `
   }
   .dashboard-subtitle {
     position: relative;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.72);
     border: 5px solid #17151f;
     border-radius: 999px;
     box-shadow: 6px 6px 0 #17151f;
@@ -101,7 +102,7 @@ const STYLES = `
     bottom: -16px;
     width: 24px;
     height: 24px;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.72);
     border-right: 5px solid #17151f;
     border-bottom: 5px solid #17151f;
     transform: translateX(-50%) rotate(45deg);
@@ -127,14 +128,14 @@ const STYLES = `
     font-size: 18px;
   }
   .dashboard-column-card {
-    background: rgba(255,255,255,0.72);
+    background: rgba(255,255,255,0.4);
     border: 3px solid rgba(23, 21, 31, 0.14);
     border-radius: 22px;
     padding: 20px;
     box-shadow: 0 10px 24px rgba(23,21,31,0.06);
   }
   .dashboard-main-card {
-    background: rgba(255,255,255,0.72);
+    background: rgba(255,255,255,0.42);
     border: 3px solid rgba(23, 21, 31, 0.14);
     border-radius: 22px;
     padding: 22px;
@@ -153,7 +154,7 @@ const STYLES = `
   }
   .glass, .card {
     border: 4px solid #17151f;
-    background: #fffdf7;
+    background: rgba(255, 253, 247, 0.5);
     box-shadow: 8px 8px 0 #17151f;
     position: relative;
     overflow: hidden;
@@ -218,7 +219,7 @@ const STYLES = `
   .hero {
     border-radius: 24px;
     padding: 30px;
-    background: #fff2a6;
+    background: rgba(255, 242, 166, 0.42);
   }
   .hero-grid {
     display: grid;
@@ -271,7 +272,7 @@ const STYLES = `
   .proposal-card, .note-card {
     border-radius: 18px;
     padding: 16px;
-    background: #fff8ea;
+    background: rgba(255, 248, 234, 0.52);
     border: 3px solid #17151f;
     box-shadow: 5px 5px 0 #17151f;
     position: relative;
@@ -292,14 +293,14 @@ const STYLES = `
     padding: 12px;
     border-radius: 14px;
     border: 3px solid #17151f;
-    background: #fffdf7;
+    background: rgba(255, 253, 247, 0.52);
     box-shadow: 4px 4px 0 #17151f;
   }
   .vote-inline-btn {
     width: 100%;
     border: 3px solid #17151f;
     border-radius: 12px;
-    background: #fff7e4;
+    background: rgba(255, 247, 228, 0.58);
     box-shadow: 3px 3px 0 #17151f;
     padding: 11px 12px;
     text-align: left;
@@ -308,12 +309,12 @@ const STYLES = `
     color: #17151f;
   }
   .vote-inline-btn.active {
-    background: #eefdf5;
+    background: rgba(238, 253, 245, 0.7);
     border-color: #0f766e;
     box-shadow: 3px 3px 0 #0f766e;
   }
   .quick-btn {
-    background: #fff5de;
+    background: rgba(255, 245, 222, 0.5);
     min-height: 112px;
   }
   .bangers {
