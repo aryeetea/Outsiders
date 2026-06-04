@@ -109,6 +109,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     <>
       <style>{`
         .os-shell {
+          --os-neon-cyan: rgba(110, 215, 255, 0.78);
+          --os-neon-pink: rgba(255, 107, 157, 0.58);
+          --os-neon-yellow: rgba(255, 217, 61, 0.42);
           min-height: 100vh;
           position: relative;
           z-index: 1;
@@ -125,8 +128,12 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           background:
             radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76) 55%, rgba(255, 255, 255, 0.94)),
             #fff8ea;
-          border-right: 3px solid rgba(26, 26, 46, 0.08);
-          box-shadow: inset -8px 0 26px rgba(26, 26, 46, 0.05);
+          border-right: 3px solid rgba(110, 215, 255, 0.82);
+          box-shadow:
+            inset -8px 0 26px rgba(26, 26, 46, 0.05),
+            8px 0 28px var(--os-neon-cyan),
+            14px 0 42px var(--os-neon-pink),
+            0 0 22px var(--os-neon-yellow);
           padding: 22px 12px 18px;
           display: flex;
           flex-direction: column;
@@ -387,7 +394,11 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           place-items: center;
           color: rgba(26, 26, 46, 0.62);
           background: rgba(255, 248, 234, 0.96);
-          box-shadow: 0 6px 18px rgba(26, 26, 46, 0.08);
+          border: 2px solid rgba(110, 215, 255, 0.76);
+          box-shadow:
+            0 6px 18px rgba(26, 26, 46, 0.08),
+            0 0 18px var(--os-neon-cyan),
+            0 0 28px var(--os-neon-pink);
         }
         .os-reopen-stack {
           position: fixed;
@@ -434,7 +445,10 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             gap: 12px;
             padding: 12px 14px;
             background: #fff8ea;
-            border-bottom: 3px solid rgba(26, 26, 46, 0.08);
+            border-bottom: 3px solid rgba(110, 215, 255, 0.82);
+            box-shadow:
+              0 8px 26px var(--os-neon-cyan),
+              0 12px 36px var(--os-neon-pink);
             backdrop-filter: blur(10px);
           }
           .os-sidebar {
@@ -442,7 +456,10 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             align-items: stretch;
             padding: 18px 16px;
             transform: translateX(-105%);
-            box-shadow: 10px 0 30px rgba(26, 26, 46, 0.14);
+            box-shadow:
+              10px 0 30px rgba(26, 26, 46, 0.14),
+              10px 0 30px var(--os-neon-cyan),
+              16px 0 44px var(--os-neon-pink);
           }
           .os-sidebar.mobile-open {
             transform: translateX(0);
