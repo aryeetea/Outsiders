@@ -109,10 +109,10 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     <>
       <style>{`
         .os-shell {
-          --os-neon-red: rgba(255, 60, 92, 0.82);
-          --os-neon-pink: rgba(255, 43, 164, 0.68);
-          --os-neon-coral: rgba(255, 117, 92, 0.52);
-          --os-neon-border: rgba(255, 43, 124, 0.9);
+          --os-neon-red: rgba(255, 60, 92, 0.38);
+          --os-neon-pink: rgba(255, 43, 164, 0.3);
+          --os-neon-coral: rgba(255, 117, 92, 0.24);
+          --os-neon-border: rgba(255, 43, 124, 0.52);
           min-height: 100vh;
           position: relative;
           z-index: 1;
@@ -133,9 +133,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           border-radius: 26px;
           box-shadow:
             inset -8px 0 26px rgba(26, 26, 46, 0.05),
-            8px 0 28px var(--os-neon-red),
-            14px 0 42px var(--os-neon-pink),
-            0 0 22px var(--os-neon-coral);
+            5px 0 18px var(--os-neon-red),
+            10px 0 28px var(--os-neon-pink),
+            0 0 14px var(--os-neon-coral);
           padding: 14px 10px 16px;
           display: flex;
           flex-direction: column;
@@ -399,8 +399,8 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           border: 2px solid var(--os-neon-border);
           box-shadow:
             0 6px 18px rgba(26, 26, 46, 0.08),
-            0 0 18px var(--os-neon-red),
-            0 0 28px var(--os-neon-pink);
+            0 0 12px var(--os-neon-red),
+            0 0 18px var(--os-neon-pink);
         }
         .os-reopen-stack {
           position: fixed;
@@ -449,8 +449,8 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             background: #fff8ea;
             border-bottom: 3px solid var(--os-neon-border);
             box-shadow:
-              0 8px 26px var(--os-neon-red),
-              0 12px 36px var(--os-neon-pink);
+              0 6px 18px var(--os-neon-red),
+              0 10px 24px var(--os-neon-pink);
             backdrop-filter: blur(10px);
           }
           .os-sidebar {
@@ -465,8 +465,8 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             transform: translateX(-105%);
             box-shadow:
               10px 0 30px rgba(26, 26, 46, 0.14),
-              10px 0 30px var(--os-neon-red),
-              16px 0 44px var(--os-neon-pink);
+              6px 0 20px var(--os-neon-red),
+              10px 0 28px var(--os-neon-pink);
           }
           .os-sidebar.mobile-open {
             transform: translateX(0);
