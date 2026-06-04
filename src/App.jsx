@@ -29,6 +29,7 @@ import {
   supabase,
 } from "./supabase";
 import Outsiders3DBackground from "./Outsiders3DBackground";
+import OutsidersConfettiBackground from "./OutsidersConfettiBackground";
 
 const DEFAULT_SCREEN = "landing";
 
@@ -705,6 +706,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
   return (
     <ErrorBoundary>
       <>
+        <OutsidersConfettiBackground />
         <Outsiders3DBackground />
         <style>{`
         .availability-gate {

@@ -104,6 +104,52 @@ svg {
   opacity: 0.38;
 }
 
+.outsiders-confetti-background {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.outsiders-confetti-piece {
+  position: absolute;
+  top: -24px;
+  left: var(--confetti-left);
+  width: var(--confetti-width);
+  height: var(--confetti-height);
+  background: var(--confetti-color);
+  border: 2px solid rgba(23, 21, 31, 0.34);
+  border-radius: 3px;
+  opacity: 0.58;
+  transform: translate3d(0, -32px, 0) rotate(var(--confetti-rotate));
+  animation: confettiFall var(--confetti-duration) linear infinite;
+  animation-delay: var(--confetti-delay);
+  will-change: transform;
+}
+
+.outsiders-confetti-piece:nth-child(3n) {
+  border-radius: 999px;
+}
+
+.outsiders-confetti-piece:nth-child(4n) {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translate3d(-10px, -8vh, 0) rotate(var(--confetti-rotate));
+  }
+
+  50% {
+    transform: translate3d(18px, 52vh, 0) rotate(calc(var(--confetti-rotate) + 260deg));
+  }
+
+  100% {
+    transform: translate3d(-14px, 108vh, 0) rotate(calc(var(--confetti-rotate) + 540deg));
+  }
+}
+
 .root,
 .out-root {
   background-color: transparent !important;
@@ -244,6 +290,10 @@ svg {
   .btn-outline {
     min-height: 44px;
   }
+
+  .outsiders-confetti-piece {
+    opacity: 0.42;
+  }
 }
 
 @media (max-width: 520px) {
@@ -267,5 +317,12 @@ svg {
   select,
   textarea {
     min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outsiders-confetti-piece {
+    animation: none;
+    transform: translate3d(0, 50vh, 0) rotate(var(--confetti-rotate));
   }
 }
