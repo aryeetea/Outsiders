@@ -103,7 +103,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     }
   }, [activeLabel]);
 
-  const desktopWidth = collapsed ? 0 : 206;
+  const desktopWidth = collapsed ? 0 : 96;
 
   return (
     <>
@@ -121,24 +121,25 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         }
         .os-sidebar {
           position: fixed;
-          top: 0;
-          left: 0;
-          bottom: 0;
+          top: 24px;
+          left: 18px;
           width: 206px;
+          max-height: calc(100vh - 48px);
           background:
             radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76) 55%, rgba(255, 255, 255, 0.94)),
             #fff8ea;
-          border-right: 3px solid rgba(110, 215, 255, 0.82);
+          border: 3px solid rgba(110, 215, 255, 0.82);
+          border-radius: 26px;
           box-shadow:
             inset -8px 0 26px rgba(26, 26, 46, 0.05),
             8px 0 28px var(--os-neon-cyan),
             14px 0 42px var(--os-neon-pink),
             0 0 22px var(--os-neon-yellow);
-          padding: 22px 12px 18px;
+          padding: 14px 10px 16px;
           display: flex;
           flex-direction: column;
           align-items: stretch;
-          gap: 18px;
+          gap: 12px;
           overflow-x: hidden;
           overflow-y: auto;
           z-index: 70;
@@ -154,7 +155,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         .os-top {
           display: grid;
           justify-items: stretch;
-          gap: 22px;
+          gap: 14px;
           width: 100%;
         }
         .os-collapse-btn,
@@ -188,23 +189,23 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           width: 100%;
           display: grid;
           justify-items: stretch;
-          gap: 14px;
+          gap: 8px;
         }
         .os-utility-group {
           width: 100%;
           display: grid;
           justify-items: stretch;
-          gap: 12px;
+          gap: 8px;
         }
         .os-bell-btn {
           width: 100%;
-          min-height: 56px;
-          border-radius: 20px;
+          min-height: 48px;
+          border-radius: 18px;
           display: flex;
           align-items: center;
           gap: 12px;
           justify-content: flex-start;
-          padding: 14px 16px;
+          padding: 12px 14px;
           color: rgba(26, 26, 46, 0.92);
           background: rgba(255, 217, 61, 0.16);
           position: relative;
@@ -218,7 +219,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         .os-bell-panel {
           position: fixed;
           top: 20px;
-          left: 112px;
+          left: 244px;
           width: min(380px, calc(100vw - 140px));
           max-height: calc(100vh - 40px);
           overflow-y: auto;
@@ -231,13 +232,13 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         }
         .os-rail-btn {
           width: 100%;
-          min-height: 56px;
-          border-radius: 20px;
+          min-height: 48px;
+          border-radius: 18px;
           display: flex;
           align-items: center;
           gap: 12px;
           justify-content: flex-start;
-          padding: 14px 16px;
+          padding: 12px 14px;
           color: rgba(26, 26, 46, 0.92);
         }
         .os-rail-btn.active {
@@ -306,7 +307,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           text-align: left;
         }
         .os-spacer {
-          flex: 1;
+          display: none;
         }
         .os-bottom {
           display: grid;
@@ -453,6 +454,11 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           }
           .os-sidebar {
             width: min(280px, calc(100vw - 48px));
+            top: 0;
+            left: 0;
+            bottom: 0;
+            max-height: none;
+            border-radius: 0 24px 24px 0;
             align-items: stretch;
             padding: 18px 16px;
             transform: translateX(-105%);
