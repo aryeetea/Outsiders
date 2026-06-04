@@ -187,6 +187,17 @@ const STYLES = `
   .pill-btn:hover {
     transform: translate(-1px, -2px);
   }
+  .tab-btn:disabled,
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-outline:disabled,
+  .mini-btn:disabled,
+  .pill-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+    transform: none;
+    box-shadow: 2px 2px 0 rgba(26, 26, 46, 0.32);
+  }
   .tab-btn {
     padding: 10px 16px;
     background: #fff2cb;
@@ -483,6 +494,7 @@ const STYLES = `
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 const PAYMENT_TYPES = ["Venmo", "Cash App", "Zelle", "PayPal", "Apple Cash", "Cash", "Bank transfer"];
 const EXPENSE_CATEGORIES = ["Food", "Transport", "Tickets", "Stay", "Supplies", "Other"];
+const MAX_CREW_PAYMENT_METHODS = 2;
 
 function normalizeMemberKey(member = {}) {
   if (member.userId) return `user:${member.userId}`;
@@ -497,6 +509,11 @@ function normalizePaymentMethod(value = {}) {
     handle: String(candidate.handle || "").trim(),
     note: String(candidate.note || "").trim(),
   };
+}
+
+function hasPaymentMethod(value = {}) {
+  const method = normalizePaymentMethod(value);
+  return Boolean(method.type && method.handle);
 }
 
 function initialsForMember(member = {}) {
@@ -726,9 +743,15 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
   const totalSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const unsettledTotal = expenses.filter((expense) => !expense.settled).reduce((sum, expense) => sum + expense.amount, 0);
   const activeSettlements = settlements.length;
-  const paymentMethodsReady = members.filter((member) => member.paymentMethod.type && member.paymentMethod.handle).length;
+  const paymentMethodsReady = members.filter((member) => hasPaymentMethod(member.paymentMethod)).length;
   const splitPreviewCount = expenseForm.splitWith.length;
   const editingMember = members.find((member) => member.key === editingPaymentKey) || null;
+  const paymentSaveBlocked = Boolean(
+    editingMember
+    && !hasPaymentMethod(editingMember.paymentMethod)
+    && hasPaymentMethod(paymentDraft)
+    && paymentMethodsReady >= MAX_CREW_PAYMENT_METHODS
+  );
 
   async function persistGroup(nextGroup) {
     if (!selectedGroup) return false;
@@ -760,6 +783,12 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
 
   async function savePaymentMethod() {
     if (!selectedGroup || !editingMember) return;
+    const editingMemberHasPayment = hasPaymentMethod(editingMember.paymentMethod);
+    const draftHasPayment = hasPaymentMethod(paymentDraft);
+
+    if (!editingMemberHasPayment && draftHasPayment && paymentMethodsReady >= MAX_CREW_PAYMENT_METHODS) {
+      return;
+    }
 
     const nextMembers = (selectedGroup.members || []).map((member) => (
       normalizeMemberKey(member) === editingMember.key
@@ -882,6 +911,8 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
   const profileName = profile.name || profile.username || "You";
 
   function startEditingPayment(member) {
+    if (!hasPaymentMethod(member.paymentMethod) && paymentMethodsReady >= MAX_CREW_PAYMENT_METHODS) return;
+
     setPaymentDraft(normalizePaymentMethod(member.paymentMethod));
     setEditingPaymentKey(member.key);
   }
@@ -1155,9 +1186,14 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                 <div className="side-stack">
                   <div className="card">
                     <div className="section-label" style={{ marginTop: 0 }}>Crew Pay Setup</div>
+                    <div className="helper-copy" style={{ marginBottom: 12 }}>
+                      {paymentMethodsReady}/{MAX_CREW_PAYMENT_METHODS} payment methods saved for this crew.
+                    </div>
                     <div className="member-list">
                       {members.map((member) => {
                         const method = normalizePaymentMethod(member.paymentMethod);
+                        const methodSaved = hasPaymentMethod(method);
+                        const paymentLimitReached = !methodSaved && paymentMethodsReady >= MAX_CREW_PAYMENT_METHODS;
                         return (
                           <div key={member.key} className="payment-card">
                             <div className="payment-top">
@@ -1170,10 +1206,21 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                   </div>
                                 </div>
                               </div>
-                              <button type="button" className="mini-btn" onClick={() => startEditingPayment(member)}>
-                                Edit
+                              <button
+                                type="button"
+                                className="mini-btn"
+                                onClick={() => startEditingPayment(member)}
+                                disabled={paymentLimitReached}
+                                title={paymentLimitReached ? `Only ${MAX_CREW_PAYMENT_METHODS} payment methods can be saved for a crew.` : "Edit payment method"}
+                              >
+                                {methodSaved ? "Edit" : "Add"}
                               </button>
                             </div>
+                            {paymentLimitReached ? (
+                              <div className="helper-copy" style={{ marginTop: 8 }}>
+                                Limit reached. Edit or clear an existing payment method before adding another.
+                              </div>
+                            ) : null}
                           </div>
                         );
                       })}
@@ -1320,7 +1367,12 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                     onChange={(event) => setPaymentDraft((previous) => ({ ...previous, note: event.target.value }))}
                   />
                 </div>
-                <button type="button" className="btn-primary" onClick={() => void savePaymentMethod()}>
+                {paymentSaveBlocked ? (
+                  <div className="helper-copy">
+                    This crew already has {MAX_CREW_PAYMENT_METHODS} payment methods. Clear one before adding another.
+                  </div>
+                ) : null}
+                <button type="button" className="btn-primary" onClick={() => void savePaymentMethod()} disabled={paymentSaveBlocked}>
                   Save payment method
                 </button>
               </div>
