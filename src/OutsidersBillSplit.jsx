@@ -494,7 +494,7 @@ const STYLES = `
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 const PAYMENT_TYPES = ["Venmo", "Cash App", "Zelle", "PayPal", "Apple Cash", "Cash", "Bank transfer"];
 const EXPENSE_CATEGORIES = ["Food", "Transport", "Tickets", "Stay", "Supplies", "Other"];
-const MAX_CREW_PAYMENT_METHODS = 2;
+const MAX_PAYMENT_METHODS_PER_MEMBER = 2;
 
 function normalizeMemberKey(member = {}) {
   if (member.userId) return `user:${member.userId}`;
@@ -511,9 +511,29 @@ function normalizePaymentMethod(value = {}) {
   };
 }
 
+function normalizePaymentMethods(member = {}) {
+  const rawMethods = Array.isArray(member.paymentMethods)
+    ? member.paymentMethods
+    : Array.isArray(member.payment_methods)
+      ? member.payment_methods
+      : [];
+  const legacyMethod = normalizePaymentMethod(member.paymentMethod || member.payment_method);
+  const methods = rawMethods.map(normalizePaymentMethod);
+  if (hasPaymentMethod(legacyMethod) && !methods.some((method) => method.type === legacyMethod.type && method.handle === legacyMethod.handle)) {
+    methods.unshift(legacyMethod);
+  }
+  return methods.filter(hasPaymentMethod).slice(0, MAX_PAYMENT_METHODS_PER_MEMBER);
+}
+
 function hasPaymentMethod(value = {}) {
   const method = normalizePaymentMethod(value);
   return Boolean(method.type && method.handle);
+}
+
+function formatPaymentMethod(method = {}) {
+  const normalized = normalizePaymentMethod(method);
+  if (!hasPaymentMethod(normalized)) return "";
+  return `${normalized.type} · ${normalized.handle}`;
 }
 
 function initialsForMember(member = {}) {
@@ -531,6 +551,7 @@ function getFallbackMembers() {
     username: "",
     email: "",
     paymentMethod: normalizePaymentMethod(),
+    paymentMethods: [],
     source: { name: "You" },
   }];
 }
@@ -692,11 +713,10 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
     paidBy: 0,
     splitWith: [0],
   });
-  const [paymentDraft, setPaymentDraft] = useState({
-    type: "",
-    handle: "",
-    note: "",
-  });
+  const [paymentDrafts, setPaymentDrafts] = useState([
+    normalizePaymentMethod(),
+    normalizePaymentMethod(),
+  ]);
 
   useEffect(() => {
     if (!visibleGroups.length) {
@@ -727,6 +747,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
       username: member.username || "",
       email: member.email || "",
       paymentMethod: normalizePaymentMethod(member.paymentMethod || member.payment_method),
+      paymentMethods: normalizePaymentMethods(member),
       source: member,
       color: getMemberColor(index),
     }));
@@ -743,15 +764,9 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
   const totalSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const unsettledTotal = expenses.filter((expense) => !expense.settled).reduce((sum, expense) => sum + expense.amount, 0);
   const activeSettlements = settlements.length;
-  const paymentMethodsReady = members.filter((member) => hasPaymentMethod(member.paymentMethod)).length;
+  const paymentMethodsReady = members.filter((member) => member.paymentMethods.length).length;
   const splitPreviewCount = expenseForm.splitWith.length;
   const editingMember = members.find((member) => member.key === editingPaymentKey) || null;
-  const paymentSaveBlocked = Boolean(
-    editingMember
-    && !hasPaymentMethod(editingMember.paymentMethod)
-    && hasPaymentMethod(paymentDraft)
-    && paymentMethodsReady >= MAX_CREW_PAYMENT_METHODS
-  );
 
   async function persistGroup(nextGroup) {
     if (!selectedGroup) return false;
@@ -783,16 +798,18 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
 
   async function savePaymentMethod() {
     if (!selectedGroup || !editingMember) return;
-    const editingMemberHasPayment = hasPaymentMethod(editingMember.paymentMethod);
-    const draftHasPayment = hasPaymentMethod(paymentDraft);
-
-    if (!editingMemberHasPayment && draftHasPayment && paymentMethodsReady >= MAX_CREW_PAYMENT_METHODS) {
-      return;
-    }
+    const nextPaymentMethods = paymentDrafts
+      .map(normalizePaymentMethod)
+      .filter(hasPaymentMethod)
+      .slice(0, MAX_PAYMENT_METHODS_PER_MEMBER);
 
     const nextMembers = (selectedGroup.members || []).map((member) => (
       normalizeMemberKey(member) === editingMember.key
-        ? { ...member, paymentMethod: normalizePaymentMethod(paymentDraft) }
+        ? {
+          ...member,
+          paymentMethod: nextPaymentMethods[0] || normalizePaymentMethod(),
+          paymentMethods: nextPaymentMethods,
+        }
         : member
     ));
 
@@ -911,9 +928,11 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
   const profileName = profile.name || profile.username || "You";
 
   function startEditingPayment(member) {
-    if (!hasPaymentMethod(member.paymentMethod) && paymentMethodsReady >= MAX_CREW_PAYMENT_METHODS) return;
-
-    setPaymentDraft(normalizePaymentMethod(member.paymentMethod));
+    const methods = normalizePaymentMethods(member);
+    setPaymentDrafts([
+      methods[0] || normalizePaymentMethod(),
+      methods[1] || normalizePaymentMethod(),
+    ]);
     setEditingPaymentKey(member.key);
   }
 
@@ -1066,7 +1085,8 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                         {settlements.length ? settlements.map((settlement, index) => {
                           const fromMember = members[settlement.from];
                           const toMember = members[settlement.to];
-                          const paymentMethod = normalizePaymentMethod(toMember?.paymentMethod);
+                          const paymentMethods = toMember?.paymentMethods || [];
+                          const primaryPaymentMethod = paymentMethods[0] || normalizePaymentMethod();
                           return (
                             <article key={`${settlement.from}-${settlement.to}-${index}`} className="settlement-card">
                               <div className="settlement-top">
@@ -1091,13 +1111,13 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                               </div>
                               <div className="settlement-method">
                                 <strong style={{ fontSize: 13 }}>
-                                  {paymentMethod.type && paymentMethod.handle
-                                    ? `Pay with ${paymentMethod.type}`
+                                  {hasPaymentMethod(primaryPaymentMethod)
+                                    ? `Pay with ${primaryPaymentMethod.type}`
                                     : "Payment method not set yet"}
                                 </strong>
                                 <div className="helper-copy">
-                                  {paymentMethod.type && paymentMethod.handle
-                                    ? `${paymentMethod.handle}${paymentMethod.note ? ` · ${paymentMethod.note}` : ""}`
+                                  {hasPaymentMethod(primaryPaymentMethod)
+                                    ? `${primaryPaymentMethod.handle}${primaryPaymentMethod.note ? ` · ${primaryPaymentMethod.note}` : ""}${paymentMethods.length > 1 ? ` · +${paymentMethods.length - 1} more` : ""}`
                                     : `Ask ${toMember?.name || "this crew member"} to add a payment method in the Members tab.`}
                                 </div>
                               </div>
@@ -1148,7 +1168,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                     {activeTab === "Members" ? (
                       <div className="member-list">
                         {members.map((member) => {
-                          const paymentMethod = normalizePaymentMethod(member.paymentMethod);
+                          const paymentMethods = member.paymentMethods || [];
                           return (
                             <article key={member.key} className="member-card">
                               <div className="member-top">
@@ -1157,19 +1177,19 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                   <div>
                                     <strong style={{ display: "block", fontSize: 15 }}>{member.name}</strong>
                                     <div className="helper-copy">
-                                      {paymentMethod.type && paymentMethod.handle
-                                        ? `${paymentMethod.type} · ${paymentMethod.handle}`
+                                      {paymentMethods.length
+                                        ? paymentMethods.map(formatPaymentMethod).join(" / ")
                                         : "No payment method saved yet"}
                                     </div>
                                   </div>
                                 </div>
-                                <span className={`payment-badge ${paymentMethod.type && paymentMethod.handle ? "ready" : "missing"}`}>
-                                  {paymentMethod.type && paymentMethod.handle ? "Ready to pay" : "Needs setup"}
+                                <span className={`payment-badge ${paymentMethods.length ? "ready" : "missing"}`}>
+                                  {paymentMethods.length ? `${paymentMethods.length}/${MAX_PAYMENT_METHODS_PER_MEMBER} saved` : "Needs setup"}
                                 </span>
                               </div>
-                              {paymentMethod.note ? (
-                                <div className="helper-copy">{paymentMethod.note}</div>
-                              ) : null}
+                              {paymentMethods.map((method, methodIndex) => (
+                                method.note ? <div key={`${method.type}-${method.handle}-${methodIndex}`} className="helper-copy">{method.note}</div> : null
+                              ))}
                               <div className="stack-row">
                                 <button type="button" className="mini-btn" onClick={() => startEditingPayment(member)}>
                                   {normalizeMemberKey(member.source || {}) === currentUserKey ? "Edit my payment method" : "Update payment method"}
@@ -1187,13 +1207,11 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                   <div className="card">
                     <div className="section-label" style={{ marginTop: 0 }}>Crew Pay Setup</div>
                     <div className="helper-copy" style={{ marginBottom: 12 }}>
-                      {paymentMethodsReady}/{MAX_CREW_PAYMENT_METHODS} payment methods saved for this crew.
+                      Each person can save up to {MAX_PAYMENT_METHODS_PER_MEMBER} payment methods.
                     </div>
                     <div className="member-list">
                       {members.map((member) => {
-                        const method = normalizePaymentMethod(member.paymentMethod);
-                        const methodSaved = hasPaymentMethod(method);
-                        const paymentLimitReached = !methodSaved && paymentMethodsReady >= MAX_CREW_PAYMENT_METHODS;
+                        const paymentMethods = member.paymentMethods || [];
                         return (
                           <div key={member.key} className="payment-card">
                             <div className="payment-top">
@@ -1202,7 +1220,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                 <div>
                                   <strong style={{ display: "block", fontSize: 14 }}>{member.name}</strong>
                                   <div className="helper-copy">
-                                    {method.type && method.handle ? `${method.type} · ${method.handle}` : "Missing a payment path"}
+                                    {paymentMethods.length ? paymentMethods.map(formatPaymentMethod).join(" / ") : "Missing a payment path"}
                                   </div>
                                 </div>
                               </div>
@@ -1210,17 +1228,14 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                 type="button"
                                 className="mini-btn"
                                 onClick={() => startEditingPayment(member)}
-                                disabled={paymentLimitReached}
-                                title={paymentLimitReached ? `Only ${MAX_CREW_PAYMENT_METHODS} payment methods can be saved for a crew.` : "Edit payment method"}
+                                title="Edit payment methods"
                               >
-                                {methodSaved ? "Edit" : "Add"}
+                                {paymentMethods.length ? "Edit" : "Add"}
                               </button>
                             </div>
-                            {paymentLimitReached ? (
-                              <div className="helper-copy" style={{ marginTop: 8 }}>
-                                Limit reached. Edit or clear an existing payment method before adding another.
-                              </div>
-                            ) : null}
+                            <div className="helper-copy" style={{ marginTop: 8 }}>
+                              {paymentMethods.length}/{MAX_PAYMENT_METHODS_PER_MEMBER} saved for this person.
+                            </div>
                           </div>
                         );
                       })}
@@ -1334,46 +1349,63 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
               <button type="button" className="close-btn" onClick={() => setEditingPaymentKey("")}>✕</button>
               <div style={{ textAlign: "center", marginBottom: 24 }}>
                 <span className="comic-tag">Payback path</span>
-                <h2 className="bangers" style={{ fontSize: 34, margin: "10px 0 6px" }}>Payment Method</h2>
+                <h2 className="bangers" style={{ fontSize: 34, margin: "10px 0 6px" }}>Payment Methods</h2>
                 <p className="helper-copy" style={{ margin: 0 }}>
-                  Save how {editingMember.name} prefers to receive money so the settle-up view actually tells the crew what to do next.
+                  Save up to {MAX_PAYMENT_METHODS_PER_MEMBER} ways {editingMember.name} prefers to receive money.
                 </p>
               </div>
               <div className="form-stack">
-                <div className="field">
-                  <label>Payment type</label>
-                  <select
-                    value={paymentDraft.type}
-                    onChange={(event) => setPaymentDraft((previous) => ({ ...previous, type: event.target.value }))}
-                  >
-                    <option value="">Choose one</option>
-                    {PAYMENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Handle or destination</label>
-                  <input
-                    type="text"
-                    placeholder="@handle, phone number, or email"
-                    value={paymentDraft.handle}
-                    onChange={(event) => setPaymentDraft((previous) => ({ ...previous, handle: event.target.value }))}
-                  />
-                </div>
-                <div className="field">
-                  <label>Extra note</label>
-                  <textarea
-                    placeholder="Optional note, like 'use this phone number' or 'cash only in person'."
-                    value={paymentDraft.note}
-                    onChange={(event) => setPaymentDraft((previous) => ({ ...previous, note: event.target.value }))}
-                  />
-                </div>
-                {paymentSaveBlocked ? (
-                  <div className="helper-copy">
-                    This crew already has {MAX_CREW_PAYMENT_METHODS} payment methods. Clear one before adding another.
+                {paymentDrafts.map((draft, draftIndex) => (
+                  <div key={`payment-draft-${draftIndex}`} className="payment-card">
+                    <div className="section-label" style={{ marginTop: 0 }}>Method {draftIndex + 1}</div>
+                    <div className="field">
+                      <label>Payment type</label>
+                      <select
+                        value={draft.type}
+                        onChange={(event) => setPaymentDrafts((previous) => previous.map((method, index) => (
+                          index === draftIndex ? { ...method, type: event.target.value } : method
+                        )))}
+                      >
+                        <option value="">Choose one</option>
+                        {PAYMENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label>Handle or destination</label>
+                      <input
+                        type="text"
+                        placeholder="@handle, phone number, or email"
+                        value={draft.handle}
+                        onChange={(event) => setPaymentDrafts((previous) => previous.map((method, index) => (
+                          index === draftIndex ? { ...method, handle: event.target.value } : method
+                        )))}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Extra note</label>
+                      <textarea
+                        placeholder="Optional note, like 'use this phone number' or 'cash only in person'."
+                        value={draft.note}
+                        onChange={(event) => setPaymentDrafts((previous) => previous.map((method, index) => (
+                          index === draftIndex ? { ...method, note: event.target.value } : method
+                        )))}
+                      />
+                    </div>
+                    {hasPaymentMethod(draft) ? (
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        onClick={() => setPaymentDrafts((previous) => previous.map((method, index) => (
+                          index === draftIndex ? normalizePaymentMethod() : method
+                        )))}
+                      >
+                        Clear method {draftIndex + 1}
+                      </button>
+                    ) : null}
                   </div>
-                ) : null}
-                <button type="button" className="btn-primary" onClick={() => void savePaymentMethod()} disabled={paymentSaveBlocked}>
-                  Save payment method
+                ))}
+                <button type="button" className="btn-primary" onClick={() => void savePaymentMethod()}>
+                  Save payment methods
                 </button>
               </div>
             </div>
