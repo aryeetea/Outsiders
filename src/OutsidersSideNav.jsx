@@ -109,9 +109,10 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     <>
       <style>{`
         .os-shell {
-          --os-neon-cyan: rgba(110, 215, 255, 0.78);
-          --os-neon-pink: rgba(255, 107, 157, 0.58);
-          --os-neon-yellow: rgba(255, 217, 61, 0.42);
+          --os-neon-red: rgba(255, 60, 92, 0.82);
+          --os-neon-pink: rgba(255, 43, 164, 0.68);
+          --os-neon-coral: rgba(255, 117, 92, 0.52);
+          --os-neon-border: rgba(255, 43, 124, 0.9);
           min-height: 100vh;
           position: relative;
           z-index: 1;
@@ -128,13 +129,13 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           background:
             radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76) 55%, rgba(255, 255, 255, 0.94)),
             #fff8ea;
-          border: 3px solid rgba(110, 215, 255, 0.82);
+          border: 3px solid var(--os-neon-border);
           border-radius: 26px;
           box-shadow:
             inset -8px 0 26px rgba(26, 26, 46, 0.05),
-            8px 0 28px var(--os-neon-cyan),
+            8px 0 28px var(--os-neon-red),
             14px 0 42px var(--os-neon-pink),
-            0 0 22px var(--os-neon-yellow);
+            0 0 22px var(--os-neon-coral);
           padding: 14px 10px 16px;
           display: flex;
           flex-direction: column;
@@ -395,10 +396,10 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           place-items: center;
           color: rgba(26, 26, 46, 0.62);
           background: rgba(255, 248, 234, 0.96);
-          border: 2px solid rgba(110, 215, 255, 0.76);
+          border: 2px solid var(--os-neon-border);
           box-shadow:
             0 6px 18px rgba(26, 26, 46, 0.08),
-            0 0 18px var(--os-neon-cyan),
+            0 0 18px var(--os-neon-red),
             0 0 28px var(--os-neon-pink);
         }
         .os-reopen-stack {
@@ -446,9 +447,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             gap: 12px;
             padding: 12px 14px;
             background: #fff8ea;
-            border-bottom: 3px solid rgba(110, 215, 255, 0.82);
+            border-bottom: 3px solid var(--os-neon-border);
             box-shadow:
-              0 8px 26px var(--os-neon-cyan),
+              0 8px 26px var(--os-neon-red),
               0 12px 36px var(--os-neon-pink);
             backdrop-filter: blur(10px);
           }
@@ -464,7 +465,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             transform: translateX(-105%);
             box-shadow:
               10px 0 30px rgba(26, 26, 46, 0.14),
-              10px 0 30px var(--os-neon-cyan),
+              10px 0 30px var(--os-neon-red),
               16px 0 44px var(--os-neon-pink);
           }
           .os-sidebar.mobile-open {
