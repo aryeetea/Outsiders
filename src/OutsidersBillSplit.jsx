@@ -502,6 +502,49 @@ function normalizeMemberKey(member = {}) {
   return `name:${String(member.name || "").trim().toLowerCase()}`;
 }
 
+function normalizeIdentityValue(value = "") {
+  return String(value || "").replace(/^@/, "").trim().toLowerCase();
+}
+
+function getIdentityIds(value = {}) {
+  return [
+    value.id,
+    value.userId,
+    value.user_id,
+    value.profileId,
+    value.profile_id,
+    value.uid,
+  ]
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+}
+
+function isCurrentUserMember(member = {}, profile = {}) {
+  const memberSource = member.source || member;
+  const profileIds = getIdentityIds(profile);
+  const memberIds = getIdentityIds(memberSource);
+
+  if (profileIds.length || memberIds.length) {
+    return profileIds.length > 0 && memberIds.some((id) => profileIds.includes(id));
+  }
+
+  const profileUsername = normalizeIdentityValue(profile.username);
+  const memberUsername = normalizeIdentityValue(memberSource.username);
+  if (profileUsername || memberUsername) {
+    return Boolean(profileUsername && profileUsername === memberUsername);
+  }
+
+  const profileEmail = normalizeIdentityValue(profile.email);
+  const memberEmail = normalizeIdentityValue(memberSource.email);
+  if (profileEmail || memberEmail) {
+    return Boolean(profileEmail && profileEmail === memberEmail);
+  }
+
+  const profileName = normalizeIdentityValue(profile.name || profile.full_name);
+  const memberName = normalizeIdentityValue(memberSource.name || memberSource.full_name);
+  return Boolean(profileName && profileName === memberName);
+}
+
 function normalizePaymentMethod(value = {}) {
   const candidate = value && typeof value === "object" ? value : {};
   return {
@@ -767,6 +810,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
   const paymentMethodsReady = members.filter((member) => member.paymentMethods.length).length;
   const splitPreviewCount = expenseForm.splitWith.length;
   const editingMember = members.find((member) => member.key === editingPaymentKey) || null;
+  const canEditPaymentForMember = (member) => isCurrentUserMember(member, profile);
 
   async function persistGroup(nextGroup) {
     if (!selectedGroup) return false;
@@ -798,6 +842,11 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
 
   async function savePaymentMethod() {
     if (!selectedGroup || !editingMember) return;
+    if (!canEditPaymentForMember(editingMember)) {
+      setEditingPaymentKey("");
+      return;
+    }
+
     const nextPaymentMethods = paymentDrafts
       .map(normalizePaymentMethod)
       .filter(hasPaymentMethod)
@@ -928,6 +977,8 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
   const profileName = profile.name || profile.username || "You";
 
   function startEditingPayment(member) {
+    if (!canEditPaymentForMember(member)) return;
+
     const methods = normalizePaymentMethods(member);
     setPaymentDrafts([
       methods[0] || normalizePaymentMethod(),
@@ -1169,6 +1220,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                       <div className="member-list">
                         {members.map((member) => {
                           const paymentMethods = member.paymentMethods || [];
+                          const canEditPayment = canEditPaymentForMember(member);
                           return (
                             <article key={member.key} className="member-card">
                               <div className="member-top">
@@ -1190,11 +1242,13 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                               {paymentMethods.map((method, methodIndex) => (
                                 method.note ? <div key={`${method.type}-${method.handle}-${methodIndex}`} className="helper-copy">{method.note}</div> : null
                               ))}
-                              <div className="stack-row">
-                                <button type="button" className="mini-btn" onClick={() => startEditingPayment(member)}>
-                                  {normalizeMemberKey(member.source || {}) === currentUserKey ? "Edit my payment method" : "Update payment method"}
-                                </button>
-                              </div>
+                              {canEditPayment ? (
+                                <div className="stack-row">
+                                  <button type="button" className="mini-btn" onClick={() => startEditingPayment(member)}>
+                                    Edit my payment method
+                                  </button>
+                                </div>
+                              ) : null}
                             </article>
                           );
                         })}
@@ -1212,6 +1266,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                     <div className="member-list">
                       {members.map((member) => {
                         const paymentMethods = member.paymentMethods || [];
+                        const canEditPayment = canEditPaymentForMember(member);
                         return (
                           <div key={member.key} className="payment-card">
                             <div className="payment-top">
@@ -1224,14 +1279,16 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                   </div>
                                 </div>
                               </div>
-                              <button
-                                type="button"
-                                className="mini-btn"
-                                onClick={() => startEditingPayment(member)}
-                                title="Edit payment methods"
-                              >
-                                {paymentMethods.length ? "Edit" : "Add"}
-                              </button>
+                              {canEditPayment ? (
+                                <button
+                                  type="button"
+                                  className="mini-btn"
+                                  onClick={() => startEditingPayment(member)}
+                                  title="Edit my payment methods"
+                                >
+                                  {paymentMethods.length ? "Edit" : "Add"}
+                                </button>
+                              ) : null}
                             </div>
                             <div className="helper-copy" style={{ marginTop: 8 }}>
                               {paymentMethods.length}/{MAX_PAYMENT_METHODS_PER_MEMBER} saved for this person.
