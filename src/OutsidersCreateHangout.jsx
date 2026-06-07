@@ -481,6 +481,149 @@ function notificationRecipientKey(member = {}) {
   return `name:${String(member.name || "").trim().toLowerCase()}`;
 }
 
+function normalizeKey(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function inferHangoutTheme(values = {}) {
+  const source = [
+    values.name,
+    values.description,
+    values.manualLocation,
+    ...(values.locationOptions || []).map((item) => item?.label || ""),
+  ].join(" ").toLowerCase();
+
+  if (/\bpicnic|park|blanket|charcuterie|outdoor lunch\b/.test(source)) return "picnic";
+  if (/\bbeach|boardwalk|ocean|shore|lake\b/.test(source)) return "beach";
+  if (/\bbrunch|breakfast|pancake|mimosa\b/.test(source)) return "brunch";
+  if (/\bdinner|restaurant|tasting|sushi|pasta|steak\b/.test(source)) return "dinner";
+  if (/\bmovie|cinema|screening\b/.test(source)) return "movie";
+  if (/\bgame|arcade|bowling|karaoke\b/.test(source)) return "games";
+  if (/\brooftop|lounge|cocktail|sunset\b/.test(source)) return "rooftop";
+  if (/\bmuseum|gallery|exhibit|art\b/.test(source)) return "museum";
+  if (/\bcoffee|matcha|tea|cafe|study\b/.test(source)) return "coffee";
+  return "general";
+}
+
+function inferTimeEnergy(timeOptions = [], fallbackTime = "") {
+  const firstTime = timeOptions.find((item) => item?.meta?.time || item?.meta?.start)?.meta;
+  const raw = firstTime?.time || firstTime?.start || fallbackTime;
+  if (!raw) return "flexible";
+  const hours = Number(String(raw).split(":")[0]);
+  if (!Number.isFinite(hours)) return "flexible";
+  if (hours < 11) return "morning";
+  if (hours < 16) return "daytime";
+  if (hours < 20) return "evening";
+  return "night";
+}
+
+function buildPlaceReason({ participantsCount, durationHours, energy, theme }, baseReason) {
+  const sizeLine = participantsCount > 5
+    ? "It fits a bigger crew without feeling cramped."
+    : participantsCount > 0
+    ? "It works well for a smaller crew that wants to actually talk."
+    : "It keeps the plan easy to say yes to.";
+  const durationLine = Number.isFinite(durationHours) && durationHours > 0
+    ? `It matches a ${formatDurationHours(durationHours).toLowerCase()} hangout.`
+    : "It stays flexible if the crew decides the pace later.";
+  const energyLine = energy === "night"
+    ? "It suits a later-night vibe."
+    : energy === "evening"
+    ? "It fits an after-work or sunset kind of link-up."
+    : energy === "morning"
+    ? "It feels natural for an earlier start."
+    : theme === "general"
+    ? "It keeps the vibe easygoing and social."
+    : "";
+
+  return [baseReason, sizeLine, durationLine, energyLine].filter(Boolean).join(" ");
+}
+
+function getSmartPlaceSuggestions({ form, timeOptions, locationOptions, participants, durationHours }) {
+  const theme = inferHangoutTheme({
+    name: form.name,
+    description: form.description,
+    manualLocation: form.manualLocation,
+    locationOptions,
+  });
+  const energy = inferTimeEnergy(timeOptions, form.manualTime);
+  const participantsCount = participants.length;
+  const existing = new Set(locationOptions.map((item) => normalizeKey(item.label)));
+
+  const templates = {
+    picnic: [
+      ["Scenic park with picnic tables", "The crew already sounds outdoorsy, so a park setup makes the plan feel intentional."],
+      ["Waterfront lawn or riverside green", "A view-heavy outdoor spot adds photos and a natural walk without overplanning."],
+      ["Botanical garden or quiet public green", "This keeps the hangout soft, cute, and low-pressure."],
+    ],
+    beach: [
+      ["Beach access with nearby snack spots", "This gives the crew room to stretch out and still grab food easily."],
+      ["Boardwalk meetup with sunset views", "It makes the hangout feel more like an event than just standing around."],
+      ["Lakeside park with parking and seating", "This keeps the beach-day energy without making logistics annoying."],
+    ],
+    brunch: [
+      ["Brunch spot with patio seating", "The vibe reads social and talk-heavy, so somewhere bright and easy works best."],
+      ["Cafe bakery with big tables", "This fits a casual crew that wants to linger a little."],
+      ["Neighborhood brunch place near shops", "It gives the crew a natural after-brunch walk or browse."],
+    ],
+    dinner: [
+      ["Shareable dinner spot with reservations", "A family-style or tapas setup makes group energy easier."],
+      ["Cute restaurant with a loungey atmosphere", "This matches a hangout that wants food and a little main-character energy."],
+      ["Dinner spot near dessert or a second stop", "It leaves room for the night to keep going if the crew is feeling it."],
+    ],
+    movie: [
+      ["Theater next to food options", "That gives the crew something easy to do before or after the movie."],
+      ["Cinema with a lounge or dine-in setup", "It makes the hangout feel less rushed and more worth leaving home for."],
+      ["Movie night district with dessert nearby", "That helps the plan keep momentum after the credits roll."],
+    ],
+    games: [
+      ["Arcade bar or game lounge", "The crew vibe reads interactive, so the place should do some work for you."],
+      ["Board game cafe with food", "This keeps everyone engaged without needing perfect planning."],
+      ["Bowling or activity spot with seating", "It gives both movement and room to hang between rounds."],
+    ],
+    rooftop: [
+      ["Rooftop lounge with skyline views", "The hangout sounds like it wants atmosphere, not just somewhere random."],
+      ["Sunset bar with shareable bites", "This fits an evening link-up where the view is part of the point."],
+      ["Terrace restaurant with reservation options", "It keeps the plan feeling polished without being stiff."],
+    ],
+    museum: [
+      ["Museum with a cafe inside or nearby", "It gives the crew an easy way to extend the hangout after wandering."],
+      ["Gallery district with walkable stops", "This works when the crew likes options without too much structure."],
+      ["Exhibit space near a coffee spot", "That makes the debrief part of the outing feel built in."],
+    ],
+    coffee: [
+      ["Cafe with comfortable seating", "The room reads conversation-first, so seating matters more than hype."],
+      ["Matcha or coffee bar with light bites", "This fits a soft hang that still feels like a real plan."],
+      ["Coffee shop near a walkable area", "It gives the crew an easy second beat if nobody wants to end it fast."],
+    ],
+    general: [
+      ["Casual restaurant with shareable food", "It is the safest crowd-pleaser when the crew vibe is mixed."],
+      ["Outdoor patio spot with flexible seating", "That keeps the plan social without boxing everyone in."],
+      ["Activity-adjacent spot near other options", "It leaves room to pivot based on the mood once people arrive."],
+    ],
+  };
+
+  const suggestions = (templates[theme] || templates.general)
+    .map(([label, baseReason], index) => ({
+      id: `${theme}-place-${index + 1}`,
+      label,
+      theme,
+      reason: buildPlaceReason({ participantsCount, durationHours, energy, theme }, baseReason),
+    }))
+    .filter((item) => !existing.has(normalizeKey(item.label)));
+
+  if (energy === "night" && !existing.has("late-night dessert spot")) {
+    suggestions.push({
+      id: `${theme}-place-night-cap`,
+      label: "Late-night dessert spot or cafe",
+      theme,
+      reason: buildPlaceReason({ participantsCount, durationHours, energy, theme }, "A softer second stop helps the hangout end well instead of dropping off abruptly."),
+    });
+  }
+
+  return suggestions.slice(0, 4);
+}
+
 async function requestHangoutAgendaSuggestions(payload) {
   const response = await fetch("/api/hangout-itinerary", {
     method: "POST",
@@ -560,6 +703,17 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     () => recommendHangoutTimes(participantPool, { durationMinutes }),
     [durationMinutes, participantPool]
   );
+  const visibleTimeRecommendations = useMemo(() => {
+    const selected = new Set(timeOptions.map((item) => normalizeKey(item.label)));
+    return recommendations.filter((rec) => {
+      const label = `${rec.day} · ${formatTimeLabel(rec.start)} - ${formatTimeLabel(rec.end)}`;
+      return !selected.has(normalizeKey(label));
+    });
+  }, [recommendations, timeOptions]);
+  const placeRecommendations = useMemo(
+    () => getSmartPlaceSuggestions({ form, timeOptions, locationOptions, participants, durationHours }),
+    [durationHours, form, locationOptions, participants, timeOptions]
+  );
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -603,6 +757,12 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
     setTimeOptions((prev) => prev.some((item) => item.label === option.label) ? prev : [...prev, option]);
   };
 
+  const addRecommendedPlace = (suggestion) => {
+    if (!suggestion?.label) return;
+    const option = { id: createId("place"), label: suggestion.label };
+    setLocationOptions((prev) => prev.some((item) => normalizeKey(item.label) === normalizeKey(option.label)) ? prev : [...prev, option]);
+  };
+
   const addManualTime = () => {
     if (!form.manualDate || !form.manualTime) return;
     const date = new Date(`${form.manualDate}T${form.manualTime}`);
@@ -641,7 +801,6 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       setAgendaSuggestions(nextSuggestions.map((item, index) => ({
         ...item,
         id: item.id || createId(`agenda-suggestion-${index}`),
-        added: false,
       })));
     } catch (nextError) {
       setAgendaError(nextError.message || "We could not build hangout ideas right now.");
@@ -659,7 +818,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
       notes: suggestion.notes || "",
       source: "ai",
     }]);
-    setAgendaSuggestions((prev) => prev.map((item) => item.id === suggestion.id ? { ...item, added: true } : item));
+    setAgendaSuggestions((prev) => prev.filter((item) => item.id !== suggestion.id));
   };
 
   const addManualAgendaStep = () => {
@@ -1021,7 +1180,7 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                             : "These suggestions use a 2-hour default until you add a duration."}
                         </p>
                         <div style={{ display: "grid", gap: 12 }}>
-                          {recommendations.length ? recommendations.map((rec, index) => (
+                          {visibleTimeRecommendations.length ? visibleTimeRecommendations.map((rec, index) => (
                             <div key={`${rec.day}-${rec.start}`} className="recommendation">
                               <strong style={{ display: "block", marginBottom: 8 }}>{index === 0 ? "Best overlap" : `Option ${index + 1}`}</strong>
                               <div style={{ fontWeight: 700, marginBottom: 8 }}>{rec.day} · {formatTimeLabel(rec.start)} - {formatTimeLabel(rec.end)}</div>
@@ -1030,8 +1189,23 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                             </div>
                           )) : (
                             <div className="summary-box">
-                              <strong>No recommendations yet.</strong>
-                              <p style={{ margin: "8px 0 0", color: "#667085" }}>Select crew members with saved availability to get smarter time suggestions.</p>
+                              <strong>No time suggestions left.</strong>
+                              <p style={{ margin: "8px 0 0", color: "#667085" }}>Select crew members with saved availability to get smarter time suggestions, or add a manual time if you already know the slot.</p>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: "grid", gap: 12 }}>
+                          {placeRecommendations.length ? placeRecommendations.map((suggestion, index) => (
+                            <div key={suggestion.id} className="recommendation">
+                              <strong style={{ display: "block", marginBottom: 8 }}>{index === 0 ? "Room read" : `Place idea ${index + 1}`}</strong>
+                              <div style={{ fontWeight: 800, marginBottom: 8 }}>{suggestion.label}</div>
+                              <div style={{ color: "#667085", marginBottom: 12 }}>{suggestion.reason}</div>
+                              <button type="button" className="btn secondary" onClick={() => addRecommendedPlace(suggestion)}>Add this place</button>
+                            </div>
+                          )) : (
+                            <div className="summary-box">
+                              <strong>No place suggestions left.</strong>
+                              <p style={{ margin: "8px 0 0", color: "#667085" }}>Add more context in the hangout name or description if you want sharper vibe-based place ideas.</p>
                             </div>
                           )}
                         </div>
@@ -1084,8 +1258,8 @@ export default function OutsidersCreateHangout({ onNavigate, appData, setAppData
                                 <strong style={{ display: "block", marginBottom: 6 }}>{item.section} {item.time ? `· ${item.time}` : ""}</strong>
                                 <div style={{ fontWeight: 800, marginBottom: 6 }}>{item.title}</div>
                                 <p style={{ margin: "0 0 10px", color: "#667085" }}>{item.notes}</p>
-                                <button type="button" className="btn ghost" disabled={item.added} onClick={() => addAgendaSuggestion(item)}>
-                                  {item.added ? "Added to final plan" : "Add to final plan"}
+                                <button type="button" className="btn ghost" onClick={() => addAgendaSuggestion(item)}>
+                                  Add to final plan
                                 </button>
                               </div>
                             )) : null}
