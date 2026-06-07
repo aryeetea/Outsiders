@@ -212,7 +212,7 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
     [proposals, currentUserKey]
   );
   const liveProposals = useMemo(
-    () => proposals.filter((proposal) => proposal.status !== "completed"),
+    () => proposals,
     [proposals]
   );
   const finalizedCount = proposals.filter((proposal) => proposal.status === "finalized").length;
@@ -512,7 +512,7 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
                   <p style={{ margin: 0, fontSize: 32, fontWeight: 900, color: "#9a6700" }}>{myProposals.length}</p>
                 </div>
                 <div className="stat" style={{ background: "#eefdf5" }}>
-                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Live hangouts</p>
+                  <p className="bangers" style={{ fontSize: 15, margin: "0 0 6px" }}>Crew hangouts</p>
                   <p style={{ margin: 0, fontSize: 32, fontWeight: 900, color: "#0f766e" }}>{liveProposals.length}</p>
                 </div>
                 <div className="stat" style={{ background: "#eef8ff" }}>
@@ -542,7 +542,7 @@ export default function OutsidersHangouts({ onNavigate, appData, setAppData }) {
                   <>
                     <div>
                       <h3 className="bangers" style={{ margin: "0 0 8px", fontSize: 22 }}>Vote on hangouts</h3>
-                      <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>These are the open hangouts that still need your vote. Open any card below and press `Vote now in crew`.</p>
+                      <p style={{ margin: 0, color: "#667085", fontWeight: 700 }}>These are the open hangouts that still need your vote. Completed hangouts stay visible in the other sections.</p>
                     </div>
                     {votingProposals.length ? votingProposals.map(renderProposalCard) : (
                       <div className="proposal">

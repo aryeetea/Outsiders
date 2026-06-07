@@ -734,6 +734,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   const effectiveCurrentUserId = currentUserId || currentProfile?.id || null;
   const currentUserDisplayName = getDisplayName(currentProfile);
   const currentUsername = currentProfile?.username ? `@${String(currentProfile.username).replace(/^@/, "").toLowerCase()}` : "";
+  const isTripComplete = /^(completed|complete)$/i.test(String(selectedTrip?.status || ""));
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -807,6 +808,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const updateTrip = async (updatedTrip) => {
+    if (selectedTrip?.id && updatedTrip?.id === selectedTrip.id && isTripComplete) return;
     if (isSupabaseConfigured && effectiveCurrentUserId && updatedTrip?.id && !String(updatedTrip.id).startsWith("trip-")) {
       const { error } = await supabase
         .from("trips")
@@ -839,16 +841,19 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const togglePackItem = (itemId) => {
+    if (isTripComplete || !selectedTrip) return;
     const updated = { ...selectedTrip, packingList: selectedTrip.packingList.map(p => p.id === itemId ? { ...p, packed: !p.packed } : p) };
     void updateTrip(updated);
   };
 
   const deletePackItem = (itemId) => {
+    if (isTripComplete || !selectedTrip) return;
     const updated = { ...selectedTrip, packingList: selectedTrip.packingList.filter(p => p.id !== itemId) };
     void updateTrip(updated);
   };
 
   const addPackItem = () => {
+    if (isTripComplete || !selectedTrip) return;
     if (!newPackItem.trim()) return;
     const updated = { ...selectedTrip, packingList: [...selectedTrip.packingList, { id: Date.now(), item: newPackItem.trim(), packed: false }] };
     void updateTrip(updated);
@@ -856,6 +861,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const addActivity = () => {
+    if (isTripComplete || !selectedTrip) return;
     if (!newActivity.time || !newActivity.name.trim()) return;
     const updated = {
       ...selectedTrip,
@@ -880,7 +886,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const toggleActivityDone = (dayNumber, activityId) => {
-    if (!selectedTrip) return;
+    if (!selectedTrip || isTripComplete) return;
     const updated = {
       ...selectedTrip,
       itinerary: selectedTrip.itinerary.map((day) => (
@@ -900,7 +906,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const deleteActivity = (dayNumber, activityId) => {
-    if (!selectedTrip) return;
+    if (!selectedTrip || isTripComplete) return;
     const updated = {
       ...selectedTrip,
       itinerary: selectedTrip.itinerary.map((day) => (
@@ -913,7 +919,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const toggleChecklistItem = (itemId) => {
-    if (!selectedTrip) return;
+    if (!selectedTrip || isTripComplete) return;
     const updated = {
       ...selectedTrip,
       planningChecklist: (selectedTrip.planningChecklist || []).map((item) => (
@@ -924,7 +930,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const updateMySavings = (value) => {
-    if (!selectedTrip) return;
+    if (!selectedTrip || isTripComplete) return;
     const nextAmount = Math.max(Number(value) || 0, 0);
     const updatedSavings = editableSavingsEntry
       ? (selectedTrip.savingsProgress || []).map((entry) => (
@@ -951,7 +957,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const updateGroupSavingsGoal = (value) => {
-    if (!selectedTrip || !isTripHost) return;
+    if (!selectedTrip || !isTripHost || isTripComplete) return;
     const nextGoal = Math.max(Number(value) || 0, 0);
     const nextTargets = buildMemberSavingsTargets(
       (selectedTrip.savingsProgress || []).map((entry) => ({
@@ -970,7 +976,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const updateMemberTarget = (targetId, value) => {
-    if (!selectedTrip || !isTripHost) return;
+    if (!selectedTrip || !isTripHost || isTripComplete) return;
     void updateTrip({
       ...selectedTrip,
       memberSavingsTargets: (memberSavingsTargets || []).map((entry) => (
@@ -982,7 +988,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const addSuggestionToItinerary = (suggestion) => {
-    if (!selectedTrip) return;
+    if (!selectedTrip || isTripComplete) return;
     const targetDay = Number(suggestion.day) || 1;
     const updated = {
       ...selectedTrip,
@@ -1010,7 +1016,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
   };
 
   const generateSuggestions = async () => {
-    if (!selectedTrip) return;
+    if (!selectedTrip || isTripComplete) return;
     setIsGeneratingSuggestions(true);
     setAiError("");
     try {
@@ -1403,6 +1409,11 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                         </div>
                         <span className="badge" style={{ background: "#fff", color: "#1a1a2e", borderColor: "#1a1a2e" }}>{selectedTrip.status}</span>
                       </div>
+                      {isTripComplete ? (
+                        <div style={{ padding: 14, borderRadius: 14, background: "#f2f4f7", border: "2px solid rgba(23,21,31,0.12)", color: "#475467", fontWeight: 800 }}>
+                          This trip is complete and locked. No more edits can be made.
+                        </div>
+                      ) : null}
 
                   {/* Trip header */}
                   <div className="card" style={{ background: selectedTrip.color.bg, borderColor: selectedTrip.color.border, boxShadow: `5px 5px 0 ${selectedTrip.color.border}` }}>
@@ -1545,7 +1556,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                               className="form-input"
                               type="number"
                               min="0"
-                              disabled={!isTripHost}
+                              disabled={!isTripHost || isTripComplete}
                               value={groupSavingsGoal}
                               onChange={(event) => updateGroupSavingsGoal(event.target.value)}
                               placeholder="Set the total group goal"
@@ -1565,7 +1576,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                                     className="form-input"
                                     type="number"
                                     min="0"
-                                    disabled={!isTripHost}
+                                    disabled={!isTripHost || isTripComplete}
                                     value={Number(entry.target) || 0}
                                     onChange={(event) => updateMemberTarget(entry.id, event.target.value)}
                                     placeholder="Target for this person"
@@ -1591,7 +1602,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                               <strong>{currentUserDisplayName}</strong>
                               <span style={{ fontWeight: 900, color: "#666" }}>${personalSavings} saved</span>
                             </div>
-                            <input className="form-input" type="number" min="0" value={personalSavings} onChange={(event) => updateMySavings(event.target.value)} placeholder="How much have you saved?" />
+                            <input className="form-input" type="number" min="0" disabled={isTripComplete} value={personalSavings} onChange={(event) => updateMySavings(event.target.value)} placeholder="How much have you saved?" />
                             <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#888" }}>
                               Your target: ${memberSavingsTargets.find((item) => item.name === currentUserDisplayName || item.userId === effectiveCurrentUserId || item.username === currentUsername)?.target ?? personalSavingsTarget}
                             </p>
@@ -1649,7 +1660,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                     <div className="card">
                       <div className="section-header">
                         <h3 className="bangers" style={{ fontSize: 20, margin: 0 }}>📅 Day by Day Plan</h3>
-                        <button type="button" className="btn-secondary" onClick={() => void generateSuggestions()} disabled={isGeneratingSuggestions}>
+                        <button type="button" className="btn-secondary" onClick={() => void generateSuggestions()} disabled={isGeneratingSuggestions || isTripComplete}>
                           {isGeneratingSuggestions ? "Building ideas..." : "AI build itinerary ideas"}
                         </button>
                       </div>
@@ -1678,7 +1689,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                                   <div className="bangers" style={{ fontSize: 19, color: "#1a1a2e" }}>{suggestion.title}</div>
                                   <p style={{ margin: 0, color: "#666", fontWeight: 700 }}>{suggestion.notes}</p>
                                   <div>
-                                    <button type="button" className="btn-secondary" disabled={suggestion.added} onClick={() => addSuggestionToItinerary(suggestion)}>
+                                    <button type="button" className="btn-secondary" disabled={suggestion.added || isTripComplete} onClick={() => addSuggestionToItinerary(suggestion)}>
                                       {suggestion.added ? "Added to itinerary" : "Add this plan"}
                                     </button>
                                   </div>
@@ -1686,9 +1697,9 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                               ))}
                             </div>
                           ) : (
-                            <div style={{ border: "2px dashed #d8ccb6", borderRadius: 16, background: "#fffdf7", padding: 16, color: "#666", fontWeight: 800 }}>
-                              Ask the AI planner for starter ideas and then keep only the ones you want.
-                            </div>
+                          <div style={{ border: "2px dashed #d8ccb6", borderRadius: 16, background: "#fffdf7", padding: 16, color: "#666", fontWeight: 800 }}>
+                              {isTripComplete ? "This trip is complete, so the itinerary is now read-only." : "Ask the AI planner for starter ideas and then keep only the ones you want."}
+                          </div>
                           )}
                         </div>
 
@@ -1721,7 +1732,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                                     <div style={{ fontSize: 14, fontWeight: 700, textDecoration: a.done ? "line-through" : "none", color: a.done ? "#999" : "#1a1a2e" }}>{a.name}</div>
                                     {a.notes ? <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>{a.notes}</div> : null}
                                   </div>
-                                  <button type="button" className="btn-danger" style={{ padding: "4px 8px" }} onClick={() => deleteActivity(day.day, a.id)}>
+                                  <button type="button" className="btn-danger" disabled={isTripComplete} style={{ padding: "4px 8px" }} onClick={() => deleteActivity(day.day, a.id)}>
                                     <IconTrash />
                                   </button>
                                 </div>
@@ -1734,19 +1745,19 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                             <div className="trip-activity-grid" style={{ display: "grid", gap: 10, alignItems: "end" }}>
                               <div>
                                 <label className="form-label">Day</label>
-                                <select className="form-input" value={newActivity.day} onChange={e => setNewActivity(p => ({ ...p, day: Number(e.target.value) }))} style={{ padding: "10px 12px" }}>
+                                <select className="form-input" disabled={isTripComplete} value={newActivity.day} onChange={e => setNewActivity(p => ({ ...p, day: Number(e.target.value) }))} style={{ padding: "10px 12px" }}>
                                   {selectedTrip.itinerary.map(d => <option key={d.day} value={d.day}>Day {d.day}</option>)}
                                 </select>
                               </div>
                               <div>
                                 <label className="form-label">Time</label>
-                                <input className="form-input" type="time" value={newActivity.time} onChange={e => setNewActivity(p => ({ ...p, time: e.target.value }))} />
+                                <input className="form-input" disabled={isTripComplete} type="time" value={newActivity.time} onChange={e => setNewActivity(p => ({ ...p, time: e.target.value }))} />
                               </div>
                               <div>
                                 <label className="form-label">Activity</label>
-                                <input className="form-input" type="text" placeholder="e.g. Temple visit or food street run" value={newActivity.name} onChange={e => setNewActivity(p => ({ ...p, name: e.target.value }))} onKeyDown={e => e.key === "Enter" && addActivity()} />
+                                <input className="form-input" disabled={isTripComplete} type="text" placeholder="e.g. Temple visit or food street run" value={newActivity.name} onChange={e => setNewActivity(p => ({ ...p, name: e.target.value }))} onKeyDown={e => e.key === "Enter" && addActivity()} />
                               </div>
-                              <button className="btn-secondary" onClick={addActivity} style={{ marginBottom: 0 }}>Add</button>
+                              <button className="btn-secondary" disabled={isTripComplete} onClick={addActivity} style={{ marginBottom: 0 }}>Add</button>
                             </div>
                           </div>
                         </div>
@@ -1775,7 +1786,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                             {p.packed && <IconCheck />}
                           </div>
                           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: p.packed ? "#aaa" : "#1a1a2e", textDecoration: p.packed ? "line-through" : "none" }}>{p.item}</span>
-                          <button className="btn-danger" style={{ padding: "4px 8px" }} onClick={e => { e.stopPropagation(); deletePackItem(p.id); }}>
+                          <button className="btn-danger" disabled={isTripComplete} style={{ padding: "4px 8px" }} onClick={e => { e.stopPropagation(); deletePackItem(p.id); }}>
                             <IconTrash />
                           </button>
                         </div>
@@ -1783,8 +1794,8 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
 
                       {/* Add item */}
                       <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                        <input className="form-input" type="text" placeholder="Add a packing item..." value={newPackItem} onChange={e => setNewPackItem(e.target.value)} onKeyDown={e => e.key === "Enter" && addPackItem()} style={{ flex: 1 }} />
-                        <button className="btn-secondary" onClick={addPackItem}>Add</button>
+                        <input className="form-input" disabled={isTripComplete} type="text" placeholder="Add a packing item..." value={newPackItem} onChange={e => setNewPackItem(e.target.value)} onKeyDown={e => e.key === "Enter" && addPackItem()} style={{ flex: 1 }} />
+                        <button className="btn-secondary" disabled={isTripComplete} onClick={addPackItem}>Add</button>
                       </div>
                     </div>
                   )}

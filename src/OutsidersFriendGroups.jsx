@@ -679,6 +679,10 @@ function countActiveHangouts(proposals = []) {
   return (Array.isArray(proposals) ? proposals : []).filter((proposal) => proposal.status !== "completed").length;
 }
 
+function countCompletedHangouts(proposals = []) {
+  return (Array.isArray(proposals) ? proposals : []).filter((proposal) => proposal.status === "completed").length;
+}
+
 export default function OutsidersFriendGroups({ onNavigate, appData, setAppData, routeParams = {} }) {
   const profile = useMemo(() => appData?.profile || EMPTY_PROFILE, [appData?.profile]);
   const profileName = profile.name || profile.username || "You";
@@ -1113,6 +1117,10 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   };
 
   const startEditingProposal = (proposal) => {
+    if (proposal?.status === "completed") {
+      setNotice("Completed hangouts are locked and can no longer be edited.");
+      return;
+    }
     setEditingProposalId(proposal.id);
     setEditDraft({
       name: proposal.name || "",
@@ -1213,6 +1221,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
 
   const saveEditedProposal = async () => {
     if (!selectedGroup || !editingProposal) return;
+    if (editingProposal.status === "completed") {
+      setNotice("Completed hangouts are locked and can no longer be edited.");
+      closeEditProposal();
+      return;
+    }
     if (!editDraft.name.trim()) {
       setNotice("Give the hangout a name before saving.");
       return;
@@ -1533,7 +1546,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         <div className="crew-card-meta">
                           <strong className="bangers" style={{ display: "block", fontSize: 20 }}>{group.name}</strong>
                           <span className="crew-card-summary">
-                            {group.members.length} member{group.members.length === 1 ? "" : "s"} · {countActiveHangouts(group.hangoutProposals)} active hangout{countActiveHangouts(group.hangoutProposals) === 1 ? "" : "s"}
+                            {group.members.length} member{group.members.length === 1 ? "" : "s"} · {(group.hangoutProposals?.length || 0)} total hangout{(group.hangoutProposals?.length || 0) === 1 ? "" : "s"}
                           </span>
                         </div>
                         <span className="crew-card-badge" style={{ background: GROUP_COLORS[index % GROUP_COLORS.length] }}>
@@ -1558,7 +1571,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                         </div>
                         <div className="crew-header-actions">
                           <div className="crew-header-stats">
-                          <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{countActiveHangouts(selectedGroup.hangoutProposals)} active hangouts</span>
+                          <span className="stat-chip" style={{ background: "#eefdf5", color: "#0f766e" }}>{selectedGroup.hangoutProposals?.length || 0} total hangouts</span>
+                          <span className="stat-chip" style={{ background: "#f2f4f7", color: "#475467" }}>{countCompletedHangouts(selectedGroup.hangoutProposals)} completed</span>
                           <span className="stat-chip" style={{ background: "#fff5e6", color: "#9a6700" }}>{selectedGroup.members.length} crew members</span>
                           </div>
                           <div className="crew-header-buttons">
@@ -1618,9 +1632,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                                 </div>
                                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
                                   <span className="stat-chip" style={{ padding: "8px 12px", ...statusStyle }}>{proposal.status}</span>
-                                  <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => startEditingProposal(proposal)}>
-                                    Plan together
-                                  </button>
+                                  {!isCompleted ? (
+                                    <button type="button" className="btn ghost" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => startEditingProposal(proposal)}>
+                                      Plan together
+                                    </button>
+                                  ) : null}
                                   {(proposal.proposerName === currentName || isCurrentMemberAdmin) ? (
                                     <>
                                       <button
