@@ -185,7 +185,7 @@ create table if not exists public.groups (
   name text not null,
   emoji text not null default '👥',
   code text not null unique,
-  owner_id uuid not null references auth.users(id) on delete cascade,
+  owner_id uuid references auth.users(id) on delete set null,
   owner_username text,
   members jsonb not null default '[]'::jsonb,
   expenses jsonb not null default '[]'::jsonb,
@@ -203,7 +203,7 @@ alter table public.groups
   add column if not exists name text,
   add column if not exists emoji text not null default '👥',
   add column if not exists code text,
-  add column if not exists owner_id uuid references auth.users(id) on delete cascade,
+  add column if not exists owner_id uuid references auth.users(id) on delete set null,
   add column if not exists owner_username text,
   add column if not exists members jsonb not null default '[]'::jsonb,
   add column if not exists expenses jsonb not null default '[]'::jsonb,
@@ -219,6 +219,11 @@ alter table public.groups
 update public.groups
 set name = coalesce(nullif(name, ''), 'Untitled Crew')
 where name is null or name = '';
+
+alter table public.groups
+  drop constraint if exists groups_owner_id_fkey,
+  alter column owner_id drop not null,
+  add constraint groups_owner_id_fkey foreign key (owner_id) references auth.users(id) on delete set null;
 
 create unique index if not exists groups_code_key on public.groups (code);
 
@@ -606,7 +611,7 @@ create table if not exists public.hangouts (
   vibe text,
   code text not null unique,
   group_id uuid references public.groups(id) on delete set null,
-  creator_id uuid not null references auth.users(id) on delete cascade,
+  creator_id uuid references auth.users(id) on delete set null,
   participants jsonb not null default '[]'::jsonb,
   recommendations jsonb not null default '[]'::jsonb,
   ratings jsonb not null default '[]'::jsonb,
@@ -622,7 +627,7 @@ alter table public.hangouts
   add column if not exists vibe text,
   add column if not exists code text,
   add column if not exists group_id uuid references public.groups(id) on delete set null,
-  add column if not exists creator_id uuid references auth.users(id) on delete cascade,
+  add column if not exists creator_id uuid references auth.users(id) on delete set null,
   add column if not exists participants jsonb not null default '[]'::jsonb,
   add column if not exists recommendations jsonb not null default '[]'::jsonb,
   add column if not exists ratings jsonb not null default '[]'::jsonb,
@@ -637,6 +642,11 @@ where name is null
    or name = ''
    or location is null
    or location = '';
+
+alter table public.hangouts
+  drop constraint if exists hangouts_creator_id_fkey,
+  alter column creator_id drop not null,
+  add constraint hangouts_creator_id_fkey foreign key (creator_id) references auth.users(id) on delete set null;
 
 create unique index if not exists hangouts_code_key on public.hangouts (code);
 
@@ -991,12 +1001,197 @@ set search_path = public, auth
 as $$
 declare
   current_user_id uuid := auth.uid();
+  current_profile public.profiles;
+  deleted_name text := 'Someone';
+  deleted_username text := '';
+  deleted_email text := '';
+  group_record public.groups;
+  remaining_members jsonb;
+  next_hangout_proposals jsonb;
+  next_bill_watch jsonb;
+  next_owner_id uuid;
+  next_owner_username text;
+  member_record jsonb;
+  member_user_id text;
 begin
   if current_user_id is null then
     raise exception 'No authenticated user found for account deletion.';
   end if;
 
-  -- Delete auth user. Cascades remove profile, owned groups, trips, notifications, etc.
+  select *
+  into current_profile
+  from public.profiles
+  where id = current_user_id;
+
+  deleted_name := coalesce(nullif(current_profile.full_name, ''), 'Someone');
+  deleted_username := lower(trim(regexp_replace(coalesce(current_profile.username, ''), '^@+', '')));
+  deleted_email := lower(trim(coalesce(current_profile.email, '')));
+
+  for group_record in
+    select *
+    from public.groups
+    where owner_id = current_user_id
+       or exists (
+        select 1
+        from jsonb_array_elements(coalesce(members, '[]'::jsonb)) as member
+        where coalesce(member->>'userId', member->>'user_id', '') = current_user_id::text
+           or (deleted_username <> '' and lower(trim(regexp_replace(coalesce(member->>'username', ''), '^@+', ''))) = deleted_username)
+           or (deleted_email <> '' and lower(trim(coalesce(member->>'email', ''))) = deleted_email)
+           or lower(trim(coalesce(member->>'name', ''))) = lower(trim(deleted_name))
+      )
+  loop
+    select coalesce(jsonb_agg(member), '[]'::jsonb)
+    into remaining_members
+    from jsonb_array_elements(coalesce(group_record.members, '[]'::jsonb)) as member
+    where not (
+      coalesce(member->>'userId', member->>'user_id', '') = current_user_id::text
+      or (deleted_username <> '' and lower(trim(regexp_replace(coalesce(member->>'username', ''), '^@+', ''))) = deleted_username)
+      or (deleted_email <> '' and lower(trim(coalesce(member->>'email', ''))) = deleted_email)
+      or lower(trim(coalesce(member->>'name', ''))) = lower(trim(deleted_name))
+    );
+
+    if jsonb_array_length(remaining_members) = 0 then
+      delete from public.groups where id = group_record.id;
+      continue;
+    end if;
+
+    next_owner_id := group_record.owner_id;
+    next_owner_username := coalesce(group_record.owner_username, '');
+
+    if group_record.owner_id = current_user_id then
+      select member
+      into member_record
+      from jsonb_array_elements(remaining_members) as member
+      where coalesce(member->>'userId', member->>'user_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      limit 1;
+
+      member_user_id := coalesce(member_record->>'userId', member_record->>'user_id', '');
+      next_owner_id := nullif(member_user_id, '')::uuid;
+      next_owner_username := lower(trim(regexp_replace(coalesce(member_record->>'username', ''), '^@+', '')));
+    end if;
+
+    select coalesce(jsonb_agg(
+      proposal
+      || jsonb_build_object(
+        'participants',
+        coalesce((
+          select jsonb_agg(participant)
+          from jsonb_array_elements(coalesce(proposal->'participants', '[]'::jsonb)) as participant
+          where not (
+            coalesce(participant->>'userId', participant->>'user_id', '') = current_user_id::text
+            or (deleted_username <> '' and lower(trim(regexp_replace(coalesce(participant->>'username', ''), '^@+', ''))) = deleted_username)
+            or (deleted_email <> '' and lower(trim(coalesce(participant->>'email', ''))) = deleted_email)
+            or lower(trim(coalesce(participant->>'name', ''))) = lower(trim(deleted_name))
+          )
+        ), '[]'::jsonb),
+        'proposerName',
+        case
+          when coalesce(proposal->>'proposerKey', '') in (
+            current_user_id::text,
+            'user:' || current_user_id::text,
+            'username:' || deleted_username,
+            'name:' || lower(trim(deleted_name))
+          )
+          or lower(trim(coalesce(proposal->>'proposerName', ''))) = lower(trim(deleted_name))
+          then 'Account deleted'
+          else coalesce(proposal->>'proposerName', '')
+        end,
+        'proposerKey',
+        case
+          when coalesce(proposal->>'proposerKey', '') in (
+            current_user_id::text,
+            'user:' || current_user_id::text,
+            'username:' || deleted_username,
+            'name:' || lower(trim(deleted_name))
+          )
+          or lower(trim(coalesce(proposal->>'proposerName', ''))) = lower(trim(deleted_name))
+          then 'deleted:user'
+          else coalesce(proposal->>'proposerKey', '')
+        end,
+        'completedBy',
+        case
+          when lower(trim(coalesce(proposal->>'completedBy', ''))) = lower(trim(deleted_name))
+          then 'Account deleted'
+          else coalesce(proposal->>'completedBy', '')
+        end,
+        'votes',
+        jsonb_build_object(
+          'availability', coalesce(proposal->'votes'->'availability', '{}'::jsonb) - current_user_id::text - ('user:' || current_user_id::text) - ('username:' || deleted_username) - ('name:' || lower(trim(deleted_name))),
+          'vibe', coalesce(proposal->'votes'->'vibe', '{}'::jsonb) - current_user_id::text - ('user:' || current_user_id::text) - ('username:' || deleted_username) - ('name:' || lower(trim(deleted_name))),
+          'time', coalesce(proposal->'votes'->'time', '{}'::jsonb) - current_user_id::text - ('user:' || current_user_id::text) - ('username:' || deleted_username) - ('name:' || lower(trim(deleted_name))),
+          'location', coalesce(proposal->'votes'->'location', '{}'::jsonb) - current_user_id::text - ('user:' || current_user_id::text) - ('username:' || deleted_username) - ('name:' || lower(trim(deleted_name)))
+        )
+      )
+    ), '[]'::jsonb)
+    into next_hangout_proposals
+    from jsonb_array_elements(coalesce(group_record.hangout_proposals, '[]'::jsonb)) as proposal;
+
+    next_bill_watch := coalesce(group_record.bill_watch, '{}'::jsonb);
+    if jsonb_typeof(next_bill_watch->'votes') = 'object' then
+      next_bill_watch := jsonb_set(
+        next_bill_watch,
+        '{votes}',
+        (next_bill_watch->'votes') - current_user_id::text - ('user:' || current_user_id::text) - ('username:' || deleted_username) - ('name:' || lower(trim(deleted_name))),
+        true
+      );
+    end if;
+
+    update public.groups
+    set owner_id = next_owner_id,
+        owner_username = coalesce(next_owner_username, ''),
+        members = remaining_members,
+        hangout_proposals = next_hangout_proposals,
+        bill_watch = next_bill_watch
+    where id = group_record.id;
+
+    insert into public.notifications (
+      user_id,
+      recipient,
+      recipient_key,
+      group_id,
+      group_name,
+      action_screen,
+      action_params,
+      type,
+      message
+    )
+    select
+      nullif(coalesce(member->>'userId', member->>'user_id', ''), '')::uuid,
+      coalesce(member->>'name', member->>'username', 'Crew member'),
+      coalesce(member->>'userId', member->>'user_id', member->>'username', member->>'name', ''),
+      group_record.id,
+      group_record.name,
+      'friend-groups',
+      jsonb_build_object('groupId', group_record.id),
+      'account-deleted',
+      deleted_name || ' deleted their account and was removed from ' || group_record.name || '.'
+    from jsonb_array_elements(remaining_members) as member
+    where coalesce(member->>'userId', member->>'user_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  end loop;
+
+  update public.hangouts
+  set creator_id = case when creator_id = current_user_id then null else creator_id end,
+      participants = coalesce((
+        select jsonb_agg(participant)
+        from jsonb_array_elements(coalesce(participants, '[]'::jsonb)) as participant
+        where not (
+          coalesce(participant->>'userId', participant->>'user_id', '') = current_user_id::text
+          or (deleted_username <> '' and lower(trim(regexp_replace(coalesce(participant->>'username', ''), '^@+', ''))) = deleted_username)
+          or (deleted_email <> '' and lower(trim(coalesce(participant->>'email', ''))) = deleted_email)
+          or lower(trim(coalesce(participant->>'name', ''))) = lower(trim(deleted_name))
+        )
+      ), '[]'::jsonb)
+  where creator_id = current_user_id
+     or exists (
+      select 1
+      from jsonb_array_elements(coalesce(participants, '[]'::jsonb)) as participant
+      where coalesce(participant->>'userId', participant->>'user_id', '') = current_user_id::text
+         or (deleted_username <> '' and lower(trim(regexp_replace(coalesce(participant->>'username', ''), '^@+', ''))) = deleted_username)
+         or (deleted_email <> '' and lower(trim(coalesce(participant->>'email', ''))) = deleted_email)
+         or lower(trim(coalesce(participant->>'name', ''))) = lower(trim(deleted_name))
+    );
+
+  -- Delete auth user after shared records are cleaned up.
   delete from auth.users
   where id = current_user_id;
 
