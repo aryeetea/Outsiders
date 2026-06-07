@@ -524,8 +524,8 @@ function isCurrentUserMember(member = {}, profile = {}) {
   const profileIds = getIdentityIds(profile);
   const memberIds = getIdentityIds(memberSource);
 
-  if (profileIds.length || memberIds.length) {
-    return profileIds.length > 0 && memberIds.some((id) => profileIds.includes(id));
+  if (profileIds.length && memberIds.some((id) => profileIds.includes(id))) {
+    return true;
   }
 
   const profileUsername = normalizeIdentityValue(profile.username);
@@ -1245,7 +1245,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                               {canEditPayment ? (
                                 <div className="stack-row">
                                   <button type="button" className="mini-btn" onClick={() => startEditingPayment(member)}>
-                                    Edit my payment method
+                                    Update my payment method
                                   </button>
                                 </div>
                               ) : null}
@@ -1286,7 +1286,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                   onClick={() => startEditingPayment(member)}
                                   title="Edit my payment methods"
                                 >
-                                  {paymentMethods.length ? "Edit" : "Add"}
+                                  {paymentMethods.length ? "Update" : "Add"}
                                 </button>
                               ) : null}
                             </div>
