@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAllHangoutProposals } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { isSupabaseConfigured, supabase } from "./supabase";
@@ -256,18 +256,74 @@ function avgRating(outing) {
   return Math.round((outing.ratings.reduce((s, r) => s + r.overall, 0) / outing.ratings.length) * 10) / 10;
 }
 
+function parseDateValue(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function resolveHangoutTimeOption(hangout = {}) {
+  return hangout.finalizedChoice?.time || hangout.timeOptions?.[0] || null;
+}
+
+function resolveHangoutDate(hangout = {}) {
+  const explicitDate = parseDateValue(hangout.date);
+  if (explicitDate) return explicitDate;
+
+  const completedAt = parseDateValue(hangout.completedAt);
+  if (completedAt) return completedAt;
+
+  const selectedTime = resolveHangoutTimeOption(hangout);
+  const optionDate = parseDateValue(selectedTime?.meta?.date);
+  if (optionDate) return optionDate;
+
+  return null;
+}
+
+function resolveHangoutDisplayDate(hangout = {}) {
+  if (hangout.date) return hangout.date;
+  if (hangout.completedAt) {
+    return new Date(hangout.completedAt).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+  const selectedTime = resolveHangoutTimeOption(hangout);
+  return selectedTime?.label || "";
+}
+
+function isRateableHangout(hangout = {}) {
+  if (hangout.status === "completed") return true;
+
+  const hangoutDate = resolveHangoutDate(hangout);
+  if (hangoutDate) {
+    return hangoutDate.getTime() <= Date.now();
+  }
+  return hangout.status === "finalized";
+}
+
+function getRateableSortTime(item = {}) {
+  if (item.itemType === "trip") {
+    return parseDateValue(item.startDate)?.getTime() || 0;
+  }
+  return resolveHangoutDate(item)?.getTime() || parseDateValue(item.createdAt)?.getTime() || 0;
+}
+
 function normalizeRateableItems(appData) {
   const sharedHangouts = getAllHangoutProposals(appData?.groups || [], appData?.hangouts || []).map((hangout) => ({
     ...hangout,
     location: hangout.location || hangout.finalizedChoice?.location?.label || hangout.finalizedChoice?.location || "",
   }));
 
-  const hangouts = sharedHangouts.map((hangout, index) => ({
+  const hangouts = sharedHangouts
+    .filter((hangout) => isRateableHangout(hangout))
+    .map((hangout, index) => ({
     ...hangout,
     itemType: "outing",
     ratings: hangout.ratings || [],
     color: hangout.color || { bg: "#fff4e6", border: ["#ff9a3c", "#4ecdc4", "#ff6b9d", "#51cf66"][index % 4] },
-    displayDate: hangout.date,
+    displayDate: resolveHangoutDisplayDate(hangout),
     displayLocation: hangout.location,
   }));
 
@@ -280,7 +336,7 @@ function normalizeRateableItems(appData) {
     displayLocation: trip.destination,
   }));
 
-  return [...hangouts, ...trips];
+  return [...hangouts, ...trips].sort((a, b) => getRateableSortTime(b) - getRateableSortTime(a));
 }
 
 function getTypeCopy(itemType) {
@@ -325,6 +381,27 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
   const pageCopy = getTypeCopy(currentType);
   const alreadyRated = selectedOuting?.ratings.some(r => r.member === 0);
   const profileName = appData?.profile?.name || appData?.profile?.username || "You";
+
+  useEffect(() => {
+    if (!outings.length) {
+      setSelectedOuting(null);
+      return;
+    }
+
+    setSelectedOuting((current) => {
+      if (current) {
+        const refreshed = outings.find((item) => item.id === current.id);
+        if (refreshed) return refreshed;
+      }
+      return outings[0];
+    });
+  }, [outings]);
+
+  useEffect(() => {
+    setRating(createEmptyRating(selectedOuting?.itemType || "outing"));
+    setSubmitted(false);
+    setActiveTab("Rate");
+  }, [selectedOuting?.id, selectedOuting?.itemType]);
 
   const updateSelectedFromAppData = async (updatedItem) => {
     if (updatedItem.itemType === "trip") {
