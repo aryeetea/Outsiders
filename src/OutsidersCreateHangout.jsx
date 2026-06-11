@@ -67,8 +67,8 @@ const STYLES = `
     font: 400 clamp(48px, 7vw, 94px) 'Bangers', cursive;
     line-height: 0.9;
     letter-spacing: 0.05em;
-    color: #ff6b6b;
-    text-shadow: 6px 0 0 #17151f, 12px 0 0 rgba(255, 107, 107, 0.18);
+    color: #d98b7f;
+    text-shadow: 6px 0 0 #17151f, 12px 0 0 rgba(217, 139, 127, 0.16);
   }
   .planner-subtitle {
     margin: 0;
@@ -311,8 +311,8 @@ const STYLES = `
     box-shadow: 3px 3px 0 #17151f;
   }
   .field input:focus, .field select:focus, .field textarea:focus {
-    border-color: #ff6b6b;
-    box-shadow: 4px 4px 0 #ff6b6b;
+    border-color: #d98b7f;
+    box-shadow: 4px 4px 0 #d98b7f;
   }
   .field textarea {
     min-height: 112px;
@@ -332,7 +332,7 @@ const STYLES = `
     padding: 13px 16px;
   }
   .btn.primary {
-    background: #ff6b6b;
+    background: #d98b7f;
     color: white;
   }
   .btn.secondary {

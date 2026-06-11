@@ -63,8 +63,8 @@ const STYLES = `
     font: 400 clamp(54px, 10vw, 110px) 'Bangers', cursive;
     line-height: 0.92;
     letter-spacing: 0.04em;
-    color: #ff6b6b;
-    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
+    color: #d98b7f;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(217, 139, 127, 0.16);
   }
   .rating-title-star {
     display: inline-block;
@@ -184,15 +184,15 @@ const STYLES = `
   .star-btn { background: none; border: none; cursor: pointer; font-size: 36px; transition: transform 0.15s; line-height: 1; padding: 4px; }
   .star-btn:hover { transform: scale(1.3); }
   .category-card { background: #fffdf9; border: 3px solid #1a1a2e; border-radius: 14px; padding: 18px 20px; box-shadow: 4px 4px 0 #1a1a2e; }
-  .btn-primary { background: #ff6b6b; color: #fff; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 18px; padding: 12px 28px; display: inline-flex; align-items: center; gap: 8px; }
+  .btn-primary { background: #d98b7f; color: #fff; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 18px; padding: 12px 28px; display: inline-flex; align-items: center; gap: 8px; }
   .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
   .form-input { width: 100%; padding: 12px 14px; font-size: 14px; font-family: 'Nunito', sans-serif; font-weight: 700; color: #1a1a2e; background: #fffdf9; border: 3px solid #1a1a2e; border-radius: 10px; outline: none; transition: box-shadow 0.15s, border-color 0.15s; box-shadow: 3px 3px 0 #1a1a2e; resize: none; }
-  .form-input:focus { border-color: #ff6b6b; box-shadow: 3px 3px 0 #ff6b6b; }
+  .form-input:focus { border-color: #d98b7f; box-shadow: 3px 3px 0 #d98b7f; }
   .avatar { width: 36px; height: 36px; border-radius: 50%; border: 2.5px solid #1a1a2e; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; color: #fff; flex-shrink: 0; box-shadow: 2px 2px 0 #1a1a2e; }
   .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.05em; border: 2px solid; }
   .review-card { background: #fff; border: 3px solid #1a1a2e; border-radius: 14px; padding: 18px 20px; box-shadow: 4px 4px 0 #1a1a2e; margin-bottom: 14px; }
   .profile-chip { display: flex; align-items: center; gap: 8px; background: #fff; border: 3px solid #1a1a2e; border-radius: 50px; padding: 4px 14px 4px 4px; box-shadow: 3px 3px 0 #1a1a2e; cursor: pointer; }
-  .notif-dot { width: 8px; height: 8px; background: #ff6b6b; border: 2px solid #1a1a2e; border-radius: 50%; position: absolute; top: -2px; right: -2px; }
+  .notif-dot { width: 8px; height: 8px; background: #d98b7f; border: 2px solid #1a1a2e; border-radius: 50%; position: absolute; top: -2px; right: -2px; }
   .comic-tag { display: inline-block; background: #ffd93d; border: 2px solid #1a1a2e; border-radius: 6px; padding: 1px 10px; font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.06em; box-shadow: 2px 2px 0 #1a1a2e; transform: rotate(-2deg); }
   .tab { padding: 9px 20px; font-family: 'Bangers', cursive; font-size: 16px; letter-spacing: 0.05em; border: 3px solid transparent; border-radius: 10px; cursor: pointer; background: none; color: #888; transition: all 0.15s; }
   .tab.active { background: #fff; color: #1a1a2e; border-color: #1a1a2e; box-shadow: 3px 3px 0 #1a1a2e; }
@@ -214,7 +214,7 @@ const STYLES = `
   }
 `;
 
-const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
+const AVATAR_COLORS = ["#d98b7f", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 const MEMBERS = [
   { initials: "YOU", name: "You" },
 ];
@@ -331,7 +331,7 @@ function normalizeRateableItems(appData) {
     ...trip,
     itemType: "trip",
     ratings: trip.ratings || [],
-    color: trip.color || { bg: "#e8f4fd", border: ["#4ecdc4", "#a29bfe", "#ff6b6b", "#51cf66"][index % 4] },
+    color: trip.color || { bg: "#e8f4fd", border: ["#4ecdc4", "#a29bfe", "#d98b7f", "#51cf66"][index % 4] },
     displayDate: `${trip.startDate} - ${trip.endDate}`,
     displayLocation: trip.destination,
   }));
@@ -596,7 +596,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                             <p className="bangers" style={{ fontSize: 18, margin: "0 0 14px" }}>⭐ Overall Rating</p>
                             <StarRating value={rating.overall} onChange={v => setRating(p => ({ ...p, overall: v }))} />
                             {rating.overall > 0 && (
-                              <p className="bangers" style={{ fontSize: 28, margin: "12px 0 0", color: rating.overall >= 8 ? "#51cf66" : rating.overall >= 5 ? "#ff9a3c" : "#ff6b6b" }}>
+                              <p className="bangers" style={{ fontSize: 28, margin: "12px 0 0", color: rating.overall >= 8 ? "#51cf66" : rating.overall >= 5 ? "#ff9a3c" : "#d98b7f" }}>
                                 {rating.overall}/10 — {rating.overall >= 9 ? "ABSOLUTE BANGER 🔥" : rating.overall >= 7 ? "Pretty good 👍" : rating.overall >= 5 ? "It was okay 😐" : "Not great 😬"}
                               </p>
                             )}
@@ -610,12 +610,12 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                                   {[1,2,3,4,5,6,7,8,9,10].map(n => (
                                     <button key={n} onClick={() => setRating(p => ({ ...p, categories: { ...p.categories, [cat.key]: n } }))}
-                                      style={{ width: 28, height: 28, border: `2px solid ${rating.categories[cat.key] >= n ? "#ff6b6b" : "#ddd"}`, borderRadius: 6, background: rating.categories[cat.key] >= n ? "#ff6b6b" : "#fff", color: rating.categories[cat.key] >= n ? "#fff" : "#aaa", cursor: "pointer", fontWeight: 900, fontSize: 11, transition: "all 0.1s" }}>
+                                      style={{ width: 28, height: 28, border: `2px solid ${rating.categories[cat.key] >= n ? "#d98b7f" : "#ddd"}`, borderRadius: 6, background: rating.categories[cat.key] >= n ? "#d98b7f" : "#fff", color: rating.categories[cat.key] >= n ? "#fff" : "#aaa", cursor: "pointer", fontWeight: 900, fontSize: 11, transition: "all 0.1s" }}>
                                       {n}
                                     </button>
                                   ))}
                                 </div>
-                                {rating.categories[cat.key] > 0 && <p className="bangers" style={{ fontSize: 14, margin: "8px 0 0", color: "#ff6b6b" }}>{rating.categories[cat.key]}/10</p>}
+                                {rating.categories[cat.key] > 0 && <p className="bangers" style={{ fontSize: 14, margin: "8px 0 0", color: "#d98b7f" }}>{rating.categories[cat.key]}/10</p>}
                               </div>
                             ))}
                           </div>
@@ -648,7 +648,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                             <div style={{ flex: 1 }}>
                               <p style={{ fontWeight: 900, fontSize: 14, margin: 0 }}>{MEMBERS[r.member].name}</p>
                             </div>
-                            <span className="bangers" style={{ fontSize: 24, color: r.overall >= 8 ? "#51cf66" : r.overall >= 5 ? "#ff9a3c" : "#ff6b6b" }}>⭐ {r.overall}/10</span>
+                            <span className="bangers" style={{ fontSize: 24, color: r.overall >= 8 ? "#51cf66" : r.overall >= 5 ? "#ff9a3c" : "#d98b7f" }}>⭐ {r.overall}/10</span>
                           </div>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
                             {CATEGORY_SETS[selectedOuting.itemType || "outing"].map(cat => (

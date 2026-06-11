@@ -39,7 +39,7 @@ const STYLES = `
 
   .logo-mark {
     width: 38px; height: 38px;
-    background: #ff6b6b;
+    background: #d98b7f;
     border: 3px solid #1a1a2e;
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
@@ -93,14 +93,14 @@ const STYLES = `
     box-shadow: 4px 4px 0 #1a1a2e;
   }
   .form-input:focus {
-    border-color: #ff6b6b;
-    box-shadow: 4px 4px 0 #ff6b6b;
+    border-color: #d98b7f;
+    box-shadow: 4px 4px 0 #d98b7f;
   }
   .form-input::placeholder { color: #bbb; font-weight: 600; }
 
   .btn-primary {
     width: 100%;
-    background: #ff6b6b;
+    background: #d98b7f;
     color: #fff;
     border: 3px solid #1a1a2e;
     cursor: pointer;
@@ -118,13 +118,13 @@ const STYLES = `
   .error-msg {
     font-family: 'Bangers', cursive;
     font-size: 15px;
-    color: #ff6b6b;
+    color: #d98b7f;
     margin-top: 6px;
     letter-spacing: 0.04em;
   }
 
   .link {
-    color: #ff6b6b;
+    color: #d98b7f;
     font-weight: 900;
     text-decoration: none;
     cursor: pointer;
@@ -151,7 +151,7 @@ const STYLES = `
     padding: 0;
     font-family: inherit;
   }
-  .forgot-link:hover { color: #ff6b6b; }
+  .forgot-link:hover { color: #d98b7f; }
 
   .comic-tag {
     display: inline-block;

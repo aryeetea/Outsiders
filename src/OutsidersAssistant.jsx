@@ -272,7 +272,7 @@ export default function OutsidersAssistant({ route, appData }) {
           height: 64px;
           border-radius: 18px;
           border: 4px solid #17151f;
-          background: #ff6b6b;
+          background: #d98b7f;
           box-shadow: 6px 6px 0 #17151f;
           display: grid;
           place-items: center;
@@ -365,8 +365,8 @@ export default function OutsidersAssistant({ route, appData }) {
           outline: none;
         }
         .oa-input:focus {
-          border-color: #ff6b6b;
-          box-shadow: 4px 4px 0 #ff6b6b;
+          border-color: #d98b7f;
+          box-shadow: 4px 4px 0 #d98b7f;
         }
         .oa-send {
           border: 3px solid #17151f;
@@ -376,7 +376,7 @@ export default function OutsidersAssistant({ route, appData }) {
           font: 400 14px 'Bangers', cursive;
           letter-spacing: 0.05em;
           box-shadow: 4px 4px 0 #17151f;
-          background: #ff6b6b;
+          background: #d98b7f;
           color: #fff;
           min-height: 52px;
         }

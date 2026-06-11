@@ -40,7 +40,7 @@ const STYLES = `
   .logo-mark {
     width: 38px;
     height: 38px;
-    background: #ff6b6b;
+    background: #d98b7f;
     border: 3px solid #1a1a2e;
     border-radius: 10px;
     display: flex;
@@ -104,14 +104,14 @@ const STYLES = `
     box-shadow: 4px 4px 0 #1a1a2e;
   }
   .form-input:focus {
-    border-color: #ff6b6b;
-    box-shadow: 4px 4px 0 #ff6b6b;
+    border-color: #d98b7f;
+    box-shadow: 4px 4px 0 #d98b7f;
   }
   .form-input::placeholder { color: #bbb; font-weight: 600; }
 
   .btn-primary {
     width: 100%;
-    background: #ff6b6b;
+    background: #d98b7f;
     color: #fff;
     border: 3px solid #1a1a2e;
     cursor: pointer;
@@ -142,13 +142,13 @@ const STYLES = `
     position: relative;
     box-shadow: 4px 4px 0 #1a1a2e;
   }
-  .avatar-upload:hover { border-color: #ff6b6b; background: #fff4f4; }
+  .avatar-upload:hover { border-color: #d98b7f; background: #fff8ef; }
   .avatar-img { width: 100%; height: 100%; object-fit: cover; }
 
   .error-msg {
     font-size: 15px;
     font-weight: 800;
-    color: #ff6b6b;
+    color: #d98b7f;
     margin-top: 6px;
     font-family: 'Bangers', cursive;
     letter-spacing: 0.04em;
@@ -169,7 +169,7 @@ const STYLES = `
   }
 
   .link {
-    color: #ff6b6b;
+    color: #d98b7f;
     font-weight: 900;
     text-decoration: none;
     cursor: pointer;
@@ -239,7 +239,7 @@ function getPasswordStrength(pw) {
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   const map = [
     { label: "", color: "#f0ebe0" },
-    { label: "Weak 😬", color: "#ff6b6b" },
+    { label: "Weak 😬", color: "#d98b7f" },
     { label: "Okay 🤔", color: "#ffd93d" },
     { label: "Good 👍", color: "#4ecdc4" },
     { label: "Strong 💪", color: "#51cf66" },

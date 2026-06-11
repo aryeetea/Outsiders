@@ -42,7 +42,7 @@ const STYLES = `
     height: 72px;
     border-radius: 18px;
     border: 4px solid #1a1a2e;
-    background: #ff6b6b;
+    background: #d98b7f;
     color: #fff;
     display: grid;
     place-items: center;
@@ -91,7 +91,7 @@ const STYLES = `
   }
 
   .deleted-btn.primary {
-    background: #ff6b6b;
+    background: #d98b7f;
     color: #fff;
   }
 

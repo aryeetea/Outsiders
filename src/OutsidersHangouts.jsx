@@ -159,7 +159,7 @@ const STYLES = `
     letter-spacing: 0.06em;
   }
   .btn.primary {
-    background: #ff6b6b;
+    background: #d98b7f;
     color: #fff;
   }
   .btn.secondary {

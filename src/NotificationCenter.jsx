@@ -201,7 +201,7 @@ export default function NotificationCenter({
         .oc-filter.active {
           background: #17151f;
           color: #fff7da;
-          box-shadow: 4px 4px 0 #ff6b6b;
+          box-shadow: 4px 4px 0 #d98b7f;
         }
         .oc-list {
           display: grid;
@@ -284,7 +284,7 @@ export default function NotificationCenter({
           letter-spacing: 0.06em;
         }
         .oc-action.primary {
-          background: #ff6b6b;
+          background: #d98b7f;
           color: #fff;
         }
         .oc-empty {

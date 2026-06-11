@@ -80,8 +80,8 @@ const STYLES = `
     font: 400 clamp(52px, 9vw, 94px) 'Bangers', cursive;
     line-height: 0.92;
     letter-spacing: 0.05em;
-    color: #ff6b6b;
-    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
+    color: #d98b7f;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(217, 139, 127, 0.16);
   }
   .voting-subtitle {
     position: relative;
@@ -228,7 +228,7 @@ const STYLES = `
   }
 
   .notif-dot {
-    width: 8px; height: 8px; background: #ff6b6b;
+    width: 8px; height: 8px; background: #d98b7f;
     border: 2px solid #1a1a2e; border-radius: 50%;
     position: absolute; top: -2px; right: -2px;
   }
@@ -287,8 +287,8 @@ function getHypeLabel(hype) {
   if (hype === 0) return { label: "No hype yet", color: "#ccc" };
   if (hype < 5) return { label: "Lukewarm 🥱", color: "#aaa" };
   if (hype < 10) return { label: "Getting there 👀", color: "#ff9a3c" };
-  if (hype < 16) return { label: "On fire! 🔥", color: "#ff6b6b" };
-  return { label: "ABSOLUTE BANGER 💥", color: "#ff6b6b" };
+  if (hype < 16) return { label: "On fire! 🔥", color: "#d98b7f" };
+  return { label: "ABSOLUTE BANGER 💥", color: "#d98b7f" };
 }
 
 function HypeSection({ title, emoji, options, onHype }) {

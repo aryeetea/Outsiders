@@ -109,7 +109,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     <>
       <style>{`
         .os-shell {
-          --os-neon-red: rgba(255, 60, 92, 0.38);
+          --os-soft-yellow-glow: rgba(243, 217, 120, 0.30);
           --os-neon-pink: rgba(255, 43, 164, 0.3);
           --os-neon-coral: rgba(255, 117, 92, 0.24);
           --os-neon-border: rgba(255, 43, 124, 0.52);
@@ -133,7 +133,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           border-radius: 26px;
           box-shadow:
             inset -8px 0 26px rgba(26, 26, 46, 0.05),
-            5px 0 18px var(--os-neon-red),
+            5px 0 18px var(--os-soft-yellow-glow),
             10px 0 28px var(--os-neon-pink),
             0 0 14px var(--os-neon-coral);
           padding: 14px 10px 16px;
@@ -321,7 +321,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           width: 44px;
           height: 44px;
           border-radius: 999px;
-          background: #ff6b6b;
+          background: #d98b7f;
           color: #fff;
           border: 2px solid #1a1a2e;
           box-shadow: 3px 3px 0 #1a1a2e;
@@ -336,7 +336,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           min-width: 18px;
           height: 18px;
           border-radius: 999px;
-          background: #ff6b6b;
+          background: #d98b7f;
           border: 2px solid #fff;
           color: #fff;
           font: 900 10px 'Nunito', sans-serif;
@@ -399,7 +399,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           border: 2px solid var(--os-neon-border);
           box-shadow:
             0 6px 18px rgba(26, 26, 46, 0.08),
-            0 0 12px var(--os-neon-red),
+            0 0 12px var(--os-soft-yellow-glow),
             0 0 18px var(--os-neon-pink);
         }
         .os-reopen-stack {
@@ -449,7 +449,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             background: #fff8ea;
             border-bottom: 3px solid var(--os-neon-border);
             box-shadow:
-              0 6px 18px var(--os-neon-red),
+              0 6px 18px var(--os-soft-yellow-glow),
               0 10px 24px var(--os-neon-pink);
             backdrop-filter: blur(10px);
           }
@@ -465,7 +465,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             transform: translateX(-105%);
             box-shadow:
               10px 0 30px rgba(26, 26, 46, 0.14),
-              6px 0 20px var(--os-neon-red),
+              6px 0 20px var(--os-soft-yellow-glow),
               10px 0 28px var(--os-neon-pink);
           }
           .os-sidebar.mobile-open {

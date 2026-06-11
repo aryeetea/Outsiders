@@ -83,8 +83,8 @@ const STYLES = `
     font: 400 clamp(52px, 9vw, 96px) 'Bangers', cursive;
     line-height: 0.92;
     letter-spacing: 0.05em;
-    color: #ff6b6b;
-    text-shadow: 6px 0 0 #17151f, 12px 0 0 rgba(255, 107, 107, 0.18);
+    color: #d98b7f;
+    text-shadow: 6px 0 0 #17151f, 12px 0 0 rgba(217, 139, 127, 0.16);
   }
   .dashboard-subtitle {
     position: relative;
@@ -245,7 +245,7 @@ const STYLES = `
     z-index: 1;
   }
   .cta-btn.primary {
-    background: #ff6b6b;
+    background: #d98b7f;
     color: white;
   }
   .cta-btn.secondary {

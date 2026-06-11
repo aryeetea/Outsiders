@@ -57,8 +57,8 @@ const STYLES = `
     box-shadow: 4px 4px 0 #17151f;
   }
   .code-input:focus {
-    border-color: #ff6b6b;
-    box-shadow: 5px 5px 0 #ff6b6b;
+    border-color: #d98b7f;
+    box-shadow: 5px 5px 0 #d98b7f;
   }
   .btn {
     border: 3px solid #17151f;
@@ -74,7 +74,7 @@ const STYLES = `
   }
   .btn:hover { transform: translate(-1px, -2px); }
   .primary {
-    background: #ff6b6b;
+    background: #d98b7f;
     color: white;
   }
   .ghost {

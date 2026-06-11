@@ -91,8 +91,8 @@ const STYLES = `
     font: 400 clamp(52px, 9vw, 96px) 'Bangers', cursive;
     line-height: 0.92;
     letter-spacing: 0.05em;
-    color: #ff6b6b;
-    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
+    color: #d98b7f;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(217, 139, 127, 0.16);
   }
   .profile-subtitle {
     position: relative;
@@ -197,8 +197,8 @@ const STYLES = `
     background: #fff;
     color: #1a1a2e;
     transform: translateY(-1px);
-    border-color: #ff6b6b;
-    box-shadow: 3px 3px 0 #ff6b6b;
+    border-color: #d98b7f;
+    box-shadow: 3px 3px 0 #d98b7f;
   }
 
   .hero-grid {
@@ -221,7 +221,7 @@ const STYLES = `
     width: 86px;
     height: 86px;
     border-radius: 24px;
-    background: #ff6b6b;
+    background: #d98b7f;
     border: 4px solid #1a1a2e;
     color: white;
     display: grid;
@@ -292,7 +292,7 @@ const STYLES = `
 
   .action-btn {
     border: 3px solid #1a1a2e;
-    background: #ff6b6b;
+    background: #d98b7f;
     color: white;
     box-shadow: 4px 4px 0 #1a1a2e;
   }
