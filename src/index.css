@@ -5,8 +5,9 @@
   --out-ink: #17151f;
   --out-paper: #fffdf9;
   --out-page: #fff6d8;
+  --out-neon-border: #f3d978;
   --out-red: #ff6b6b;
-  --out-yellow: #ffd93d;
+  --out-yellow: #f3d978;
   --out-teal: #4ecdc4;
   --out-green: #51cf66;
   --out-pink: #ff6b9d;
@@ -32,7 +33,7 @@ html {
   background:
     radial-gradient(circle at 18% 18%, rgba(255, 107, 107, 0.18), transparent 30%),
     radial-gradient(circle at 84% 22%, rgba(78, 205, 196, 0.18), transparent 28%),
-    linear-gradient(135deg, #fff8c9 0%, #fff1a8 48%, #ffd93d 100%);
+    linear-gradient(135deg, #fff9d8 0%, #fff2b9 48%, var(--out-neon-border) 100%);
   scroll-behavior: smooth;
 }
 

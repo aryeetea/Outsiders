@@ -825,6 +825,28 @@ async function fetchSharedAppData(user, previousAppData = {}) {
             {toast.message}
           </div>
         )}
+
+        <style>{`
+        :where(*, *::before, *::after) {
+          border-color: var(--out-neon-border) !important;
+        }
+
+        :where(.root, .out-root, .signup-root) {
+          box-shadow: inset 0 0 0 4px var(--out-neon-border);
+        }
+
+        [style*="border"] {
+          border-color: var(--out-neon-border) !important;
+        }
+
+        [style*="border"][style*="box-shadow"] {
+          box-shadow: 4px 4px 0 var(--out-neon-border) !important;
+        }
+
+        :where(.card, .group-card, .trip-card, .case-card, .review-card, .category-card, .hangout-card, .stat-card, .quick-btn, .modal, .signup-card, .availability-gate-card, .outsiders-toast) {
+          border-color: var(--out-neon-border) !important;
+        }
+        `}</style>
       </>
     </ErrorBoundary>
   );
