@@ -48,7 +48,7 @@ const STYLES = `
     outline: none;
     width: 100%;
   }
-  .field input:focus, .field select:focus { border-color: #d98b7f; }
+  .field input:focus, .field select:focus { border-color: #ff6b6b; }
   .btn {
     border: 3px solid #17151f;
     border-radius: 10px;
@@ -59,7 +59,7 @@ const STYLES = `
   }
   .btn:hover { transform: translate(-1px, -2px); }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .btn.primary { background: #d98b7f; color: #fff; box-shadow: 4px 4px 0 #17151f; }
+  .btn.primary { background: #ff6b6b; color: #fff; box-shadow: 4px 4px 0 #17151f; }
   .btn.primary:hover { box-shadow: 5px 5px 0 #17151f; }
   .btn.secondary { background: #ffd93d; color: #17151f; box-shadow: 4px 4px 0 #17151f; }
   .btn.secondary:hover { box-shadow: 5px 5px 0 #17151f; }

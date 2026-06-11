@@ -44,7 +44,7 @@ const STYLES = `
   .logo-mark {
     width: 38px;
     height: 38px;
-    background: #d98b7f;
+    background: #ff6b6b;
     border: 3px solid #1a1a2e;
     border-radius: 10px;
     display: flex;
@@ -65,7 +65,7 @@ const STYLES = `
 
   /* ── Buttons ── */
   .btn-primary {
-    background: #d98b7f;
+    background: #ff6b6b;
     color: #fff;
     border: 3px solid #1a1a2e;
     cursor: pointer;
@@ -425,7 +425,7 @@ export default function OutsidersLanding({ onNavigate }) {
         {/* ── Features ── */}
         <section ref={featuresRef} style={{ position: "relative", zIndex: 1, maxWidth: 1160, margin: "0 auto", padding: "20px 24px 120px" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }}>
-            <span className="bangers" style={{ fontSize: 14, letterSpacing: "0.12em", color: "#d98b7f", textTransform: "uppercase" }}>Everything your crew needs</span>
+            <span className="bangers" style={{ fontSize: 14, letterSpacing: "0.12em", color: "#ff6b6b", textTransform: "uppercase" }}>Everything your crew needs</span>
             <h2 className="bangers" style={{ fontSize: "clamp(32px, 5vw, 52px)", color: "#1a1a2e", margin: "8px 0 0" }}>
               Built For Real Friendships ✨
             </h2>

@@ -109,10 +109,10 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
     <>
       <style>{`
         .os-shell {
+          --os-soft-yellow-border: rgba(243, 217, 120, 0.70);
           --os-soft-yellow-glow: rgba(243, 217, 120, 0.30);
-          --os-neon-pink: rgba(255, 43, 164, 0.3);
-          --os-neon-coral: rgba(255, 117, 92, 0.24);
-          --os-neon-border: rgba(255, 43, 124, 0.52);
+          --os-soft-gold-glow: rgba(255, 217, 61, 0.18);
+          --os-soft-teal-glow: rgba(78, 205, 196, 0.16);
           min-height: 100vh;
           position: relative;
           z-index: 1;
@@ -129,13 +129,13 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           background:
             radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76) 55%, rgba(255, 255, 255, 0.94)),
             #fff8ea;
-          border: 3px solid var(--os-neon-border);
+          border: 3px solid var(--os-soft-yellow-border);
           border-radius: 26px;
           box-shadow:
             inset -8px 0 26px rgba(26, 26, 46, 0.05),
             5px 0 18px var(--os-soft-yellow-glow),
-            10px 0 28px var(--os-neon-pink),
-            0 0 14px var(--os-neon-coral);
+            10px 0 28px var(--os-soft-gold-glow),
+            0 0 14px var(--os-soft-teal-glow);
           padding: 14px 10px 16px;
           display: flex;
           flex-direction: column;
@@ -321,7 +321,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           width: 44px;
           height: 44px;
           border-radius: 999px;
-          background: #d98b7f;
+          background: #ff6b6b;
           color: #fff;
           border: 2px solid #1a1a2e;
           box-shadow: 3px 3px 0 #1a1a2e;
@@ -336,7 +336,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           min-width: 18px;
           height: 18px;
           border-radius: 999px;
-          background: #d98b7f;
+          background: #ff6b6b;
           border: 2px solid #fff;
           color: #fff;
           font: 900 10px 'Nunito', sans-serif;
@@ -396,11 +396,11 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           place-items: center;
           color: rgba(26, 26, 46, 0.62);
           background: rgba(255, 248, 234, 0.96);
-          border: 2px solid var(--os-neon-border);
+          border: 2px solid var(--os-soft-yellow-border);
           box-shadow:
             0 6px 18px rgba(26, 26, 46, 0.08),
             0 0 12px var(--os-soft-yellow-glow),
-            0 0 18px var(--os-neon-pink);
+            0 0 18px var(--os-soft-gold-glow);
         }
         .os-reopen-stack {
           position: fixed;
@@ -447,10 +447,10 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             gap: 12px;
             padding: 12px 14px;
             background: #fff8ea;
-            border-bottom: 3px solid var(--os-neon-border);
+            border-bottom: 3px solid var(--os-soft-yellow-border);
             box-shadow:
               0 6px 18px var(--os-soft-yellow-glow),
-              0 10px 24px var(--os-neon-pink);
+              0 10px 24px var(--os-soft-gold-glow);
             backdrop-filter: blur(10px);
           }
           .os-sidebar {
@@ -466,7 +466,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
             box-shadow:
               10px 0 30px rgba(26, 26, 46, 0.14),
               6px 0 20px var(--os-soft-yellow-glow),
-              10px 0 28px var(--os-neon-pink);
+              10px 0 28px var(--os-soft-gold-glow);
           }
           .os-sidebar.mobile-open {
             transform: translateX(0);

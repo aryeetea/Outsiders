@@ -79,7 +79,7 @@ const STYLES = `
     top: 68px;
     font: 400 clamp(28px, 4vw, 54px) 'Bangers', cursive;
     letter-spacing: 0.12em;
-    color: rgba(217, 139, 127, 0.18);
+    color: rgba(255, 107, 107, 0.22);
     transform: rotate(-8deg);
     pointer-events: none;
     z-index: 0;
@@ -264,7 +264,7 @@ const STYLES = `
     transform: translate(-1px, -2px);
   }
   .btn.primary {
-    background: #d98b7f;
+    background: #ff6b6b;
     color: white;
   }
   .btn.secondary {
@@ -293,7 +293,7 @@ const STYLES = `
     background: #17151f;
     color: #fff8dc;
     border-color: #17151f;
-    box-shadow: 4px 4px 0 #d98b7f;
+    box-shadow: 4px 4px 0 #ff6b6b;
   }
   .member-row, .pending-row, .proposal-card, .roast-card, .bill-card {
     border-radius: 14px;
@@ -457,8 +457,8 @@ const STYLES = `
     box-shadow: 3px 3px 0 #17151f;
   }
   .field input:focus, .field textarea:focus, .field select:focus {
-    border-color: #d98b7f;
-    box-shadow: 4px 4px 0 #d98b7f;
+    border-color: #ff6b6b;
+    box-shadow: 4px 4px 0 #ff6b6b;
   }
   .field textarea {
     min-height: 116px;

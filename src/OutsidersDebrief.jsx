@@ -65,8 +65,8 @@ const STYLES = `
     font: 400 clamp(52px, 9vw, 96px) 'Bangers', cursive;
     line-height: 0.92;
     letter-spacing: 0.05em;
-    color: #d98b7f;
-    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(217, 139, 127, 0.16);
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
   }
   .debrief-subtitle {
     position: relative;
@@ -120,7 +120,7 @@ const STYLES = `
     background: rgba(26, 26, 46, 0.08);
     margin: 6px 0;
   }
-  .btn-primary { background: #d98b7f; color: #fff; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 16px; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px; }
+  .btn-primary { background: #ff6b6b; color: #fff; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 16px; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px; }
   .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
   .btn-secondary { background: #ffd93d; color: #1a1a2e; border: 3px solid #1a1a2e; cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 0.08em; border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e; transition: transform 0.12s, box-shadow 0.12s; font-size: 15px; padding: 9px 18px; display: inline-flex; align-items: center; gap: 8px; }
   .btn-secondary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1a2e; }
@@ -139,7 +139,7 @@ const STYLES = `
   .modal { background: #fff; border: 4px solid #1a1a2e; border-radius: 20px; box-shadow: 10px 10px 0 #1a1a2e; padding: 36px 32px; width: 100%; max-width: 560px; position: relative; max-height: 90vh; overflow-y: auto; }
   .close-btn { position: absolute; top: 16px; right: 16px; background: #f5f3ee; border: 2px solid #1a1a2e; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; box-shadow: 2px 2px 0 #1a1a2e; }
   .profile-chip { display: flex; align-items: center; gap: 8px; background: #fff; border: 3px solid #1a1a2e; border-radius: 50px; padding: 4px 14px 4px 4px; box-shadow: 3px 3px 0 #1a1a2e; cursor: pointer; }
-  .notif-dot { width: 8px; height: 8px; background: #d98b7f; border: 2px solid #1a1a2e; border-radius: 50%; position: absolute; top: -2px; right: -2px; }
+  .notif-dot { width: 8px; height: 8px; background: #ff6b6b; border: 2px solid #1a1a2e; border-radius: 50%; position: absolute; top: -2px; right: -2px; }
   .comic-tag { display: inline-block; background: #ffd93d; border: 2px solid #1a1a2e; border-radius: 6px; padding: 1px 10px; font-family: 'Bangers', cursive; font-size: 12px; letter-spacing: 0.06em; box-shadow: 2px 2px 0 #1a1a2e; transform: rotate(-2deg); }
   .debrief-layout-grid { grid-template-columns: minmax(260px, 300px) minmax(0, 1fr); }
   @media (max-width: 1024px) {
@@ -669,7 +669,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                         return (
                           <div key={member.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "#fff", border: "2px solid #1a1a2e", borderRadius: 12, padding: "10px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div className="avatar" style={{ width: 30, height: 30, background: ["#d98b7f", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"][index % 6], fontSize: 10 }}>{member.initials}</div>
+                              <div className="avatar" style={{ width: 30, height: 30, background: ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"][index % 6], fontSize: 10 }}>{member.initials}</div>
                               <div>
                                 <p style={{ fontSize: 13, fontWeight: 900, margin: 0 }}>{member.name}</p>
                                 <p style={{ fontSize: 11, fontWeight: 800, color: "#777", margin: 0 }}>{voteCount} vote{voteCount === 1 ? "" : "s"} {isMyVote ? "· your pick" : ""}</p>
@@ -717,7 +717,7 @@ export default function OutsidersDebrief({ onNavigate, appData, setAppData }) {
                           <p style={{ fontSize: 12, fontWeight: 800, color: "#777", margin: "0 0 8px" }}>
                             {caseItem.visibility === "group" ? "Whole-crew case" : `Against ${caseItem.targetName}`}
                           </p>
-                          {isAgainstMe ? <span className="badge" style={{ background: "#fff", color: "#d98b7f", borderColor: "#d98b7f" }}>You were named</span> : null}
+                          {isAgainstMe ? <span className="badge" style={{ background: "#fff", color: "#ff6b6b", borderColor: "#ff6b6b" }}>You were named</span> : null}
                         </div>
                       );
                     })}

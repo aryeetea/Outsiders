@@ -101,15 +101,15 @@ const STYLES = `
     font: 400 clamp(56px, 11vw, 120px) 'Bangers', cursive;
     line-height: 0.9;
     letter-spacing: 0.06em;
-    color: #d98b7f;
-    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(217, 139, 127, 0.16);
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
   }
 
   .trip-title-plane {
     display: inline-block;
     margin-left: 14px;
     transform: rotate(12deg) translateY(-4px);
-    filter: drop-shadow(4px 4px 0 #d98b7f);
+    filter: drop-shadow(4px 4px 0 #ff6b6b);
   }
 
   .trip-actions-row {
@@ -366,7 +366,7 @@ const STYLES = `
     transition: transform 0.15s, box-shadow 0.15s;
   }
   .trip-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 #1a1a2e; }
-  .trip-card.active { border-color: #d98b7f; box-shadow: 5px 5px 0 #d98b7f; }
+  .trip-card.active { border-color: #ff6b6b; box-shadow: 5px 5px 0 #ff6b6b; }
 
   .tab {
     padding: 9px 20px;
@@ -384,7 +384,7 @@ const STYLES = `
   }
 
   .btn-primary {
-    background: #d98b7f; color: #fff;
+    background: #ff6b6b; color: #fff;
     border: 3px solid #1a1a2e; cursor: pointer;
     font-family: 'Bangers', cursive; letter-spacing: 0.08em;
     border-radius: 10px; box-shadow: 4px 4px 0 #1a1a2e;
@@ -418,8 +418,8 @@ const STYLES = `
   .btn-outline:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 #1a1a2e; }
 
   .btn-danger {
-    background: #fff; color: #d98b7f;
-    border: 2px solid #d98b7f; cursor: pointer;
+    background: #fff; color: #ff6b6b;
+    border: 2px solid #ff6b6b; cursor: pointer;
     font-family: 'Bangers', cursive; letter-spacing: 0.05em;
     border-radius: 8px; font-size: 13px; padding: 5px 10px;
     transition: background 0.15s;
@@ -438,7 +438,7 @@ const STYLES = `
     transition: box-shadow 0.15s, border-color 0.15s;
     box-shadow: 3px 3px 0 #1a1a2e;
   }
-  .form-input:focus { border-color: #d98b7f; box-shadow: 3px 3px 0 #d98b7f; }
+  .form-input:focus { border-color: #ff6b6b; box-shadow: 3px 3px 0 #ff6b6b; }
   .form-input::placeholder { color: #bbb; font-weight: 600; }
 
   .form-label {
@@ -476,7 +476,7 @@ const STYLES = `
   }
 
   .notif-dot {
-    width: 8px; height: 8px; background: #d98b7f;
+    width: 8px; height: 8px; background: #ff6b6b;
     border: 2px solid #1a1a2e; border-radius: 50%;
     position: absolute; top: -2px; right: -2px;
   }
@@ -584,7 +584,7 @@ const STYLES = `
   }
 `;
 
-const AVATAR_COLORS = ["#d98b7f", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
+const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 const TRIP_COLORS = [
   { bg: "#fff4e6", border: "#ff9a3c", emoji: "🏝" },
   { bg: "#e8f4fd", border: "#4ecdc4", emoji: "🗼" },
@@ -1358,7 +1358,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                         <div
                           key={trip.id}
                           className={`trip-card ${selectedTrip?.id === trip.id ? "active" : ""}`}
-                          style={{ background: trip.color.bg, borderColor: selectedTrip?.id === trip.id ? "#d98b7f" : trip.color.border, boxShadow: `5px 5px 0 ${selectedTrip?.id === trip.id ? "#d98b7f" : trip.color.border}` }}
+                          style={{ background: trip.color.bg, borderColor: selectedTrip?.id === trip.id ? "#ff6b6b" : trip.color.border, boxShadow: `5px 5px 0 ${selectedTrip?.id === trip.id ? "#ff6b6b" : trip.color.border}` }}
                           onClick={() => { setSelectedTripId(trip.id); setActiveTab("Overview"); }}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
@@ -1387,7 +1387,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                         onClick={() => setShowCreateModal(true)}
                         style={{ border: "3px dashed #b9b1a2", borderRadius: 18, padding: "18px 16px", textAlign: "center", cursor: "pointer", transition: "border-color 0.2s, transform 0.2s", background: "rgba(255,255,255,0.68)" }}
                         onMouseEnter={e => {
-                          e.currentTarget.style.borderColor = "#d98b7f";
+                          e.currentTarget.style.borderColor = "#ff6b6b";
                           e.currentTarget.style.transform = "translate(-2px, -2px)";
                         }}
                         onMouseLeave={e => {
@@ -1925,7 +1925,7 @@ export default function OutsidersTripPlanning({ onNavigate, appData, setAppData,
                     </p>
                   )}
                 </div>
-                {formError && <p style={{ fontFamily: "'Bangers', cursive", fontSize: 15, color: "#d98b7f", margin: 0, letterSpacing: "0.04em" }}>{formError}</p>}
+                {formError && <p style={{ fontFamily: "'Bangers', cursive", fontSize: 15, color: "#ff6b6b", margin: 0, letterSpacing: "0.04em" }}>{formError}</p>}
                 <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 20, padding: "14px", marginTop: 4 }} onClick={createTrip}>
                   Create Trip 🚀
                 </button>

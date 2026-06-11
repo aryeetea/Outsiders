@@ -59,7 +59,7 @@ class ErrorBoundary extends Component {
           textAlign: "center",
         }}>
           <div style={{
-            width: 56, height: 56, background: "#d98b7f",
+            width: 56, height: 56, background: "#ff6b6b",
             border: "4px solid #1a1a2e", borderRadius: 14,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 28, boxShadow: "4px 4px 0 #1a1a2e",
@@ -75,7 +75,7 @@ class ErrorBoundary extends Component {
             onClick={() => window.location.reload()}
             style={{
               marginTop: 8, padding: "12px 28px",
-              background: "#d98b7f", color: "#fff",
+              background: "#ff6b6b", color: "#fff",
               border: "3px solid #1a1a2e", borderRadius: 10,
               fontFamily: "'Bangers', cursive", fontSize: 20,
               letterSpacing: "0.06em", cursor: "pointer",
@@ -743,7 +743,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
           width: 100%;
           border: 3px solid #1a1a2e;
           border-radius: 12px;
-          background: #d98b7f;
+          background: #ff6b6b;
           color: #fff;
           font: 400 18px 'Bangers', cursive;
           letter-spacing: 0.06em;
@@ -788,7 +788,7 @@ async function fetchSharedAppData(user, previousAppData = {}) {
           text-overflow: ellipsis;
         }
         .outsiders-toast.warn { background: #ff9a3c; color: #1a1a2e; border-color: #1a1a2e; }
-        .outsiders-toast.error { background: #d98b7f; color: #fff; border-color: #1a1a2e; }
+        .outsiders-toast.error { background: #ff6b6b; color: #fff; border-color: #1a1a2e; }
         @keyframes toastIn {
           from { opacity: 0; transform: translateX(-50%) translateY(12px); }
           to { opacity: 1; transform: translateX(-50%) translateY(0); }

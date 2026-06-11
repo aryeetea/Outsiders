@@ -307,7 +307,7 @@ const STYLES = `
   }
 
   .availability-btn.primary {
-    background: #d98b7f;
+    background: #ff6b6b;
     color: white;
     box-shadow: 4px 4px 0 #1a1a2e;
   }

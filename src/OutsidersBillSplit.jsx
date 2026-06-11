@@ -83,8 +83,8 @@ const STYLES = `
     font: 400 clamp(52px, 8vw, 92px) 'Bangers', cursive;
     line-height: 0.92;
     letter-spacing: 0.05em;
-    color: #d98b7f;
-    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(217, 139, 127, 0.16);
+    color: #ff6b6b;
+    text-shadow: 6px 0 0 #1a1a2e, 12px 0 0 rgba(255, 107, 107, 0.18);
     max-width: 9ch;
   }
   .bill-subtitle {
@@ -211,7 +211,7 @@ const STYLES = `
   .tab-btn.active {
     background: #17151f;
     color: #fff8dc;
-    box-shadow: 4px 4px 0 #d98b7f;
+    box-shadow: 4px 4px 0 #ff6b6b;
   }
   .btn-primary,
   .btn-secondary,
@@ -223,7 +223,7 @@ const STYLES = `
     font-weight: 900;
   }
   .btn-primary {
-    background: #d98b7f;
+    background: #ff6b6b;
     color: #fff;
     box-shadow: 4px 4px 0 #1a1a2e;
     padding: 12px 18px;
@@ -285,8 +285,8 @@ const STYLES = `
   .field input:focus,
   .field select:focus,
   .field textarea:focus {
-    border-color: #d98b7f;
-    box-shadow: 3px 3px 0 #d98b7f;
+    border-color: #ff6b6b;
+    box-shadow: 3px 3px 0 #ff6b6b;
   }
   .field textarea {
     min-height: 96px;
@@ -491,7 +491,7 @@ const STYLES = `
   }
 `;
 
-const AVATAR_COLORS = ["#d98b7f", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
+const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
 const PAYMENT_TYPES = ["Venmo", "Cash App", "Zelle", "PayPal", "Apple Cash", "Cash", "Bank transfer"];
 const EXPENSE_CATEGORIES = ["Food", "Transport", "Tickets", "Stay", "Supplies", "Other"];
 const MAX_PAYMENT_METHODS_PER_MEMBER = 2;
@@ -1101,7 +1101,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                   </div>
                                 </div>
                                 <div style={{ textAlign: "right" }}>
-                                  <div className="bangers" style={{ fontSize: 28, color: expense.settled ? "#9aa0ab" : "#d98b7f" }}>
+                                  <div className="bangers" style={{ fontSize: 28, color: expense.settled ? "#9aa0ab" : "#ff6b6b" }}>
                                     {formatMoney(expense.amount)}
                                   </div>
                                   <div className="helper-copy">Added {formatDate(expense.createdAt)}</div>
@@ -1149,13 +1149,13 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                     This is the cleanest next move based on the crew's open expenses.
                                   </div>
                                 </div>
-                                <div className="bangers" style={{ fontSize: 30, color: "#d98b7f" }}>
+                                <div className="bangers" style={{ fontSize: 30, color: "#ff6b6b" }}>
                                   {formatMoney(settlement.amount)}
                                 </div>
                               </div>
                               <div className="stack-row">
-                                <div className="avatar" style={{ background: fromMember?.color || "#d98b7f" }}>{fromMember?.initials || "??"}</div>
-                                <span style={{ fontWeight: 900, color: "#d98b7f" }}>{fromMember?.name || "Member"}</span>
+                                <div className="avatar" style={{ background: fromMember?.color || "#ff6b6b" }}>{fromMember?.initials || "??"}</div>
+                                <span style={{ fontWeight: 900, color: "#ff6b6b" }}>{fromMember?.name || "Member"}</span>
                                 <span style={{ fontWeight: 900, color: "#667085" }}>→</span>
                                 <div className="avatar" style={{ background: toMember?.color || "#51cf66" }}>{toMember?.initials || "??"}</div>
                                 <span style={{ fontWeight: 900, color: "#0f766e" }}>{toMember?.name || "Member"}</span>
@@ -1202,7 +1202,7 @@ export default function OutsidersBillSplit({ onNavigate, appData, setAppData, ro
                                   </div>
                                 </div>
                                 <div style={{ textAlign: "right" }}>
-                                  <div className="bangers" style={{ fontSize: 28, color: positive ? "#51cf66" : negative ? "#d98b7f" : "#9aa0ab" }}>
+                                  <div className="bangers" style={{ fontSize: 28, color: positive ? "#51cf66" : negative ? "#ff6b6b" : "#9aa0ab" }}>
                                     {positive ? "+" : negative ? "-" : ""}{formatMoney(Math.abs(balance))}
                                   </div>
                                   <span className={`payment-badge ${positive || negative ? "ready" : "missing"}`}>
