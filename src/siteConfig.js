@@ -44,5 +44,6 @@ export function buildGroupInviteLink(codeOrParams) {
     : { groupCode: codeOrParams };
   return buildAppUrl("create-crew", {
     groupCode: params.groupCode ? String(params.groupCode).trim().toUpperCase() : "",
+    inviteCode: params.inviteCode ? String(params.inviteCode).trim().toUpperCase() : "",
   });
 }

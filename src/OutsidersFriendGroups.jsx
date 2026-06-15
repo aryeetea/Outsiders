@@ -675,6 +675,23 @@ function normalizeOwnerUsername(value = "") {
   return String(value || "").replace(/^@/, "").trim().toLowerCase();
 }
 
+function generateInviteSuffix(length = 4) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
+function normalizeInviteCode(value = "") {
+  return String(value || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").trim();
+}
+
+function getGroupInviteEntries(group = {}) {
+  return (group.pending || []).filter((item) => (
+    item?.type !== "join-request"
+    && item?.type !== "decline-note"
+    && String(item?.inviteCode || "").trim()
+  ));
+}
+
 function isSameGroupMember(member = {}, profile = {}, currentUserId = null, currentName = "") {
   return (
     (currentUserId && String(member.userId || "").trim() === String(currentUserId).trim())
@@ -734,14 +751,39 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   });
   const [notice, setNotice] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
+  const [customInviteCode, setCustomInviteCode] = useState("");
+  const [selectedInviteCode, setSelectedInviteCode] = useState("");
+  const [isSavingInviteCode, setIsSavingInviteCode] = useState(false);
   const [isSendingInviteEmail, setIsSendingInviteEmail] = useState(false);
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
   const currentMember = selectedGroup?.members?.find((member) => isSameGroupMember(member, profile, currentUserId, currentName)) || null;
   const isCurrentMemberAdmin = currentMember?.role === "Admin";
+  const inviteEntries = useMemo(() => getGroupInviteEntries(selectedGroup), [selectedGroup]);
+  const activeInviteCode = selectedInviteCode && inviteEntries.some((item) => String(item.inviteCode) === String(selectedInviteCode))
+    ? selectedInviteCode
+    : (inviteEntries[0]?.inviteCode || selectedGroup?.code || "");
+  const activeInviteLink = activeInviteCode
+    ? buildGroupInviteLink(
+        activeInviteCode === selectedGroup?.code
+          ? { groupCode: activeInviteCode }
+          : { inviteCode: activeInviteCode }
+      )
+    : "";
   const debriefCount = selectedGroup?.cases?.length || 0;
   const openDebriefCount = (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length;
   const editingProposal = selectedGroup?.hangoutProposals?.find((proposal) => proposal.id === editingProposalId) || null;
   const pendingDeclines = (selectedGroup?.pending || []).filter((item) => item?.type === "decline-note");
+
+  useEffect(() => {
+    if (!selectedGroup) return;
+    const availableCodes = new Set([
+      String(selectedGroup.code || "").trim().toUpperCase(),
+      ...inviteEntries.map((item) => String(item.inviteCode || "").trim().toUpperCase()),
+    ]);
+    if (!selectedInviteCode || !availableCodes.has(String(selectedInviteCode).trim().toUpperCase())) {
+      setSelectedInviteCode(inviteEntries[0]?.inviteCode || selectedGroup.code || "");
+    }
+  }, [inviteEntries, selectedGroup, selectedInviteCode]);
 
   async function persistSharedGroup(nextGroup, options = {}) {
     if (!isSupabaseConfigured || !nextGroup?.id || String(nextGroup.id).startsWith("group-")) return true;
@@ -893,13 +935,12 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   }, [currentName, profile.availability, profile.username, setAppData]);
 
   const copyCrewInviteLink = async () => {
-    if (!selectedGroup?.code) {
+    if (!activeInviteCode) {
       setNotice("Pick a crew before copying an invite link.");
       return;
     }
 
-    const inviteLink = buildGroupInviteLink(selectedGroup.code);
-    const copied = await copyTextWithAlert(inviteLink, `Crew invite link copied for ${selectedGroup.name}.`);
+    const copied = await copyTextWithAlert(activeInviteLink, `Crew invite link copied for ${selectedGroup.name}.`);
     if (copied) {
       setNotice(`Invite link copied for ${selectedGroup.name}.`);
     } else {
@@ -907,8 +948,114 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     }
   };
 
+  const upsertInviteCode = async (nextCode, options = {}) => {
+    if (!selectedGroup) return false;
+
+    const normalizedCode = normalizeInviteCode(nextCode);
+    if (!normalizedCode) {
+      setNotice("Enter an invite code first.");
+      return false;
+    }
+    if (normalizedCode.length < 4) {
+      setNotice("Invite codes should be at least 4 characters.");
+      return false;
+    }
+
+    const currentCodes = new Set([
+      String(selectedGroup.code || "").trim().toUpperCase(),
+      ...inviteEntries.map((item) => String(item.inviteCode || "").trim().toUpperCase()),
+    ]);
+    if (currentCodes.has(normalizedCode)) {
+      setSelectedInviteCode(normalizedCode);
+      setNotice("That invite code is already active for this crew.");
+      return false;
+    }
+
+    const localConflict = (appData?.groups || []).some((group) => {
+      if (String(group.id) === String(selectedGroup.id)) return false;
+      if (String(group.code || "").trim().toUpperCase() === normalizedCode) return true;
+      return getGroupInviteEntries(group).some((item) => String(item.inviteCode || "").trim().toUpperCase() === normalizedCode);
+    });
+    if (localConflict) {
+      setNotice("That invite code is already being used by another crew.");
+      return false;
+    }
+
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.rpc("find_group_by_join_code", { join_code: normalizedCode });
+        if (error) {
+          setNotice(error.message || "We could not validate that invite code.");
+          return false;
+        }
+        if (data && String(data.id) !== String(selectedGroup.id)) {
+          setNotice("That invite code is already being used by another crew.");
+          return false;
+        }
+        if (data && String(data.id) === String(selectedGroup.id)) {
+          setSelectedInviteCode(normalizedCode);
+          setNotice("That invite code is already active for this crew.");
+          return false;
+        }
+      } catch (error) {
+        setNotice(error?.message || "We could not validate that invite code.");
+        return false;
+      }
+    }
+
+    const nextInviteEntry = {
+      id: createId("invite"),
+      type: "direct-invite",
+      inviteCode: normalizedCode,
+      createdAt: new Date().toISOString(),
+      createdBy: currentName,
+    };
+    const nextGroup = {
+      ...selectedGroup,
+      pending: [...(selectedGroup.pending || []), nextInviteEntry],
+    };
+    const saved = await persistSharedGroup(nextGroup);
+    if (!saved) return false;
+
+    setAppData?.((prev) => ({
+      ...prev,
+      groups: (prev.groups || []).map((group) => (
+        String(group.id) === String(selectedGroup.id) ? nextGroup : group
+      )),
+    }));
+    setSelectedInviteCode(normalizedCode);
+    if (!options.keepDraft) setCustomInviteCode("");
+    setNotice(`Invite code ${normalizedCode} is ready to share.`);
+    return true;
+  };
+
+  const generateNewInviteCode = async () => {
+    if (!selectedGroup) return;
+    setIsSavingInviteCode(true);
+    try {
+      let created = false;
+      for (let attempt = 0; attempt < 8 && !created; attempt += 1) {
+        created = await upsertInviteCode(`${selectedGroup.code}-${generateInviteSuffix()}`, { keepDraft: false });
+      }
+      if (!created && !notice) {
+        setNotice("We could not generate a fresh invite code right now. Try a custom one.");
+      }
+    } finally {
+      setIsSavingInviteCode(false);
+    }
+  };
+
+  const createCustomInviteCode = async () => {
+    setIsSavingInviteCode(true);
+    try {
+      await upsertInviteCode(customInviteCode);
+    } finally {
+      setIsSavingInviteCode(false);
+    }
+  };
+
   const sendCrewInviteEmail = async () => {
-    if (!selectedGroup?.code) {
+    if (!activeInviteCode) {
       setNotice("Pick a crew before sending an invite email.");
       return;
     }
@@ -923,7 +1070,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
     setNotice("");
 
     try {
-      const inviteLink = buildGroupInviteLink(selectedGroup.code);
+      const inviteLink = activeInviteLink;
       let result;
       try {
         result = await sendNotificationEmails({
@@ -934,7 +1081,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
           ctaUrl: inviteLink,
           details: [
             `Crew: ${selectedGroup.name}`,
-            `Crew code: ${selectedGroup.code}`,
+            `Crew code: ${activeInviteCode}`,
           ],
         });
       } catch (error) {
@@ -944,7 +1091,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
 
       if (result?.failed) {
         const subject = encodeURIComponent(`${currentName} invited you to join ${selectedGroup.name} on Outsiders`);
-        const body = encodeURIComponent(`Hey!\n\n${currentName} invited you to join the crew "${selectedGroup.name}" on Outsiders.\n\nClick the link below to accept or decline the crew invitation:\n${inviteLink}\n\nCrew Code: ${selectedGroup.code}\n\nSee you there!`);
+        const body = encodeURIComponent(`Hey!\n\n${currentName} invited you to join the crew "${selectedGroup.name}" on Outsiders.\n\nClick the link below to accept or decline the crew invitation:\n${inviteLink}\n\nCrew Code: ${activeInviteCode}\n\nSee you there!`);
         window.location.assign(`mailto:${email}?subject=${subject}&body=${body}`);
         setNotice(`Opened email draft for ${email} as a fallback.`);
       } else {
@@ -1797,8 +1944,8 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
 
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "18px 20px", background: "#ffd93d", border: "4px solid #1a1a2e", borderRadius: 16, boxShadow: "5px 5px 0 #1a1a2e", marginBottom: 22 }}>
                         <div>
-                          <p className="bangers" style={{ margin: "0 0 4px", fontSize: 13, letterSpacing: "0.12em", color: "#6b5a00" }}>YOUR CREW CODE</p>
-                          <p className="bangers" style={{ margin: 0, fontSize: 42, letterSpacing: "0.22em", color: "#1a1a2e", lineHeight: 1 }}>{selectedGroup.code}</p>
+                          <p className="bangers" style={{ margin: "0 0 4px", fontSize: 13, letterSpacing: "0.12em", color: "#6b5a00" }}>ACTIVE INVITE CODE</p>
+                          <p className="bangers" style={{ margin: 0, fontSize: 42, letterSpacing: "0.22em", color: "#1a1a2e", lineHeight: 1 }}>{activeInviteCode}</p>
                           <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 800, color: "#6b5a00" }}>Share this code or the link below so someone can join the crew.</p>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
@@ -1806,7 +1953,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                             type="button"
                             className="btn ghost"
                             style={{ whiteSpace: "nowrap" }}
-                            onClick={() => void copyTextWithAlert(selectedGroup.code, "Crew code copied.")}
+                            onClick={() => void copyTextWithAlert(activeInviteCode, "Crew code copied.")}
                           >
                             Copy code
                           </button>
@@ -1814,16 +1961,121 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
                             type="button"
                             className="btn ghost"
                             style={{ whiteSpace: "nowrap" }}
-                            onClick={() => void copyTextWithAlert(buildGroupInviteLink(selectedGroup.code), "Crew invite link copied.")}
+                            onClick={() => void copyTextWithAlert(activeInviteLink, "Crew invite link copied.")}
                           >
                             Copy link
                           </button>
                         </div>
                       </div>
 
+                      <div className="invite-link-box" style={{ marginBottom: 16 }}>
+                        <strong>Manage invite codes</strong>
+                        <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
+                          Keep the original crew code, generate extra ones, or make a custom code for a specific person or group.
+                        </p>
+                        <div style={{ display: "grid", gap: 10 }}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedInviteCode(selectedGroup.code)}
+                            onKeyDown={(event) => event.key === "Enter" && setSelectedInviteCode(selectedGroup.code)}
+                            style={{
+                              borderRadius: 14,
+                              border: `3px solid ${activeInviteCode === selectedGroup.code ? "#1a1a2e" : "rgba(23,21,31,0.18)"}`,
+                              background: activeInviteCode === selectedGroup.code ? "#fff3c8" : "#fffdf7",
+                              boxShadow: activeInviteCode === selectedGroup.code ? "4px 4px 0 #1a1a2e" : "none",
+                              padding: "12px 14px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <strong style={{ display: "block" }}>{selectedGroup.code}</strong>
+                            <span style={{ color: "#667085", fontWeight: 800, fontSize: 13 }}>Original crew code</span>
+                          </div>
+                          {inviteEntries.map((item) => (
+                            <div
+                              key={item.id}
+                              style={{
+                                borderRadius: 14,
+                                border: `3px solid ${activeInviteCode === item.inviteCode ? "#1a1a2e" : "rgba(23,21,31,0.18)"}`,
+                                background: activeInviteCode === item.inviteCode ? "#eef8ff" : "#fffdf7",
+                                boxShadow: activeInviteCode === item.inviteCode ? "4px 4px 0 #1a1a2e" : "none",
+                                padding: "12px 14px",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 12,
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                className="btn ghost"
+                                style={{ padding: "8px 12px", fontSize: 13, flex: "1 1 220px", textAlign: "left" }}
+                                onClick={() => setSelectedInviteCode(item.inviteCode)}
+                              >
+                                {item.inviteCode}
+                              </button>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <button
+                                  type="button"
+                                  className="btn ghost"
+                                  style={{ padding: "8px 12px", fontSize: 13 }}
+                                  onClick={() => void copyTextWithAlert(item.inviteCode, "Invite code copied.")}
+                                >
+                                  Copy code
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn ghost"
+                                  style={{ padding: "8px 12px", fontSize: 13 }}
+                                  onClick={() => void clearPendingInviteNote(item.id)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => void generateNewInviteCode()}
+                            disabled={isSavingInviteCode}
+                          >
+                            {isSavingInviteCode ? "Saving..." : "Generate new code"}
+                          </button>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                          <input
+                            type="text"
+                            value={customInviteCode}
+                            onChange={(event) => setCustomInviteCode(normalizeInviteCode(event.target.value))}
+                            onKeyDown={(event) => event.key === "Enter" && void createCustomInviteCode()}
+                            placeholder="BRUNCH-SQUAD"
+                            style={{
+                              flex: "1 1 220px",
+                              border: "3px solid #1a1a2e",
+                              borderRadius: 10,
+                              padding: "10px 12px",
+                              font: "800 14px 'Nunito', sans-serif",
+                              background: "#fffdf7",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="btn ghost"
+                            onClick={() => void createCustomInviteCode()}
+                            disabled={isSavingInviteCode || !customInviteCode.trim()}
+                          >
+                            Save custom code
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="invite-link-box">
                         <strong>Share this invite link</strong>
-                        <div className="invite-link-value">{buildGroupInviteLink(selectedGroup.code)}</div>
+                        <div className="invite-link-value">{activeInviteLink}</div>
                         <p style={{ margin: 0, color: "#667085", fontWeight: 800, lineHeight: 1.5 }}>
                           Send this link to someone so they can join the crew directly.
                         </p>
