@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getAllHangoutProposals } from "./appState";
+import { getAllHangoutProposals, getCurrentUserKey, getDisplayName } from "./appState";
 import OutsidersSideNav from "./OutsidersSideNav";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
@@ -370,17 +370,46 @@ function createEmptyRating(itemType) {
   };
 }
 
+function getInitials(name = "You") {
+  const parts = String(name || "You").trim().split(/\s+/).filter(Boolean);
+  return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : parts[0]?.slice(0, 3) || "YOU").toUpperCase();
+}
+
+function getRatingReviewerKey(rating = {}) {
+  return rating.reviewerKey || rating.userKey || (rating.member === 0 ? "local:you" : `member:${rating.member ?? "unknown"}`);
+}
+
+function isCurrentUserRating(rating = {}, currentUserKey) {
+  return getRatingReviewerKey(rating) === currentUserKey || (!rating.reviewerKey && rating.member === 0);
+}
+
+function getRatingAuthorName(rating = {}) {
+  if (rating.memberName) return rating.memberName;
+  if (rating.name) return rating.name;
+  if (Number.isInteger(rating.member) && MEMBERS[rating.member]) return MEMBERS[rating.member].name;
+  return "Crew member";
+}
+
+function getRatingAuthorInitials(rating = {}) {
+  if (rating.memberInitials) return rating.memberInitials;
+  if (Number.isInteger(rating.member) && MEMBERS[rating.member]) return MEMBERS[rating.member].initials;
+  return getInitials(getRatingAuthorName(rating));
+}
+
 export default function OutsidersRateOuting({ onNavigate, appData, setAppData }) {
   const outings = useMemo(() => normalizeRateableItems(appData), [appData]);
   const [activeTab, setActiveTab] = useState("Rate");
   const [selectedOuting, setSelectedOuting] = useState(() => outings[0] || null);
   const [rating, setRating] = useState(() => createEmptyRating(outings[0]?.itemType || "outing"));
+  const [commentDraft, setCommentDraft] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const currentType = selectedOuting?.itemType || "outing";
   const categories = CATEGORY_SETS[currentType];
   const pageCopy = getTypeCopy(currentType);
-  const alreadyRated = selectedOuting?.ratings.some(r => r.member === 0);
-  const profileName = appData?.profile?.name || appData?.profile?.username || "You";
+  const currentUserKey = getCurrentUserKey(appData?.profile || {});
+  const profileName = getDisplayName(appData?.profile || {});
+  const myExistingRating = selectedOuting?.ratings.find((item) => isCurrentUserRating(item, currentUserKey));
+  const alreadyRated = Boolean(myExistingRating);
 
   useEffect(() => {
     if (!outings.length) {
@@ -399,9 +428,10 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
 
   useEffect(() => {
     setRating(createEmptyRating(selectedOuting?.itemType || "outing"));
+    setCommentDraft(myExistingRating?.comment || "");
     setSubmitted(false);
     setActiveTab("Rate");
-  }, [selectedOuting?.id, selectedOuting?.itemType]);
+  }, [currentUserKey, selectedOuting?.id, selectedOuting?.itemType]);
 
   const updateSelectedFromAppData = async (updatedItem) => {
     if (updatedItem.itemType === "trip") {
@@ -464,12 +494,50 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
 
   const handleSubmit = async () => {
     if (rating.overall === 0) return;
-    const newRating = { member: 0, overall: rating.overall, categories: rating.categories, comment: rating.comment };
-    const updatedOuting = { ...selectedOuting, ratings: [...selectedOuting.ratings.filter(r => r.member !== 0), newRating] };
+    const now = new Date().toISOString();
+    const newRating = {
+      ...myExistingRating,
+      member: myExistingRating?.member ?? 0,
+      reviewerKey: currentUserKey,
+      memberName: profileName,
+      memberInitials: getInitials(profileName),
+      overall: rating.overall,
+      categories: rating.categories,
+      comment: rating.comment.trim(),
+      createdAt: myExistingRating?.createdAt || now,
+      updatedAt: now,
+    };
+    const updatedOuting = {
+      ...selectedOuting,
+      ratings: [...selectedOuting.ratings.filter((item) => !isCurrentUserRating(item, currentUserKey)), newRating],
+    };
     const success = await updateSelectedFromAppData(updatedOuting);
     if (success) {
       setSubmitted(true);
+      setCommentDraft(newRating.comment);
+      setActiveTab("All Ratings");
     }
+  };
+
+  const updateMyComment = async (nextComment) => {
+    if (!selectedOuting || !myExistingRating) return;
+    const updatedOuting = {
+      ...selectedOuting,
+      ratings: selectedOuting.ratings.map((item) => (
+        isCurrentUserRating(item, currentUserKey)
+          ? { ...item, comment: nextComment.trim(), updatedAt: new Date().toISOString() }
+          : item
+      )),
+    };
+    const success = await updateSelectedFromAppData(updatedOuting);
+    if (success) {
+      setCommentDraft(nextComment.trim());
+      setActiveTab("All Ratings");
+    }
+  };
+
+  const handleDeleteMyComment = async () => {
+    await updateMyComment("");
   };
 
   return (
@@ -519,7 +587,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                     <div className="rating-list-stack">
                       {outings.map(o => {
                         const avg = avgRating(o);
-                        const myRating = o.ratings.find(r => r.member === 0);
+                        const myRating = o.ratings.find((item) => isCurrentUserRating(item, currentUserKey));
                         return (
                           <div key={o.id} onClick={() => { setSelectedOuting(o); setRating(createEmptyRating(o.itemType)); setSubmitted(false); setActiveTab("Rate"); }} style={{ background: selectedOuting?.id === o.id ? o.color.bg || o.color : "#fff", border: `3px solid ${selectedOuting?.id === o.id ? o.color.border || o.border : "#1a1a2e"}`, borderRadius: 14, padding: "16px 18px", cursor: "pointer", boxShadow: `5px 5px 0 ${selectedOuting?.id === o.id ? o.color.border || o.border : "#1a1a2e"}`, transition: "all 0.15s" }}>
                             <p className="bangers" style={{ fontSize: 16, margin: "0 0 4px", color: "#1a1a2e" }}>{o.name}</p>
@@ -577,10 +645,32 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                   {activeTab === "Rate" && (
                     <div>
                       {(alreadyRated && !submitted) ? (
-                        <div className="card" style={{ textAlign: "center" }}>
-                          <p style={{ fontSize: 36, margin: "0 0 8px" }}>✅</p>
-                          <p className="bangers" style={{ fontSize: 22, margin: "0 0 4px" }}>You already rated this {pageCopy.thing}!</p>
-                          <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: 0 }}>Check "All Ratings" to see what the crew thought.</p>
+                        <div className="card" style={{ display: "grid", gap: 14 }}>
+                          <div style={{ textAlign: "center" }}>
+                            <p style={{ fontSize: 36, margin: "0 0 8px" }}>✅</p>
+                            <p className="bangers" style={{ fontSize: 22, margin: "0 0 4px" }}>You already rated this {pageCopy.thing}!</p>
+                            <p style={{ fontSize: 14, fontWeight: 700, color: "#888", margin: 0 }}>Your comment is visible to everyone in this hangout.</p>
+                          </div>
+                          <div>
+                            <p className="bangers" style={{ fontSize: 18, margin: "0 0 10px" }}>💬 Your comment</p>
+                            <textarea
+                              className="form-input"
+                              rows={3}
+                              placeholder="Add a comment for the crew..."
+                              value={commentDraft}
+                              onChange={(event) => setCommentDraft(event.target.value)}
+                            />
+                          </div>
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                            <button className="btn-primary" onClick={() => updateMyComment(commentDraft)} style={{ background: "#4ecdc4" }}>
+                              Save Comment 💬
+                            </button>
+                            {myExistingRating?.comment && (
+                              <button className="btn-primary" onClick={handleDeleteMyComment} style={{ background: "#fff", color: "#ff6b6b" }}>
+                                Delete My Comment
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ) : submitted ? (
                         <div className="card" style={{ textAlign: "center", background: "#e8fde8", borderColor: "#51cf66", boxShadow: "5px 5px 0 #51cf66" }}>
@@ -641,12 +731,14 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                           <p style={{ fontSize: 32, margin: "0 0 8px" }}>😶</p>
                           <p className="bangers" style={{ fontSize: 18, color: "#aaa", margin: 0 }}>No ratings yet!</p>
                         </div>
-                      ) : selectedOuting.ratings.map((r, i) => (
-                        <div key={i} className="review-card">
+                      ) : selectedOuting.ratings.map((r, i) => {
+                        const isMine = isCurrentUserRating(r, currentUserKey);
+                        return (
+                        <div key={`${getRatingReviewerKey(r)}-${i}`} className="review-card">
                           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                            <div className="avatar" style={{ background: AVATAR_COLORS[r.member] }}>{MEMBERS[r.member].initials}</div>
+                            <div className="avatar" style={{ background: AVATAR_COLORS[(r.member ?? i) % AVATAR_COLORS.length] }}>{getRatingAuthorInitials(r)}</div>
                             <div style={{ flex: 1 }}>
-                              <p style={{ fontWeight: 900, fontSize: 14, margin: 0 }}>{MEMBERS[r.member].name}</p>
+                              <p style={{ fontWeight: 900, fontSize: 14, margin: 0 }}>{getRatingAuthorName(r)}{isMine ? " (you)" : ""}</p>
                             </div>
                             <span className="bangers" style={{ fontSize: 24, color: r.overall >= 8 ? "#51cf66" : r.overall >= 5 ? "#ff9a3c" : "#ff6b6b" }}>⭐ {r.overall}/10</span>
                           </div>
@@ -658,9 +750,27 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                               </div>
                             ))}
                           </div>
-                          {r.comment && <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: 0, fontStyle: "italic" }}>"{r.comment}"</p>}
+                          {r.comment ? (
+                            <div style={{ display: "grid", gap: 10 }}>
+                              <p style={{ fontSize: 14, fontWeight: 700, color: "#555", margin: 0, fontStyle: "italic" }}>"{r.comment}"</p>
+                              {isMine && (
+                                <button
+                                  className="btn-primary"
+                                  onClick={handleDeleteMyComment}
+                                  style={{ justifySelf: "start", background: "#fff", color: "#ff6b6b", padding: "8px 16px", fontSize: 15 }}
+                                >
+                                  Delete My Comment
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <p style={{ fontSize: 13, fontWeight: 800, color: "#9a9ca5", margin: 0 }}>
+                              {isMine ? "You have not left a comment yet. Add one from the Rate tab." : "No comment left."}
+                            </p>
+                          )}
                         </div>
-                      ))}
+                      );
+                      })}
                     </div>
                   )}
                     </div>
