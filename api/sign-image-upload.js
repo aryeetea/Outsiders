@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   const missingConfig = getMissingR2Config();
   if (missingConfig.length) {
     res.status(500).json({
-      error: `Missing R2 configuration: ${missingConfig.join(", ")}`,
+      error: `Missing R2 configuration: ${missingConfig.join(", ")}. Add these server environment variables in Vercel Project Settings, then redeploy.`,
     });
     return;
   }
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
   try {
     const client = createR2Client();
     const command = new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
+      Bucket: String(process.env.R2_BUCKET_NAME || "").trim(),
       Key: key,
       ContentType: contentType,
     });
@@ -59,6 +59,7 @@ export default async function handler(req, res) {
       publicUrl: `${publicBaseUrl}/${key}`,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message || "Could not create upload URL." });
+    console.error("sign-image-upload failed", error);
+    res.status(500).json({ error: error?.message || "Could not create upload URL." });
   }
 }

@@ -463,7 +463,11 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
 
     const signPayload = await signResponse.json().catch(() => ({}));
     if (!signResponse.ok) {
-      throw new Error(signPayload?.error || "Could not prepare that upload.");
+      const errorMessage = String(signPayload?.error || "");
+      if (errorMessage.includes("Missing R2 configuration")) {
+        throw new Error("Photo uploads are not configured for this deployment yet. Add the R2 server environment variables in Vercel and redeploy.");
+      }
+      throw new Error(errorMessage || "Could not prepare that upload.");
     }
 
     const uploadResponse = await fetch(signPayload.uploadUrl, {
