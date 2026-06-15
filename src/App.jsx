@@ -144,6 +144,41 @@ function getInitialAppData() {
   }
 }
 
+function stripGalleryDataUrls(proposal = {}) {
+  const gallery = Array.isArray(proposal.gallery)
+    ? proposal.gallery.map((photo) => {
+      if (!photo || typeof photo !== "object") return photo;
+      const { dataUrl, ...rest } = photo;
+      return rest;
+    })
+    : proposal.gallery;
+
+  return {
+    ...proposal,
+    gallery,
+  };
+}
+
+function getAppDataForStorage(appData = {}) {
+  return {
+    ...appData,
+    groups: Array.isArray(appData.groups)
+      ? appData.groups.map((group) => ({
+        ...group,
+        hangoutProposals: Array.isArray(group.hangoutProposals)
+          ? group.hangoutProposals.map(stripGalleryDataUrls)
+          : group.hangoutProposals,
+        hangout_proposals: Array.isArray(group.hangout_proposals)
+          ? group.hangout_proposals.map(stripGalleryDataUrls)
+          : group.hangout_proposals,
+      }))
+      : appData.groups,
+    hangouts: Array.isArray(appData.hangouts)
+      ? appData.hangouts.map(stripGalleryDataUrls)
+      : appData.hangouts,
+  };
+}
+
 function mergeGroupsByIdentity(primaryGroups = [], secondaryGroups = []) {
   const merged = new Map();
 
@@ -634,7 +669,11 @@ async function fetchSharedAppData(user, previousAppData = {}) {
   }, [currentSession?.user?.id]);
 
   useEffect(() => {
-    window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData));
+    try {
+      window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(getAppDataForStorage(appData)));
+    } catch (error) {
+      console.warn("[Outsiders] Could not persist app data locally:", error?.message || error);
+    }
     persistStoredProfile(appData.profile, appData.avatar);
   }, [appData]);
 
