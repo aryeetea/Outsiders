@@ -215,6 +215,7 @@ const STYLES = `
 `;
 
 const AVATAR_COLORS = ["#ff6b6b", "#4ecdc4", "#a29bfe", "#ffd93d", "#51cf66", "#ff6b9d"];
+const MAX_GALLERY_PHOTOS = 5;
 const MEMBERS = [
   { initials: "YOU", name: "You" },
 ];
@@ -412,6 +413,10 @@ function formatUploadDate(value) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function canDeletePhoto(photo = {}, currentUserKey) {
+  return !photo.uploaderKey || photo.uploaderKey === currentUserKey;
+}
+
 export default function OutsidersRateOuting({ onNavigate, appData, setAppData }) {
   const outings = useMemo(() => normalizeRateableItems(appData), [appData]);
   const [activeTab, setActiveTab] = useState("Rate");
@@ -571,18 +576,31 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
       return;
     }
 
+    const currentPhotoCount = selectedOuting.gallery?.length || 0;
+    const remainingSlots = MAX_GALLERY_PHOTOS - currentPhotoCount;
+    if (remainingSlots <= 0) {
+      setGalleryError(`This hangout gallery already has the ${MAX_GALLERY_PHOTOS} picture limit.`);
+      return;
+    }
+
     const tooLarge = imageFiles.find((file) => file.size > 2.5 * 1024 * 1024);
     if (tooLarge) {
       setGalleryError("Each picture needs to be under 2.5 MB for this shared gallery.");
       return;
     }
 
-    setGalleryError("");
+    if (imageFiles.length > remainingSlots) {
+      setGalleryError(`Only ${remainingSlots} more picture${remainingSlots === 1 ? "" : "s"} can be added to this gallery.`);
+    } else {
+      setGalleryError("");
+    }
+
+    const filesToUpload = imageFiles.slice(0, remainingSlots);
     setIsUploadingPhotos(true);
 
     try {
       const now = new Date().toISOString();
-      const newPhotos = await Promise.all(imageFiles.slice(0, 8).map(async (file) => ({
+      const newPhotos = await Promise.all(filesToUpload.map(async (file) => ({
         id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name: file.name || "hangout-photo.jpg",
         type: file.type || "image/jpeg",
@@ -603,6 +621,21 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
       setGalleryError(error?.message || "Those pictures could not be uploaded.");
     } finally {
       setIsUploadingPhotos(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId) => {
+    if (!selectedOuting || selectedOuting.itemType !== "outing") return;
+    const photo = (selectedOuting.gallery || []).find((item) => String(item.id) === String(photoId));
+    if (!photo || !canDeletePhoto(photo, currentUserKey)) return;
+
+    const updatedOuting = {
+      ...selectedOuting,
+      gallery: (selectedOuting.gallery || []).filter((item) => String(item.id) !== String(photoId)),
+    };
+    const success = await updateSelectedFromAppData(updatedOuting);
+    if (success) {
+      setGalleryError("");
     }
   };
 
@@ -846,7 +879,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                         <div>
                           <p className="bangers" style={{ fontSize: 22, margin: "0 0 4px" }}>📸 Hangout Gallery</p>
                           <p style={{ fontSize: 14, fontWeight: 800, color: "#777", margin: 0 }}>
-                            Share pictures from this hangout. Everyone in the crew can view and download them.
+                            Share up to {MAX_GALLERY_PHOTOS} pictures from this hangout. Everyone in the hangout can view and download them.
                           </p>
                         </div>
                         <label className="btn-primary" style={{ background: "#4ecdc4" }}>
@@ -856,7 +889,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                             accept="image/*"
                             multiple
                             onChange={handlePhotoUpload}
-                            disabled={isUploadingPhotos}
+                            disabled={isUploadingPhotos || (selectedOuting.gallery || []).length >= MAX_GALLERY_PHOTOS}
                             style={{ display: "none" }}
                           />
                         </label>
@@ -874,8 +907,11 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                         </div>
                       ) : (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
-                          {(selectedOuting.gallery || []).map((photo, index) => (
-                            <div key={photo.id || `${photo.name}-${index}`} style={{ border: "3px solid #1a1a2e", borderRadius: 14, overflow: "hidden", background: "#fff", boxShadow: "4px 4px 0 #1a1a2e", display: "grid" }}>
+                          {(selectedOuting.gallery || []).map((photo, index) => {
+                            const photoId = photo.id || `${photo.name}-${index}`;
+                            const isOwnUpload = canDeletePhoto(photo, currentUserKey);
+                            return (
+                            <div key={photoId} style={{ border: "3px solid #1a1a2e", borderRadius: 14, overflow: "hidden", background: "#fff", boxShadow: "4px 4px 0 #1a1a2e", display: "grid" }}>
                               <img
                                 src={photo.dataUrl}
                                 alt={photo.name || "Hangout upload"}
@@ -896,9 +932,20 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                                 >
                                   Download
                                 </a>
+                                {isOwnUpload && (
+                                  <button
+                                    className="btn-primary"
+                                    type="button"
+                                    onClick={() => handleDeletePhoto(photoId)}
+                                    style={{ justifyContent: "center", padding: "8px 12px", fontSize: 15, background: "#fff", color: "#ff6b6b" }}
+                                  >
+                                    Delete Upload
+                                  </button>
+                                )}
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
