@@ -398,15 +398,6 @@ function getRatingAuthorInitials(rating = {}) {
   return getInitials(getRatingAuthorName(rating));
 }
 
-function readImageFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
 function formatUploadDate(value) {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "";
@@ -415,6 +406,10 @@ function formatUploadDate(value) {
 
 function canDeletePhoto(photo = {}, currentUserKey) {
   return !photo.uploaderKey || photo.uploaderKey === currentUserKey;
+}
+
+function getPhotoSource(photo = {}) {
+  return photo.url || photo.publicUrl || photo.dataUrl || "";
 }
 
 export default function OutsidersRateOuting({ onNavigate, appData, setAppData }) {
@@ -455,6 +450,54 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
     setSubmitted(false);
     setActiveTab("Rate");
   }, [currentUserKey, selectedOuting?.id, selectedOuting?.itemType]);
+
+  const uploadGalleryImage = async (file) => {
+    const signResponse = await fetch("/api/sign-image-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: file.name || "hangout-photo.jpg",
+        contentType: file.type || "image/jpeg",
+      }),
+    });
+
+    const signPayload = await signResponse.json().catch(() => ({}));
+    if (!signResponse.ok) {
+      throw new Error(signPayload?.error || "Could not prepare that upload.");
+    }
+
+    const uploadResponse = await fetch(signPayload.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "image/jpeg",
+      },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Could not upload that picture.");
+    }
+
+    return {
+      key: signPayload.key,
+      url: signPayload.publicUrl,
+    };
+  };
+
+  const deleteGalleryImage = async (photo) => {
+    if (!photo?.key) return;
+
+    const response = await fetch("/api/delete-image-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: photo.key }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload?.error || "Could not delete that picture from storage.");
+    }
+  };
 
   const updateSelectedFromAppData = async (updatedItem) => {
     if (updatedItem.itemType === "trip") {
@@ -600,17 +643,21 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
 
     try {
       const now = new Date().toISOString();
-      const newPhotos = await Promise.all(filesToUpload.map(async (file) => ({
-        id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: file.name || "hangout-photo.jpg",
-        type: file.type || "image/jpeg",
-        size: file.size,
-        dataUrl: await readImageFile(file),
-        uploadedAt: now,
-        uploaderKey: currentUserKey,
-        uploaderName: profileName,
-        uploaderInitials: getInitials(profileName),
-      })));
+      const newPhotos = await Promise.all(filesToUpload.map(async (file) => {
+        const uploadedPhoto = await uploadGalleryImage(file);
+        return {
+          id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name || "hangout-photo.jpg",
+          type: file.type || "image/jpeg",
+          size: file.size,
+          key: uploadedPhoto.key,
+          url: uploadedPhoto.url,
+          uploadedAt: now,
+          uploaderKey: currentUserKey,
+          uploaderName: profileName,
+          uploaderInitials: getInitials(profileName),
+        };
+      }));
 
       const updatedOuting = {
         ...selectedOuting,
@@ -628,6 +675,13 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
     if (!selectedOuting || selectedOuting.itemType !== "outing") return;
     const photo = (selectedOuting.gallery || []).find((item) => String(item.id) === String(photoId));
     if (!photo || !canDeletePhoto(photo, currentUserKey)) return;
+
+    try {
+      await deleteGalleryImage(photo);
+    } catch (error) {
+      setGalleryError(error?.message || "That picture could not be deleted.");
+      return;
+    }
 
     const updatedOuting = {
       ...selectedOuting,
@@ -910,10 +964,11 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                           {(selectedOuting.gallery || []).map((photo, index) => {
                             const photoId = photo.id || `${photo.name}-${index}`;
                             const isOwnUpload = canDeletePhoto(photo, currentUserKey);
+                            const photoSource = getPhotoSource(photo);
                             return (
                             <div key={photoId} style={{ border: "3px solid #1a1a2e", borderRadius: 14, overflow: "hidden", background: "#fff", boxShadow: "4px 4px 0 #1a1a2e", display: "grid" }}>
                               <img
-                                src={photo.dataUrl}
+                                src={photoSource}
                                 alt={photo.name || "Hangout upload"}
                                 style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block", background: "#f5f3ee" }}
                               />
@@ -926,7 +981,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                                 </div>
                                 <a
                                   className="btn-primary"
-                                  href={photo.dataUrl}
+                                  href={photoSource}
                                   download={photo.name || `hangout-photo-${index + 1}.jpg`}
                                   style={{ justifyContent: "center", textDecoration: "none", padding: "8px 12px", fontSize: 15, background: "#ffd93d", color: "#1a1a2e" }}
                                 >
