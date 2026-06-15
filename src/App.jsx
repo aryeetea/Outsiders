@@ -30,6 +30,7 @@ import {
 } from "./supabase";
 import Outsiders3DBackground from "./Outsiders3DBackground";
 import OutsidersConfettiBackground from "./OutsidersConfettiBackground";
+import OutsidersAssistant from "./OutsidersAssistant";
 
 const DEFAULT_SCREEN = "landing";
 
@@ -855,6 +856,10 @@ async function fetchSharedAppData(user, previousAppData = {}) {
             routeParams={route.params}
             onLogout={logout}
           />
+        )}
+
+        {isAuthenticated && (
+          <OutsidersAssistant route={route} appData={appData} />
         )}
 
         {toast && (
