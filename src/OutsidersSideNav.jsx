@@ -113,6 +113,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           --os-soft-yellow-glow: rgba(243, 217, 120, 0.30);
           --os-soft-gold-glow: rgba(255, 217, 61, 0.18);
           --os-soft-teal-glow: rgba(78, 205, 196, 0.16);
+          --os-mobile-content-shift: min(220px, calc(100vw - 136px));
           min-height: 100vh;
           position: relative;
           z-index: 1;
@@ -379,7 +380,8 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         }
         .os-content {
           min-height: 100vh;
-          transition: margin-left 180ms ease;
+          transition: margin-left 180ms ease, transform 220ms ease;
+          transform: translateX(0);
         }
         .os-overlay {
           display: none;
@@ -546,6 +548,9 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
           .os-content {
             margin-left: 0 !important;
           }
+          .os-shell.mobile-nav-open .os-content {
+            transform: translateX(var(--os-mobile-content-shift));
+          }
           .os-overlay {
             display: block;
             position: fixed;
@@ -556,7 +561,7 @@ export default function OutsidersSideNav({ activeLabel, onNavigate, onLogout, pr
         }
       `}</style>
 
-      <div className="os-shell">
+      <div className={`os-shell ${mobileOpen ? "mobile-nav-open" : ""}`}>
         <div className="os-mobile-bar">
           <button type="button" className="os-mobile-btn" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
             <IconCollapse />

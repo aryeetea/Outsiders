@@ -192,6 +192,21 @@ function getDirectInviteByCode(group = {}, code = "") {
   )) || null;
 }
 
+async function fetchSupabaseGroupByCode(code = "") {
+  const normalizedCode = String(code || "").trim().toUpperCase();
+  if (!normalizedCode || !isSupabaseConfigured) return null;
+
+  const { data, error } = await supabase.rpc("find_group_by_join_code", {
+    join_code: normalizedCode,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? normalizeSupabaseGroup(data) : null;
+}
+
 function notificationRecipientKey(member = {}) {
   if (member.userId) return `user:${member.userId}`;
   if (member.username) return `username:${String(member.username).replace(/^@/, "").toLowerCase()}`;
@@ -274,22 +289,26 @@ export default function OutsidersCreateCrew({
     }
     let active = true;
     async function loadInviteTarget() {
-      let target =
-        (appData?.groups || []).find(
-          (group) =>
-            String(group.code || "").trim().toUpperCase() === prefilledCode ||
-            (group.pending || []).some(
-              (item) =>
-                String(item.inviteCode || "").trim().toUpperCase() === prefilledCode
-            )
-        ) || null;
+      let target = null;
 
-      if (!target && isSupabaseConfigured) {
-        const { data, error } = await supabase.rpc("find_group_by_join_code", {
-          join_code: prefilledCode,
-        });
-        if (!error && data) target = normalizeSupabaseGroup(data);
+      try {
+        target = await fetchSupabaseGroupByCode(prefilledCode);
+      } catch (error) {
+        console.warn("Could not load fresh invite target:", error?.message || error);
       }
+
+      if (!target) {
+        target =
+          (appData?.groups || []).find(
+            (group) =>
+              String(group.code || "").trim().toUpperCase() === prefilledCode ||
+              (group.pending || []).some(
+                (item) =>
+                  String(item.inviteCode || "").trim().toUpperCase() === prefilledCode
+              )
+          ) || null;
+      }
+
       if (active) setInviteTarget(target);
     }
     void loadInviteTarget();
@@ -306,25 +325,27 @@ export default function OutsidersCreateCrew({
   };
 
   const resolveGroupByCode = async (code) => {
-    let target =
-      (appData?.groups || []).find(
-        (group) =>
-          String(group.code || "").trim().toUpperCase() === code ||
-          (group.pending || []).some(
-            (item) =>
-              String(item.inviteCode || "").trim().toUpperCase() === code
-          )
-      ) || null;
+    let target = null;
 
-    if (!target && isSupabaseConfigured) {
-      const { data, error } = await supabase.rpc("find_group_by_join_code", {
-        join_code: code,
-      });
-      if (error) {
+    if (isSupabaseConfigured) {
+      try {
+        target = await fetchSupabaseGroupByCode(code);
+      } catch (error) {
         showNotice(error.message || "We could not look up that crew code.");
         return null;
       }
-      if (data) target = normalizeSupabaseGroup(data);
+    }
+
+    if (!target) {
+      target =
+        (appData?.groups || []).find(
+          (group) =>
+            String(group.code || "").trim().toUpperCase() === code ||
+            (group.pending || []).some(
+              (item) =>
+                String(item.inviteCode || "").trim().toUpperCase() === code
+            )
+        ) || null;
     }
     return target;
   };
