@@ -170,6 +170,7 @@ function normalizeProposal(proposal = {}) {
     completedBy: proposal.completedBy || "",
     completedByKey: proposal.completedByKey || "",
     ratings: Array.isArray(proposal.ratings) ? proposal.ratings : [],
+    gallery: Array.isArray(proposal.gallery) ? proposal.gallery : (Array.isArray(proposal.photos) ? proposal.photos : []),
     location: proposal.location || proposal.finalizedChoice?.location?.label || proposal.finalizedChoice?.location || "",
     date: proposal.date || "",
   };

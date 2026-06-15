@@ -322,6 +322,7 @@ function normalizeRateableItems(appData) {
     ...hangout,
     itemType: "outing",
     ratings: hangout.ratings || [],
+    gallery: hangout.gallery || [],
     color: hangout.color || { bg: "#fff4e6", border: ["#ff9a3c", "#4ecdc4", "#ff6b9d", "#51cf66"][index % 4] },
     displayDate: resolveHangoutDisplayDate(hangout),
     displayLocation: hangout.location,
@@ -396,12 +397,29 @@ function getRatingAuthorInitials(rating = {}) {
   return getInitials(getRatingAuthorName(rating));
 }
 
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatUploadDate(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function OutsidersRateOuting({ onNavigate, appData, setAppData }) {
   const outings = useMemo(() => normalizeRateableItems(appData), [appData]);
   const [activeTab, setActiveTab] = useState("Rate");
   const [selectedOuting, setSelectedOuting] = useState(() => outings[0] || null);
   const [rating, setRating] = useState(() => createEmptyRating(outings[0]?.itemType || "outing"));
   const [commentDraft, setCommentDraft] = useState("");
+  const [galleryError, setGalleryError] = useState("");
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const currentType = selectedOuting?.itemType || "outing";
   const categories = CATEGORY_SETS[currentType];
@@ -459,7 +477,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
         ? {
             ...targetGroup,
             hangoutProposals: (targetGroup.hangoutProposals || []).map((hangout) => (
-              hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout
+              hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings, gallery: updatedItem.gallery || [] } : hangout
             )),
           }
         : null;
@@ -482,12 +500,14 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
           ? {
               ...group,
               hangoutProposals: (group.hangoutProposals || []).map((hangout) => (
-                hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout
+                hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings, gallery: updatedItem.gallery || [] } : hangout
               )),
             }
           : group
       )),
-      hangouts: (prev.hangouts || []).map((hangout) => hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings } : hangout),
+      hangouts: (prev.hangouts || []).map((hangout) => (
+        hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings, gallery: updatedItem.gallery || [] } : hangout
+      )),
     }));
     return true;
   };
@@ -538,6 +558,52 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
 
   const handleDeleteMyComment = async () => {
     await updateMyComment("");
+  };
+
+  const handlePhotoUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length || !selectedOuting || selectedOuting.itemType !== "outing") return;
+
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (!imageFiles.length) {
+      setGalleryError("Choose image files only.");
+      return;
+    }
+
+    const tooLarge = imageFiles.find((file) => file.size > 2.5 * 1024 * 1024);
+    if (tooLarge) {
+      setGalleryError("Each picture needs to be under 2.5 MB for this shared gallery.");
+      return;
+    }
+
+    setGalleryError("");
+    setIsUploadingPhotos(true);
+
+    try {
+      const now = new Date().toISOString();
+      const newPhotos = await Promise.all(imageFiles.slice(0, 8).map(async (file) => ({
+        id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: file.name || "hangout-photo.jpg",
+        type: file.type || "image/jpeg",
+        size: file.size,
+        dataUrl: await readImageFile(file),
+        uploadedAt: now,
+        uploaderKey: currentUserKey,
+        uploaderName: profileName,
+        uploaderInitials: getInitials(profileName),
+      })));
+
+      const updatedOuting = {
+        ...selectedOuting,
+        gallery: [...(selectedOuting.gallery || []), ...newPhotos],
+      };
+      await updateSelectedFromAppData(updatedOuting);
+    } catch (error) {
+      setGalleryError(error?.message || "Those pictures could not be uploaded.");
+    } finally {
+      setIsUploadingPhotos(false);
+    }
   };
 
   return (
@@ -637,7 +703,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
 
                   {/* Tabs */}
                   <div style={{ display: "flex", gap: 8, background: "#f5f3ee", padding: 6, borderRadius: 12, border: "3px solid #1a1a2e", width: "fit-content", boxShadow: "3px 3px 0 #1a1a2e" }}>
-                    {["Rate", "All Ratings"].map(t => (
+                    {["Rate", "All Ratings", ...(selectedOuting.itemType === "outing" ? ["Gallery"] : [])].map(t => (
                       <button key={t} className={`tab ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>{t}</button>
                     ))}
                   </div>
@@ -771,6 +837,70 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                         </div>
                       );
                       })}
+                    </div>
+                  )}
+
+                  {activeTab === "Gallery" && selectedOuting.itemType === "outing" && (
+                    <div className="card" style={{ display: "grid", gap: 18 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                        <div>
+                          <p className="bangers" style={{ fontSize: 22, margin: "0 0 4px" }}>📸 Hangout Gallery</p>
+                          <p style={{ fontSize: 14, fontWeight: 800, color: "#777", margin: 0 }}>
+                            Share pictures from this hangout. Everyone in the crew can view and download them.
+                          </p>
+                        </div>
+                        <label className="btn-primary" style={{ background: "#4ecdc4" }}>
+                          {isUploadingPhotos ? "Uploading..." : "Upload Pictures"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handlePhotoUpload}
+                            disabled={isUploadingPhotos}
+                            style={{ display: "none" }}
+                          />
+                        </label>
+                      </div>
+
+                      {galleryError && (
+                        <p style={{ margin: 0, color: "#ff6b6b", fontWeight: 900, fontSize: 14 }}>{galleryError}</p>
+                      )}
+
+                      {(selectedOuting.gallery || []).length === 0 ? (
+                        <div style={{ border: "3px dashed #1a1a2e", borderRadius: 16, padding: "34px 18px", textAlign: "center", background: "#fffdf9" }}>
+                          <p style={{ fontSize: 34, margin: "0 0 8px" }}>📷</p>
+                          <p className="bangers" style={{ fontSize: 20, margin: "0 0 4px" }}>No pictures yet</p>
+                          <p style={{ fontSize: 14, fontWeight: 800, color: "#777", margin: 0 }}>Upload the first hangout memory for the crew.</p>
+                        </div>
+                      ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
+                          {(selectedOuting.gallery || []).map((photo, index) => (
+                            <div key={photo.id || `${photo.name}-${index}`} style={{ border: "3px solid #1a1a2e", borderRadius: 14, overflow: "hidden", background: "#fff", boxShadow: "4px 4px 0 #1a1a2e", display: "grid" }}>
+                              <img
+                                src={photo.dataUrl}
+                                alt={photo.name || "Hangout upload"}
+                                style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block", background: "#f5f3ee" }}
+                              />
+                              <div style={{ padding: 12, display: "grid", gap: 8 }}>
+                                <div>
+                                  <p style={{ margin: 0, fontSize: 13, fontWeight: 900, color: "#1a1a2e", wordBreak: "break-word" }}>{photo.name || "Hangout photo"}</p>
+                                  <p style={{ margin: "2px 0 0", fontSize: 12, fontWeight: 800, color: "#888" }}>
+                                    {photo.uploaderName || "Crew member"}{photo.uploadedAt ? ` · ${formatUploadDate(photo.uploadedAt)}` : ""}
+                                  </p>
+                                </div>
+                                <a
+                                  className="btn-primary"
+                                  href={photo.dataUrl}
+                                  download={photo.name || `hangout-photo-${index + 1}.jpg`}
+                                  style={{ justifyContent: "center", textDecoration: "none", padding: "8px 12px", fontSize: 15, background: "#ffd93d", color: "#1a1a2e" }}
+                                >
+                                  Download
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                     </div>
