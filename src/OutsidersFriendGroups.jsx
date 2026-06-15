@@ -675,6 +675,16 @@ function normalizeOwnerUsername(value = "") {
   return String(value || "").replace(/^@/, "").trim().toLowerCase();
 }
 
+function isSameGroupMember(member = {}, profile = {}, currentUserId = null, currentName = "") {
+  return (
+    (currentUserId && String(member.userId || "").trim() === String(currentUserId).trim())
+    || (profile.id && String(member.userId || "").trim() === String(profile.id).trim())
+    || (profile.username && String(member.username || "").trim().toLowerCase() === `@${String(profile.username).trim().toLowerCase()}`)
+    || (profile.email && normalizeMemberEmail(member.email) === normalizeMemberEmail(profile.email))
+    || String(member.name || "").trim() === String(currentName || "").trim()
+  );
+}
+
 function countActiveHangouts(proposals = []) {
   return (Array.isArray(proposals) ? proposals : []).filter((proposal) => proposal.status !== "completed").length;
 }
@@ -726,13 +736,7 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
   const [inviteEmail, setInviteEmail] = useState("");
   const [isSendingInviteEmail, setIsSendingInviteEmail] = useState(false);
   const selectedGroup = groups.find((group) => String(group.id) === String(selectedGroupId)) || groups[0] || null;
-  const currentMember = selectedGroup?.members?.find((member) => (
-    (currentUserId && String(member.userId || "").trim() === String(currentUserId).trim())
-    || (profile.id && String(member.userId || "").trim() === String(profile.id).trim())
-    || (profile.username && String(member.username || "").trim().toLowerCase() === `@${String(profile.username).trim().toLowerCase()}`)
-    || (profile.email && normalizeMemberEmail(member.email) === normalizeMemberEmail(profile.email))
-    || String(member.name || "").trim() === currentName
-  )) || null;
+  const currentMember = selectedGroup?.members?.find((member) => isSameGroupMember(member, profile, currentUserId, currentName)) || null;
   const isCurrentMemberAdmin = currentMember?.role === "Admin";
   const debriefCount = selectedGroup?.cases?.length || 0;
   const openDebriefCount = (selectedGroup?.cases || []).filter((caseItem) => caseItem.status !== "Resolved").length;
@@ -1330,12 +1334,11 @@ export default function OutsidersFriendGroups({ onNavigate, appData, setAppData,
 
   const leaveGroup = async (targetGroup = selectedGroup) => {
     if (!targetGroup) return;
-    const memberIndex = targetGroup.members.findIndex((m) => (
-      (currentUserId && String(m.userId || "") === String(currentUserId))
-      || m.name === currentName
-      || (profile.username && m.username === `@${profile.username}`)
-    ));
-    if (memberIndex === -1) return;
+    const memberIndex = targetGroup.members.findIndex((member) => isSameGroupMember(member, profile, currentUserId, currentName));
+    if (memberIndex === -1) {
+      setNotice("We could not match your profile to a crew member record yet. Try refreshing and signing in again.");
+      return;
+    }
     const member = targetGroup.members[memberIndex];
     const remainingMembers = targetGroup.members.filter((_, idx) => idx !== memberIndex);
     const isLeavingOwner = (
