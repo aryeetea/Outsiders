@@ -237,11 +237,9 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const inviteParams = {
-    ...(routeParams?.groupCode ? { groupCode: routeParams.groupCode } : {}),
-    ...(routeParams?.inviteCode ? { inviteCode: routeParams.inviteCode } : {}),
-    ...(routeParams?.inviteFor ? { inviteFor: routeParams.inviteFor } : {}),
-  };
+  const postAuthParams = Object.fromEntries(
+    Object.entries(routeParams || {}).filter(([key, value]) => key !== "redirect" && value !== undefined && value !== null && value !== "")
+  );
   const postAuthScreen = routeParams?.redirect || "dashboard";
 
   const handleChange = (field) => (e) => {
@@ -286,7 +284,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
     }
 
     showToast("Logged in successfully.");
-    onNavigate?.(postAuthScreen, inviteParams);
+    onNavigate?.(postAuthScreen, postAuthParams);
   };
 
   return (
@@ -302,7 +300,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
               <span className="bangers" style={{ fontSize: 26, color: "#1a1a2e" }}>Outsiders</span>
             </button>
             <span style={{ fontWeight: 800, fontSize: 14, color: "#888" }}>
-              No account? <button type="button" className="link" style={{ fontSize: 15 }} onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...inviteParams })}>Sign up</button>
+              No account? <button type="button" className="link" style={{ fontSize: 15 }} onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...postAuthParams })}>Sign up</button>
             </span>
           </div>
         </nav>
@@ -386,7 +384,7 @@ export default function OutsidersLogIn({ onNavigate, routeParams }) {
               </button>
 
               <p style={{ textAlign: "center", fontSize: 14, fontWeight: 800, color: "#888", margin: 0 }}>
-                New here? <button type="button" className="link" onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...inviteParams })}>Create an account</button>
+                New here? <button type="button" className="link" onClick={() => onNavigate?.("signup", { redirect: postAuthScreen, ...postAuthParams })}>Create an account</button>
               </p>
 
             </div>

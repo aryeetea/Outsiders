@@ -693,12 +693,10 @@ async function fetchSharedAppData(user, previousAppData = {}) {
       : !!(appData.profile?.name?.trim() || appData.profile?.username?.trim());
 
     if (!isAuthenticated) {
-      window.localStorage.removeItem(LAST_APP_ROUTE_STORAGE_KEY);
-      if (window.location.hash) {
-        window.location.hash = "";
-      } else {
-        queueMicrotask(() => setRoute({ screen: DEFAULT_SCREEN, params: {} }));
-      }
+      navigate("login", {
+        redirect: route.screen,
+        ...route.params,
+      });
     }
   }, [sessionReady, currentSession, route.screen, appData.profile?.name, appData.profile?.username]);
 
