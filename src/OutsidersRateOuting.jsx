@@ -398,6 +398,45 @@ function getRatingAuthorInitials(rating = {}) {
   return getInitials(getRatingAuthorName(rating));
 }
 
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resizeImageFile(file, options = {}) {
+  const maxSize = options.maxSize || 1200;
+  const quality = options.quality || 0.78;
+  const dataUrl = await readImageFile(file);
+
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        resolve({ dataUrl, type: file.type || "image/jpeg" });
+        return;
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve({
+        dataUrl: canvas.toDataURL("image/jpeg", quality),
+        type: "image/jpeg",
+      });
+    };
+    image.onerror = () => resolve({ dataUrl, type: file.type || "image/jpeg" });
+    image.src = dataUrl;
+  });
+}
+
 function formatUploadDate(value) {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "";
@@ -431,24 +470,31 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
 
   useEffect(() => {
     if (!outings.length) {
-      setSelectedOuting(null);
+      queueMicrotask(() => setSelectedOuting(null));
       return;
     }
 
-    setSelectedOuting((current) => {
-      if (current) {
-        const refreshed = outings.find((item) => item.id === current.id);
-        if (refreshed) return refreshed;
-      }
-      return outings[0];
+    queueMicrotask(() => {
+      setSelectedOuting((current) => {
+        if (current) {
+          const refreshed = outings.find((item) => item.id === current.id);
+          if (refreshed) return refreshed;
+        }
+        return outings[0];
+      });
     });
   }, [outings]);
 
   useEffect(() => {
-    setRating(createEmptyRating(selectedOuting?.itemType || "outing"));
-    setCommentDraft(myExistingRating?.comment || "");
-    setSubmitted(false);
-    setActiveTab("Rate");
+    const nextCommentDraft = myExistingRating?.comment || "";
+    queueMicrotask(() => {
+      setRating(createEmptyRating(selectedOuting?.itemType || "outing"));
+      setCommentDraft(nextCommentDraft);
+      setSubmitted(false);
+      setActiveTab("Rate");
+    });
+  // Keep this tied to item/user changes only. Comment saves update commentDraft directly.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserKey, selectedOuting?.id, selectedOuting?.itemType]);
 
   const uploadGalleryImage = async (file) => {
@@ -504,6 +550,17 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
   };
 
   const updateSelectedFromAppData = async (updatedItem) => {
+    const applyUpdatedHangout = (hangout) => (
+      String(hangout.id) === String(updatedItem.id)
+        ? {
+            ...hangout,
+            ...updatedItem,
+            ratings: updatedItem.ratings || [],
+            gallery: updatedItem.gallery || [],
+          }
+        : hangout
+    );
+
     if (updatedItem.itemType === "trip") {
       if (isSupabaseConfigured && updatedItem.id && !String(updatedItem.id).startsWith("trip-")) {
         const { error } = await supabase
@@ -523,14 +580,16 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
       return true;
     }
 
-    if (isSupabaseConfigured && updatedItem.groupId) {
-      const targetGroup = (appData?.groups || []).find((group) => String(group.id) === String(updatedItem.groupId));
+    const targetGroup = (appData?.groups || []).find((group) => (
+      String(group.id) === String(updatedItem.groupId)
+      || (group.hangoutProposals || []).some((hangout) => String(hangout.id) === String(updatedItem.id))
+    ));
+
+    if (isSupabaseConfigured) {
       const nextGroup = targetGroup
         ? {
             ...targetGroup,
-            hangoutProposals: (targetGroup.hangoutProposals || []).map((hangout) => (
-              hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings, gallery: updatedItem.gallery || [] } : hangout
-            )),
+            hangoutProposals: (targetGroup.hangoutProposals || []).map(applyUpdatedHangout),
           }
         : null;
       if (nextGroup) {
@@ -542,24 +601,29 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
           window.alert(error.message || "We could not save your rating yet.");
           return false;
         }
+      } else {
+        const { error } = await supabase
+          .from("hangouts")
+          .update({ ratings: updatedItem.ratings || [], recommendations: updatedItem.recommendations || [] })
+          .eq("id", updatedItem.id);
+        if (error) {
+          window.alert(error.message || "We could not save your rating yet.");
+          return false;
+        }
       }
     }
     setSelectedOuting(updatedItem);
     setAppData?.((prev) => ({
       ...prev,
       groups: (prev.groups || []).map((group) => (
-        String(group.id) === String(updatedItem.groupId)
+        String(group.id) === String(targetGroup?.id || updatedItem.groupId)
           ? {
               ...group,
-              hangoutProposals: (group.hangoutProposals || []).map((hangout) => (
-                hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings, gallery: updatedItem.gallery || [] } : hangout
-              )),
+              hangoutProposals: (group.hangoutProposals || []).map(applyUpdatedHangout),
             }
           : group
       )),
-      hangouts: (prev.hangouts || []).map((hangout) => (
-        hangout.id === updatedItem.id ? { ...hangout, ratings: updatedItem.ratings, gallery: updatedItem.gallery || [] } : hangout
-      )),
+      hangouts: (prev.hangouts || []).map(applyUpdatedHangout),
     }));
     return true;
   };
@@ -630,9 +694,9 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
       return;
     }
 
-    const tooLarge = imageFiles.find((file) => file.size > 2.5 * 1024 * 1024);
+    const tooLarge = imageFiles.find((file) => file.size > 8 * 1024 * 1024);
     if (tooLarge) {
-      setGalleryError("Each picture needs to be under 2.5 MB for this shared gallery.");
+      setGalleryError("Each picture needs to be under 8 MB before compression.");
       return;
     }
 
@@ -648,14 +712,23 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
     try {
       const now = new Date().toISOString();
       const newPhotos = await Promise.all(filesToUpload.map(async (file) => {
-        const uploadedPhoto = await uploadGalleryImage(file);
+        let uploadedPhoto = null;
+        let fallbackPhoto = null;
+
+        try {
+          uploadedPhoto = await uploadGalleryImage(file);
+        } catch {
+          fallbackPhoto = await resizeImageFile(file);
+        }
+
         return {
           id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           name: file.name || "hangout-photo.jpg",
-          type: file.type || "image/jpeg",
+          type: uploadedPhoto ? (file.type || "image/jpeg") : fallbackPhoto.type,
           size: file.size,
-          key: uploadedPhoto.key,
-          url: uploadedPhoto.url,
+          key: uploadedPhoto?.key || "",
+          url: uploadedPhoto?.url || "",
+          dataUrl: fallbackPhoto?.dataUrl || "",
           uploadedAt: now,
           uploaderKey: currentUserKey,
           uploaderName: profileName,
@@ -667,7 +740,10 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
         ...selectedOuting,
         gallery: [...(selectedOuting.gallery || []), ...newPhotos],
       };
-      await updateSelectedFromAppData(updatedOuting);
+      const success = await updateSelectedFromAppData(updatedOuting);
+      if (!success) {
+        setGalleryError("Those pictures could not be saved. Try a smaller image.");
+      }
     } catch (error) {
       setGalleryError(error?.message || "Those pictures could not be uploaded.");
     } finally {
