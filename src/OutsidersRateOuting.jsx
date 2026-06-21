@@ -381,8 +381,22 @@ function getRatingReviewerKey(rating = {}) {
   return rating.reviewerKey || rating.userKey || (rating.member === 0 ? "local:you" : `member:${rating.member ?? "unknown"}`);
 }
 
-function isCurrentUserRating(rating = {}, currentUserKey) {
-  return getRatingReviewerKey(rating) === currentUserKey || (!rating.reviewerKey && rating.member === 0);
+function getCurrentReviewerIdentity(profile = {}) {
+  const keys = [];
+  const userId = String(profile.id || profile.userId || profile.user_id || "").trim();
+  const legacyKey = getCurrentUserKey(profile);
+
+  if (userId) keys.push(`user:${userId}`);
+  if (legacyKey) keys.push(legacyKey);
+
+  return {
+    primaryKey: keys[0] || "local:you",
+    keys: [...new Set(keys)],
+  };
+}
+
+function isCurrentUserRating(rating = {}, currentUserKeys = []) {
+  return currentUserKeys.includes(getRatingReviewerKey(rating)) || (!rating.reviewerKey && rating.member === 0);
 }
 
 function getRatingAuthorName(rating = {}) {
@@ -443,8 +457,8 @@ function formatUploadDate(value) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function canDeletePhoto(photo = {}, currentUserKey) {
-  return !photo.uploaderKey || photo.uploaderKey === currentUserKey;
+function canDeletePhoto(photo = {}, currentUserKeys = []) {
+  return !photo.uploaderKey || currentUserKeys.includes(photo.uploaderKey);
 }
 
 function getPhotoSource(photo = {}) {
@@ -463,9 +477,11 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
   const currentType = selectedOuting?.itemType || "outing";
   const categories = CATEGORY_SETS[currentType];
   const pageCopy = getTypeCopy(currentType);
-  const currentUserKey = getCurrentUserKey(appData?.profile || {});
+  const currentUserIdentity = getCurrentReviewerIdentity(appData?.profile || {});
+  const currentUserKey = currentUserIdentity.primaryKey;
+  const currentUserKeys = currentUserIdentity.keys;
   const profileName = getDisplayName(appData?.profile || {});
-  const myExistingRating = selectedOuting?.ratings.find((item) => isCurrentUserRating(item, currentUserKey));
+  const myExistingRating = selectedOuting?.ratings.find((item) => isCurrentUserRating(item, currentUserKeys));
   const alreadyRated = Boolean(myExistingRating);
 
   useEffect(() => {
@@ -645,7 +661,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
     };
     const updatedOuting = {
       ...selectedOuting,
-      ratings: [...selectedOuting.ratings.filter((item) => !isCurrentUserRating(item, currentUserKey)), newRating],
+      ratings: [...selectedOuting.ratings.filter((item) => !isCurrentUserRating(item, currentUserKeys)), newRating],
     };
     const success = await updateSelectedFromAppData(updatedOuting);
     if (success) {
@@ -660,7 +676,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
     const updatedOuting = {
       ...selectedOuting,
       ratings: selectedOuting.ratings.map((item) => (
-        isCurrentUserRating(item, currentUserKey)
+        isCurrentUserRating(item, currentUserKeys)
           ? { ...item, comment: nextComment.trim(), updatedAt: new Date().toISOString() }
           : item
       )),
@@ -754,7 +770,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
   const handleDeletePhoto = async (photoId) => {
     if (!selectedOuting || selectedOuting.itemType !== "outing") return;
     const photo = (selectedOuting.gallery || []).find((item) => String(item.id) === String(photoId));
-    if (!photo || !canDeletePhoto(photo, currentUserKey)) return;
+    if (!photo || !canDeletePhoto(photo, currentUserKeys)) return;
 
     try {
       await deleteGalleryImage(photo);
@@ -820,7 +836,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                     <div className="rating-list-stack">
                       {outings.map(o => {
                         const avg = avgRating(o);
-                        const myRating = o.ratings.find((item) => isCurrentUserRating(item, currentUserKey));
+                        const myRating = o.ratings.find((item) => isCurrentUserRating(item, currentUserKeys));
                         return (
                           <div key={o.id} onClick={() => { setSelectedOuting(o); setRating(createEmptyRating(o.itemType)); setSubmitted(false); setActiveTab("Rate"); }} style={{ background: selectedOuting?.id === o.id ? o.color.bg || o.color : "#fff", border: `3px solid ${selectedOuting?.id === o.id ? o.color.border || o.border : "#1a1a2e"}`, borderRadius: 14, padding: "16px 18px", cursor: "pointer", boxShadow: `5px 5px 0 ${selectedOuting?.id === o.id ? o.color.border || o.border : "#1a1a2e"}`, transition: "all 0.15s" }}>
                             <p className="bangers" style={{ fontSize: 16, margin: "0 0 4px", color: "#1a1a2e" }}>{o.name}</p>
@@ -965,7 +981,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                           <p className="bangers" style={{ fontSize: 18, color: "#aaa", margin: 0 }}>No ratings yet!</p>
                         </div>
                       ) : selectedOuting.ratings.map((r, i) => {
-                        const isMine = isCurrentUserRating(r, currentUserKey);
+                        const isMine = isCurrentUserRating(r, currentUserKeys);
                         return (
                         <div key={`${getRatingReviewerKey(r)}-${i}`} className="review-card">
                           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
@@ -1043,7 +1059,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
                           {(selectedOuting.gallery || []).map((photo, index) => {
                             const photoId = photo.id || `${photo.name}-${index}`;
-                            const isOwnUpload = canDeletePhoto(photo, currentUserKey);
+                            const isOwnUpload = canDeletePhoto(photo, currentUserKeys);
                             const photoSource = getPhotoSource(photo);
                             return (
                             <div key={photoId} style={{ border: "3px solid #1a1a2e", borderRadius: 14, overflow: "hidden", background: "#fff", boxShadow: "4px 4px 0 #1a1a2e", display: "grid" }}>
