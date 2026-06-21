@@ -1085,8 +1085,9 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                                 </div>
                                 <a
                                   className="btn-primary"
-                                  href={buildGalleryImageUrl(photo, { download: true })}
-                                  download={photo.name || `hangout-photo-${index + 1}.jpg`}
+                                  href={photoSource}
+                                  target="_blank"
+                                  rel="noreferrer"
                                   style={{ justifyContent: "center", textDecoration: "none", padding: "8px 12px", fontSize: 15, background: "#ffd93d", color: "#1a1a2e" }}
                                 >
                                   Download
