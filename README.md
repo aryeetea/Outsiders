@@ -62,14 +62,14 @@ CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
 R2_ACCESS_KEY_ID=your_r2_access_key_id
 R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
 R2_BUCKET_NAME=your_r2_bucket_name
-R2_PUBLIC_BASE_URL=https://images.yourdomain.com
 ```
 
 Setup notes:
 
 - Create an R2 bucket for gallery images.
-- Enable public delivery for that bucket through a custom domain or a public development URL.
-- Set `R2_PUBLIC_BASE_URL` to that public base URL.
+- The app can now serve gallery files through `/api/gallery-image`, so a public bucket URL is optional.
+- If you want direct public asset URLs too, enable public delivery for that bucket through a custom domain or a public development URL.
+- Optional: set `R2_PUBLIC_BASE_URL=https://images.yourdomain.com`.
 - Keep using Supabase for auth and hangout metadata. Only the image files move to R2.
 
 The app uses `api/sign-image-upload.js` to generate short-lived upload URLs and `api/delete-image-upload.js` to remove uploaded files when a user deletes their own gallery image.

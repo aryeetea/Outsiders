@@ -461,8 +461,16 @@ function canDeletePhoto(photo = {}, currentUserKeys = []) {
   return !photo.uploaderKey || currentUserKeys.includes(photo.uploaderKey);
 }
 
+function buildGalleryImageUrl(photo = {}, options = {}) {
+  if (!photo?.key) return photo.url || photo.publicUrl || photo.dataUrl || "";
+  const params = new URLSearchParams({ key: photo.key });
+  if (options.download) params.set("download", "1");
+  if (photo.name) params.set("filename", photo.name);
+  return `/api/gallery-image?${params.toString()}`;
+}
+
 function getPhotoSource(photo = {}) {
-  return photo.url || photo.publicUrl || photo.dataUrl || "";
+  return buildGalleryImageUrl(photo);
 }
 
 export default function OutsidersRateOuting({ onNavigate, appData, setAppData }) {
@@ -1077,7 +1085,7 @@ export default function OutsidersRateOuting({ onNavigate, appData, setAppData })
                                 </div>
                                 <a
                                   className="btn-primary"
-                                  href={photoSource}
+                                  href={buildGalleryImageUrl(photo, { download: true })}
                                   download={photo.name || `hangout-photo-${index + 1}.jpg`}
                                   style={{ justifyContent: "center", textDecoration: "none", padding: "8px 12px", fontSize: 15, background: "#ffd93d", color: "#1a1a2e" }}
                                 >

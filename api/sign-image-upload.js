@@ -51,12 +51,12 @@ export default async function handler(req, res) {
     });
 
     const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 });
-    const publicBaseUrl = String(process.env.R2_PUBLIC_BASE_URL || "").replace(/\/$/, "");
-
     res.status(200).json({
       uploadUrl,
       key,
-      publicUrl: `${publicBaseUrl}/${key}`,
+      publicUrl: String(process.env.R2_PUBLIC_BASE_URL || "").trim()
+        ? `${String(process.env.R2_PUBLIC_BASE_URL).replace(/\/$/, "")}/${key}`
+        : null,
     });
   } catch (error) {
     console.error("sign-image-upload failed", error);
